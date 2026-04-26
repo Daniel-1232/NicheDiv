@@ -1,0 +1,22 @@
+if (getRversion() >= "2.15.1") {
+  utils::globalVariables(c(
+    ".pt",
+    "Contribution",
+    "Direction",
+    "EVI_zip_file",
+    "group",
+    "ID1",
+    "ID2",
+    "LD1",
+    "Value",
+    "Variable",
+    "el",
+    "lat",
+    "long",
+    "terrain_raster",
+    "xmax",
+    "xmin",
+    "ymax",
+    "ymin"
+  ))
+}

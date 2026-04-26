@@ -1,0 +1,43 @@
+Package: NicheDiv
+Title: Tools for Ecological Niche Divergence Analyses
+Version: 0.0.0.9000
+Authors@R: 
+    person("Daniel", "Schönberger", email = "daniel@familie-schoenberger.de", role = c("aut", "cre"))
+Description: Functions for a DAPC-based niche divergence approach, including
+    occurrence thinning, background filtering, variable transformation,
+    environmental data extraction, and related preprocessing steps.
+License: MIT + file LICENSE
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.3
+Depends: 
+    R (>= 4.2.0)
+Imports:
+    ade4,
+    concaveman,
+    data.table,
+    dplyr,
+    fields,
+    geodata,
+    ggplot2,
+    graphics,
+    magrittr,
+    maps,
+    MASS,
+    mclust,
+    methods,
+    sf,
+    spdep,
+    stats,
+    svglite,
+    terra,
+    tidyr,
+    tidyselect,
+    utils,
+    whitebox
+Suggests:
+    ClimateNAr,
+    knitr,
+    rmarkdown,
+    testthat (>= 3.0.0)
+Config/testthat/edition: 3
