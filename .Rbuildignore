@@ -6,3 +6,4 @@
 ^.*\.Rcheck$
 ^NicheDiv_.*\.tar\.gz$
 ^LICENSE\.md$
+^\.github$

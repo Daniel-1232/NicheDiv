@@ -440,7 +440,7 @@ thin.occurrence <- function(occurrence.data, #input data.frame with occurrence r
     na.counts.rep <- sapply(best_reps, function(i) {
       row.matches <- paste(occurrence.data[[latitude.col]], occurrence.data[[longitude.col]]) %in%
         paste(thinned.list[[i]][[latitude.col]], thinned.list[[i]][[longitude.col]])
-      sum(rowSums(is.na(occurrence.data[row.matches, setdiff(names(occurrence.data), c(latitude.col, longitude.col))])))
+      sum(rowSums(is.na(occurrence.data[row.matches, setdiff(names(occurrence.data), c(latitude.col, longitude.col)), drop = FALSE])))
     })
     best.rep.idx <- best_reps[which.min(na.counts.rep)]
   }
