@@ -5999,65 +5999,30 @@ extract.env.and.background <- function(occurrence.data, #input data.frame with c
       terra::terraOptions(tempdir = terrain_dir, todisk = TRUE, memfrac = 0.6, progress = 1)
       suppressWarnings(terra::tmpFiles(remove = TRUE))
       invisible(gc())
-      selected_flags_elevation <- c(is_north_america_elevation,
-                                    is_south_america_elevation,
-                                    is_europe_elevation,
-                                    is_asia_elevation,
-                                    is_eurasia_elevation,
-                                    is_africa_elevation,
-                                    is_australia_elevation,
-                                    is_indo_pacific_elevation,
-                                    is_holarctic_elevation,
-                                    is_new_world_elevation,
-                                    is_old_world_elevation)
-      region_names <- c("NorthAmerica",
-                        "SouthAmerica",
-                        "Europe",
-                        "Asia",
-                        "Africa",
-                        "Australia",
-                        "Eurasia",
-                        "IndoPacific",
-                        "OldWorld",
-                        "NewWorld",
-                        "Holarctic",
-                        "Global")
-      n_selected_elevation <- sum(selected_flags_elevation)
-      if (n_selected_elevation == 0) {
-        global_path <- file.path(rasters.dir, "elevation", "Copernicus_GLO90_Global_250m.tif")
-        if (file.exists(global_path) && file.size(global_path) > 9e8) { #ensure >~900 MB
-          elevation_raster_file <- global_path
-        } else {
-          stop("No regional elevation raster matched and Global elevation raster not found - ensure one of regional or global elevation raster is available")
-        }
-      } else if (n_selected_elevation == 1) {
-        if (is_north_america_elevation) {
-          elevation_raster_file <- file.path(rasters.dir, "elevation", "Copernicus_GLO90_NorthAmerica_250m.tif")
-        } else if (is_south_america_elevation) {
-          elevation_raster_file <- file.path(rasters.dir, "elevation", "Copernicus_GLO90_SouthAmerica_250m.tif")
-        } else if (is_europe_elevation) {
-          elevation_raster_file <- file.path(rasters.dir, "elevation", "Copernicus_GLO90_Europe_250m.tif")
-        } else if (is_asia_elevation) {
-          elevation_raster_file <- file.path(rasters.dir, "elevation", "Copernicus_GLO90_Asia_250m.tif")
-        } else if (is_eurasia_elevation) {
-          elevation_raster_file <- file.path(rasters.dir, "elevation", "Copernicus_GLO90_Eurasia_250m.tif")
-        } else if (is_africa_elevation) {
-          elevation_raster_file <- file.path(rasters.dir, "elevation", "Copernicus_GLO90_Africa_250m.tif")
-        } else if (is_australia_elevation) {
-          elevation_raster_file <- file.path(rasters.dir, "elevation", "Copernicus_GLO90_Australia_250m.tif")
-        } else if (is_indo_pacific_elevation) {
-          elevation_raster_file <- file.path(rasters.dir, "elevation", "Copernicus_GLO90_IndoPacific_250m.tif")
-        } else if (is_holarctic_elevation) {
-          elevation_raster_file <- file.path(rasters.dir, "elevation", "Copernicus_GLO90_Holarctic_250m.tif")
-        } else if (is_new_world_elevation) {
-          elevation_raster_file <- file.path(rasters.dir, "elevation", "Copernicus_GLO90_NewWorld_250m.tif")
-        } else if (is_old_world_elevation) {
-          elevation_raster_file <- file.path(rasters.dir, "elevation", "Copernicus_GLO90_OldWorld_250m.tif")
-        }
+            if (is_europe_elevation) {
+        elevation_raster_file <- file.path(rasters.dir, "elevation", "Copernicus_GLO90_Europe_250m.tif")
+      } else if (is_asia_elevation) {
+        elevation_raster_file <- file.path(rasters.dir, "elevation", "Copernicus_GLO90_Asia_250m.tif")
+      } else if (is_north_america_elevation) {
+        elevation_raster_file <- file.path(rasters.dir, "elevation", "Copernicus_GLO90_NorthAmerica_250m.tif")
+      } else if (is_south_america_elevation) {
+        elevation_raster_file <- file.path(rasters.dir, "elevation", "Copernicus_GLO90_SouthAmerica_250m.tif")
+      } else if (is_africa_elevation) {
+        elevation_raster_file <- file.path(rasters.dir, "elevation", "Copernicus_GLO90_Africa_250m.tif")
+      } else if (is_australia_elevation) {
+        elevation_raster_file <- file.path(rasters.dir, "elevation", "Copernicus_GLO90_Australia_250m.tif")
+      } else if (is_new_world_elevation) {
+        elevation_raster_file <- file.path(rasters.dir, "elevation", "Copernicus_GLO90_NewWorld_250m.tif")
+      } else if (is_indo_pacific_elevation) {
+        elevation_raster_file <- file.path(rasters.dir, "elevation", "Copernicus_GLO90_IndoPacific_250m.tif")
+      } else if (is_eurasia_elevation) {
+        elevation_raster_file <- file.path(rasters.dir, "elevation", "Copernicus_GLO90_Eurasia_250m.tif")
+      } else if (is_holarctic_elevation) {
+        elevation_raster_file <- file.path(rasters.dir, "elevation", "Copernicus_GLO90_Holarctic_250m.tif")
       } else {
-        chosen_elevation_raster <- region_names[selected_flags_elevation][1]
-        elevation_raster_file <- file.path(rasters.dir, "elevation", paste0("Copernicus_GLO90_", chosen_elevation_raster, "_250m.tif"))
+        elevation_raster_file <- file.path(rasters.dir, "elevation", "Copernicus_GLO90_Global_250m.tif")
       }
+      if (!file.exists(elevation_raster_file)) stop("Elevation raster required for terrain does not exist: ", elevation_raster_file)
       elevation_raster <- terra::rast(elevation_raster_file)
       elevation_raster <- terra::crop(elevation_raster, study_area_vect)
       elev_crop_file <- file.path(terrain_dir, "elevation_cropped.tif")
