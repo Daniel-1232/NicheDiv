@@ -1,7 +1,7 @@
 #' @importFrom graphics abline hist legend par
 #' @importFrom methods as
 #' @importFrom stats complete.cases median na.omit ppois predict sd setNames
-#' @importFrom utils capture.output head read.csv tail unzip write.csv
+#' @importFrom utils installed.packages capture.output head read.csv tail unzip write.csv
 #' @importFrom fields rdist.earth
 #' @importFrom spdep knearneigh nb2listw moran.test
 #' @importFrom magrittr %>%
@@ -5409,8 +5409,8 @@ extract.env.and.background <- function(occurrence.data, #input data.frame with c
                                   verbose = verbose)
     system_info <- Sys.info()[["sysname"]]
     if (!grepl("Windows", system_info, ignore.case = TRUE)) stop("ClimateNAr package is only available for Windows!")
-    if (!requireNamespace("ClimateNAr", quietly = TRUE)) stop("Package 'ClimateNAr' is required for ClimateNA extraction, but installation failed.")
-    if (!requireNamespace("data.table", quietly = TRUE)) stop("Package 'data.table' is required for ClimateNA extraction, but installation failed.")
+    if (!("ClimateNAr" %in% rownames(utils::installed.packages()))) stop("Package 'ClimateNAr' is required for ClimateNA extraction, but installation failed.")
+    if (!requireNamespace("data.table", quietly = TRUE)) stop("Package 'data.table' is required for ClimateNA extraction, but installation failed")
   }
 
   # Create spatial vector of points
@@ -5558,7 +5558,7 @@ extract.env.and.background <- function(occurrence.data, #input data.frame with c
     if (verbose) message("")
     if (verbose) message(sprintf("-- Downloading and extracting ClimateNA data (ca. 3 min): env.dataset %d of %d --",
                                  counter, total_datasets))
-    ClimateNAr.original <- get("ClimateNAr", envir = asNamespace("ClimateNAr"))
+    ClimateNAr.original <- eval(parse(text = "ClimateNAr::ClimateNAr"), envir = parent.frame())
     ClimateNAr_source_lines <- deparse(ClimateNAr.original, width.cutoff = 500)
     ClimateNAr_clean_lines <- grep("(message\\s*\\()|(print\\s*\\(.*Completed for)", ClimateNAr_source_lines, value = TRUE, invert = TRUE)
     ClimateNAr_clean_lines <- gsub("^\\s*\\)\\s*$", "", ClimateNAr_clean_lines)
@@ -6744,6 +6744,158 @@ extract.env.and.background <- function(occurrence.data, #input data.frame with c
       if (all(is.na(environmental_dataset[, soil_variable_names]))) warning("All Soil values in occurrence data are NA - check CRS or study extent")
       if (generate.background.data && all(is.na(background.data[, soil_variable_names]))) warning("All Soil values in background data are NA - check CRS or study extent")
       if (delete.intermediate.files.folders && "soil" %in% datasets_requested) unlink(file.path(rasters.dir, "soil"), recursive = TRUE, force = TRUE)
+    }
+  }
+
+  # Download and process forest height data (ETH Global Canopy Height 2020 derived rasters; 250 m regional/realm subsets and 500 m global raster; downloaded from Zenodo mirror: https://zenodo.org/records/19686625)
+  if ("forest_height" %in% datasets_requested) {
+    invisible(gc())
+    counter <- counter + 1
+    if (verbose) message("")
+    if (verbose) message(sprintf("--- Downloading and extracting forest height data (ca. 1-20 min depending on subset): env.dataset %d of %d ---",
+                                 counter, total_datasets))
+    forest_height_variable_name <- "Forestheight"
+    forest_height_dir <- file.path(rasters.dir, "forest_height")
+    if (!dir.exists(forest_height_dir)) dir.create(forest_height_dir, recursive = TRUE)
+    forest_height_occ_csv_file <- file.path(intermediate_files_dir, "forest_height_extracted_occurrence.csv")
+    forest_height_bg_csv_file <- file.path(intermediate_files_dir, "forest_height_extracted_background.csv")
+    forest_height_occ_exists <- file.exists(forest_height_occ_csv_file)
+    forest_height_bg_exists <- file.exists(forest_height_bg_csv_file)
+    if (forest_height_occ_exists && (!generate.background.data || forest_height_bg_exists) && !overwrite) {
+      if (verbose) message("Forest height data already exist - skipping download and extraction - loading from intermediate files")
+      occ_forest_height <- read.csv(forest_height_occ_csv_file, row.names = 1, check.names = FALSE)
+      occ_forest_height <- occ_forest_height[base_ids, , drop = FALSE]
+      environmental_dataset <- cbind(environmental_dataset, occ_forest_height)
+      if (generate.background.data && forest_height_bg_exists) {
+        bg_forest_height <- read.csv(forest_height_bg_csv_file, row.names = 1, check.names = FALSE)
+        if (!is.null(background.data)) background.data <- cbind(background.data, bg_forest_height)
+      }
+      if (all(is.na(environmental_dataset[, setdiff(names(occ_forest_height), "ID")]))) warning("All forest height values in occurrence data are NA - check CRS or extent")
+      if (generate.background.data && all(is.na(background.data[, setdiff(names(bg_forest_height), "ID")]))) warning("All forest height values in background data are NA - check CRS or extent")
+    } else {
+      forest_height_record_id <- "19686625"
+      forest_height_subsets <- data.frame(
+        subset = c("europe",
+                   "asia",
+                   "north_america",
+                   "south_america",
+                   "africa",
+                   "australia",
+                   "new_world",
+                   "indo_pacific",
+                   "eurasia",
+                   "holarctic",
+                   "old_world",
+                   "global"),
+        file = c("EUR_canopyheight_250m.tif",
+                 "ASIA_canopyheight_250m.tif",
+                 "NAM_canopyheight_250m.tif",
+                 "SAM_canopyheight_250m.tif",
+                 "AFR_canopyheight_250m.tif",
+                 "AUS_canopyheight_250m.tif",
+                 "NEW_WORLD_canopyheight_250m.tif",
+                 "INDO_PACIFIC_canopyheight_250m.tif",
+                 "EURASIA_canopyheight_250m.tif",
+                 "HOLARCTIC_canopyheight_250m.tif",
+                 "OLD_WORLD_canopyheight_250m.tif",
+                 "WORLD_canopyheight_500m.tif"),
+        min_size_mb = c(450,
+                        2200,
+                        900,
+                        900,
+                        800,
+                        200,
+                        1800,
+                        2200,
+                        2400,
+                        3500,
+                        3500,
+                        1300),
+        stringsAsFactors = FALSE
+      )
+      forest_height_subsets$url <- paste0("https://zenodo.org/records/",
+                                          forest_height_record_id,
+                                          "/files/",
+                                          forest_height_subsets$file,
+                                          "?download=1")
+      is_europe_forest_height <- terra::relate(study_area_vect, europe_extent_general, relation = "within")[1]
+      is_asia_forest_height <- terra::relate(study_area_vect, asia_extent_general, relation = "within")[1]
+      is_eurasia_forest_height <- terra::relate(study_area_vect, eurasia_extent_general, relation = "within")[1]
+      is_north_america_forest_height <- terra::relate(study_area_vect, northamerica_extent_general, relation = "within")[1]
+      is_south_america_forest_height <- terra::relate(study_area_vect, southamerica_extent_general, relation = "within")[1]
+      is_africa_forest_height <- terra::relate(study_area_vect, africa_extent_general, relation = "within")[1]
+      is_australia_forest_height <- terra::relate(study_area_vect, australia_extent_general, relation = "within")[1]
+      is_indo_pacific_forest_height <- terra::relate(study_area_vect, indopacific_extent_general, relation = "within")[1]
+      is_holarctic_forest_height <- terra::relate(study_area_vect, holarctic_extent_general, relation = "within")[1]
+      is_new_world_forest_height <- terra::relate(study_area_vect, newworld_extent_general, relation = "within")[1]
+      is_old_world_forest_height <- terra::relate(study_area_vect, oldworld_extent_general, relation = "within")[1]
+      forest_height_subset_name <- if (is_europe_forest_height) {
+        "europe"
+      } else if (is_asia_forest_height) {
+        "asia"
+      } else if (is_north_america_forest_height) {
+        "north_america"
+      } else if (is_south_america_forest_height) {
+        "south_america"
+      } else if (is_africa_forest_height) {
+        "africa"
+      } else if (is_australia_forest_height) {
+        "australia"
+      } else if (is_new_world_forest_height) {
+        "new_world"
+      } else if (is_indo_pacific_forest_height) {
+        "indo_pacific"
+      } else if (is_eurasia_forest_height) {
+        "eurasia"
+      } else if (is_holarctic_forest_height) {
+        "holarctic"
+      } else if (is_old_world_forest_height) {
+        "old_world"
+      } else {
+        "global"
+      }
+      subset_row <- forest_height_subsets[forest_height_subsets$subset == forest_height_subset_name, , drop = FALSE]
+      forest_height_tif_file <- file.path(forest_height_dir, subset_row$file)
+      forest_height_url <- subset_row$url
+      forest_height_min_size_mb <- subset_row$min_size_mb
+      if (verbose) message("Using forest height subset: ", forest_height_subset_name)
+      if (!file.exists(forest_height_tif_file) || file.size(forest_height_tif_file) < forest_height_min_size_mb * 1e6 || redownload.rasters) {
+        robust.download.raster(forest_height_url,
+                               forest_height_tif_file,
+                               min_size_mb = forest_height_min_size_mb)
+      } else {
+        if (verbose) message("Forest height raster already present - skipping download")
+      }
+      forest_height_raster <- terra::rast(forest_height_tif_file)
+      names(forest_height_raster) <- forest_height_variable_name
+      raster_crs <- terra::crs(forest_height_raster)
+      coord_env <- coordinate_vector_env
+      coord_bg <- coordinate_vector_bg
+      if (!terra::same.crs(raster_crs, CRS_all)) {
+        if (verbose) message("Projecting coordinates to match forest height raster CRS")
+        coord_env <- terra::project(coordinate_vector_env, raster_crs)
+        if (!is.null(coordinate_vector_bg)) coord_bg <- terra::project(coordinate_vector_bg, raster_crs)
+      }
+      result <- extract.and.cache.env.dataset(dataset_name = "forest_height",
+                                              raster_object = forest_height_raster,
+                                              coord_env = coord_env,
+                                              coord_bg = coord_bg,
+                                              environmental_dataset = environmental_dataset,
+                                              background.data = background.data,
+                                              output.dir = intermediate_files_dir,
+                                              overwrite = overwrite,
+                                              generate.background.data = generate.background.data,
+                                              verbose = verbose)
+      environmental_dataset <- result$environmental_dataset
+      background.data <- result$background.data
+      if (any(!forest_height_variable_name %in% names(environmental_dataset))) stop("Forest height column missing from occurrence data after extraction - extraction seems to not have worked")
+      if (generate.background.data && any(!forest_height_variable_name %in% names(background.data))) stop("Forest height column missing from background data after extraction - extraction seems to not have worked")
+      if (all(is.na(environmental_dataset[, forest_height_variable_name, drop = TRUE]))) warning("All forest height values in occurrence data are NA - check CRS or study extent")
+      if (generate.background.data && all(is.na(background.data[, forest_height_variable_name, drop = TRUE]))) warning("All forest height values in background data are NA - check CRS or study extent")
+      if (exists("forest_height_raster")) rm(forest_height_raster)
+      if (exists("result")) rm(result)
+      invisible(gc())
+      if (delete.intermediate.files.folders && "forest_height" %in% datasets_requested) unlink(file.path(rasters.dir, "forest_height"), recursive = TRUE, force = TRUE)
     }
   }
 
