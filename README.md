@@ -10,6 +10,7 @@ NicheDiv provides functions for environmental data extraction, occurrence thinni
 background filtering, transformation of skewed variables, trimming to analogous
 environmental space, DAPC-based niche divergence analyses, and plotting of results.
 
+
 ## Installation
 Install R package from GitHub by running:
 
@@ -17,6 +18,7 @@ Install R package from GitHub by running:
 install.packages("remotes")
 remotes::install_github("Daniel-1232/NicheDiv")
 ```
+
 
 ## Main functionality
 - convert integer columns to numeric
@@ -29,6 +31,7 @@ remotes::install_github("Daniel-1232/NicheDiv")
 - trim to analogous environmental space
 - run DAPC-based niche divergence analyses
 - plot DAPC results and predictor contributions
+
 
 ## Minimal example
 ```r
@@ -58,6 +61,7 @@ x_thin <- thin.occurrence(
 
 x_thin
 ```
+
 
 ## Author
 Daniel Schönberger
