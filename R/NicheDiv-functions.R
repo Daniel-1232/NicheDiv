@@ -572,7 +572,7 @@ thin.occurrence <- function(occurrence.data, #input data.frame with occurrence r
 #'   transformation; and `background.transformed`, the transformed background
 #'   table if `background.dataframe` was supplied, otherwise `NULL`.
 #'
-#' @export
+#' @rawNamespace export(transform.skewed.variables)
 transform.skewed.variables <- function(data.frame, #input data frame containing numeric variables to assess and transform
                                        background.dataframe = NULL, #optional background data frame to apply identical transformations
                                        skewness.threshold = 1, #absolute skewness threshold (variables with |skew| >= this value are transformed)
@@ -2545,7 +2545,7 @@ run.DAPC.crossval.permutation <- function(data.input, #matrix or data.frame of p
 #' @param verbose Logical; whether to print messages.
 #'
 #' @return A ggplot object.
-#' @export
+#' @rawNamespace export(plot.DAPC.niche.divergence)
 plot.DAPC.niche.divergence <- function(dapc.results, #DAPC result object
                                        alpha.density = 0.75, #transparency for density fill (0-1)
                                        group.colors = c("#00005A", "darkgrey"), #two colors for groups
@@ -2746,7 +2746,7 @@ plot.DAPC.niche.divergence <- function(dapc.results, #DAPC result object
 #' @param verbose Logical; whether to print messages.
 #'
 #' @return A ggplot object.
-#' @export
+#' @rawNamespace export(plot.DAPC.permutation)
 plot.DAPC.permutation <- function(dapc_result, #DAPC result object
                                   bar.color = "lightgrey", #histogram bar fill color
                                   line.color = "firebrick", #vertical line color for observed value
@@ -3202,7 +3202,7 @@ calc.niche.divergence.metrics <- function(dapc_out, #DAPC results object
 #' @param verbose Logical; if `TRUE`, print progress messages.
 #'
 #' @return A ggplot object.
-#' @export
+#' @rawNamespace export(plot.DAPC.var.contributions)
 plot.DAPC.var.contributions <- function(dapc.results, #DAPC object
                                         group.colors = c("#00005A", "darkgrey"), #two colors for groups
                                         min.contribution.threshold = NULL, #drop variables below this contribution
@@ -3423,7 +3423,7 @@ plot.DAPC.var.contributions <- function(dapc.results, #DAPC object
 #' @param verbose Logical; if `TRUE`, print progress messages.
 #'
 #' @return A ggplot object.
-#' @export
+#' @rawNamespace export(plot.top.DAPC.predictors)
 plot.top.DAPC.predictors <- function(dapc.results, #DAPC result object
                                      group.colors = c("#00005A", "darkgrey"), #two colors for groups
                                      predictor.data, #data.frame or matrix with predictor variables
@@ -3687,7 +3687,7 @@ plot.top.DAPC.predictors <- function(dapc.results, #DAPC result object
 #' @param verbose Logical; if `TRUE`, print messages during saving.
 #'
 #' @return A plot object.
-#' @export
+#' @rawNamespace export(plot.occurrences.map)
 plot.occurrences.map <- function(coordinates, #data.frame/matrix with coordinates
                                  latitude.col = "Latitude", #name of latitude column
                                  longitude.col = "Longitude", #name of longitude column
