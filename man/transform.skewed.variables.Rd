@@ -42,3 +42,20 @@ transformation that reduces absolute skewness. The same transformation rules
 can optionally be applied to a matching background dataset so that occurrence
 and background data remain on the same scale.
 }
+\examples{
+env.data <- data.frame(
+  species = rep(c("species_1", "species_2"), each = 20),
+  bio1 = rlnorm(40, meanlog = 1, sdlog = 0.5),
+  bio12 = rlnorm(40, meanlog = 3, sdlog = 0.4)
+)
+
+result <- transform.skewed.variables(
+  data.frame = env.data,
+  exclude.cols = "species",
+  verbose = FALSE
+)
+
+names(result)
+head(result$transformed)
+
+}

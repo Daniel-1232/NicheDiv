@@ -572,6 +572,22 @@ thin.occurrence <- function(occurrence.data, #input data.frame with occurrence r
 #'   transformation; and `background.transformed`, the transformed background
 #'   table if `background.dataframe` was supplied, otherwise `NULL`.
 #'
+#' @examples
+#' env.data <- data.frame(
+#'   species = rep(c("species_1", "species_2"), each = 20),
+#'   bio1 = rlnorm(40, meanlog = 1, sdlog = 0.5),
+#'   bio12 = rlnorm(40, meanlog = 3, sdlog = 0.4)
+#' )
+#'
+#' result <- transform.skewed.variables(
+#'   data.frame = env.data,
+#'   exclude.cols = "species",
+#'   verbose = FALSE
+#' )
+#'
+#' names(result)
+#' head(result$transformed)
+#'
 #' @rawNamespace export(transform.skewed.variables)
 transform.skewed.variables <- function(data.frame, #input data frame containing numeric variables to assess and transform
                                        background.dataframe = NULL, #optional background data frame to apply identical transformations
