@@ -54,13 +54,17 @@ convert.integer.to.numeric <- function(dataframe) {
 #' @param longitude.col A single character string giving the longitude column
 #'   name in both input tables. Default is `"Longitude"`.
 #' @param CRS Coordinate reference system of the input coordinates, supplied as
-#'   an EPSG string (for example `"EPSG:4326"`) or an `sf` CRS object.
+#'   an EPSG string (for example `"EPSG:4326"`) or an `sf` CRS object. If the
+#'   CRS is geographic, longitude/latitude ranges are checked and buffering is
+#'   performed after internally projecting to a metric CRS. If the CRS is already
+#'   projected in meters, geometric operations are performed directly in that CRS.
 #' @param buffer.dist.meters A single positive numeric value giving the buffer
 #'   distance, in meters, used to expand the occurrence-based geometry.
 #' @param buffer.method Character string specifying how the base geometry is
-#'   built before buffering. One of `"hull"` (convex hull of all occurrences),
-#'   `"points"` (union of per-point buffers), `"alpha"` (concave hull built with
-#'   `concaveman`), or `"bbox"` (bounding box around all occurrences).
+#'   built before buffering. One of `"hull"` (default; convex hull of all
+#'   occurrences), `"points"` (union of per-point buffers), `"alpha"` (concave
+#'   hull built with `concaveman`), or `"bbox"` (bounding box around all
+#'   occurrences).
 #' @param alpha A single positive numeric value controlling concavity when
 #'   `buffer.method = "alpha"`. Ignored for the other methods.
 #' @param verbose Logical; if `TRUE`, progress messages about dropped rows and
@@ -86,20 +90,21 @@ crop.background.buffered <- function(occurrence.data, #input data.frame or tibbl
   # Validate inputs
   if (!is.data.frame(occurrence.data)) stop("occurrence.data must be a data.frame or tibble")
   if (!is.data.frame(background.data)) stop("background.data must be a data.frame or tibble")
+  if (nrow(occurrence.data) == 0) stop("occurrence.data has no rows")
   if (nrow(background.data) == 0) stop("background.data has no rows")
   if (!is.character(latitude.col) || length(latitude.col) != 1L) stop("latitude.col must be a single character string")
   if (!is.character(longitude.col) || length(longitude.col) != 1L) stop("longitude.col must be a single character string")
-  if (!is.numeric(occurrence.data[[latitude.col]]) || !is.numeric(occurrence.data[[longitude.col]])) stop("Latitude and longitude columns must be numeric")
-  if (!is.numeric(background.data[[latitude.col]]) || !is.numeric(background.data[[longitude.col]])) stop("Latitude and longitude columns in background.data must be numeric")
+  if (identical(latitude.col, longitude.col)) stop("latitude.col and longitude.col must refer to different columns")
   if (!(latitude.col %in% colnames(occurrence.data) && longitude.col %in% colnames(occurrence.data))) stop("latitude.col and/or longitude.col not found in occurrence.data")
   if (!(latitude.col %in% colnames(background.data) && longitude.col %in% colnames(background.data))) stop("latitude.col and/or longitude.col not found in background.data")
-  if (identical(latitude.col, longitude.col)) stop("latitude.col and longitude.col must refer to different columns")
-  if (!(is.character(CRS) || inherits(CRS, "CRS"))) stop("CRS must be EPSG string (e.g., 'EPSG:4326') or sf CRS object")
+  if (!is.numeric(occurrence.data[[latitude.col]]) || !is.numeric(occurrence.data[[longitude.col]])) stop("Latitude and longitude columns must be numeric")
+  if (!is.numeric(background.data[[latitude.col]]) || !is.numeric(background.data[[longitude.col]])) stop("Latitude and longitude columns in background.data must be numeric")
+  CRS <- tryCatch(sf::st_crs(CRS), error = function(e) sf::st_crs(NA))
+  if (is.na(CRS)) stop("CRS must be a valid CRS accepted by sf::st_crs, for example 'EPSG:4326' or sf::st_crs(4326)")
   if (!is.numeric(buffer.dist.meters) || length(buffer.dist.meters) != 1L || !is.finite(buffer.dist.meters) || buffer.dist.meters <= 0) stop("buffer.dist.meters must be a single positive number (meters)")
   buffer.method <- match.arg(buffer.method)
   if (!is.numeric(alpha) || length(alpha) != 1L || !is.finite(alpha) || alpha <= 0) stop("alpha must be a single positive number")
   if (!is.logical(verbose) || length(verbose) != 1L) stop("verbose must be TRUE or FALSE")
-  if (nrow(occurrence.data) == 0) stop("occurrence.data has no rows")
 
   # Drop rows with no coordinates
   occ_before <- nrow(occurrence.data)
@@ -111,15 +116,7 @@ crop.background.buffered <- function(occurrence.data, #input data.frame or tibbl
   if (occ_dropped > 0 && verbose) message("Dropped ", occ_dropped, " of ", occ_before, " occurrence rows with missing coordinates")
   if (bg_dropped > 0 && verbose) message("Dropped ", bg_dropped, " of ", bg_before, " background rows with missing coordinates")
   if (nrow(occurrence.data) == 0) stop("No valid occurrence rows after removing NA coords")
-
-  # Validate longitude and latitude inputs
-  if (identical(toupper(as.character(CRS)), "EPSG:4326") || grepl("longlat|latlong", tolower(as.character(CRS)))) {
-    lon_occ <- occurrence.data[[longitude.col]]
-    lat_occ <- occurrence.data[[latitude.col]]
-    lon_bg <- background.data[[longitude.col]]
-    lat_bg <- background.data[[latitude.col]]
-    if (any(abs(lon_occ) > 180) || any(abs(lat_occ) > 90) || any(abs(lon_bg) > 180) || any(abs(lat_bg) > 90)) stop("Coordinate validation failed: values exceed valid lon/lat ranges (|lon| <= 180, |lat| <= 90) for EPSG:4326")
-  }
+  if (nrow(background.data) == 0) stop("No valid background rows after removing NA coords")
 
   # Warn on large buffer distances (>10,000 km)
   if (buffer.dist.meters > 1e7) warning("buffer.dist.meters is very large (>10,000 km) - ensure units and CRS are correct")
@@ -128,18 +125,28 @@ crop.background.buffered <- function(occurrence.data, #input data.frame or tibbl
   occurrence_points_ll <- sf::st_as_sf(occurrence.data, coords = c(longitude.col, latitude.col), crs = CRS)
   background_points_ll <- sf::st_as_sf(background.data, coords = c(longitude.col, latitude.col), crs = CRS)
 
+  # Validate longitude and latitude inputs if CRS is geographic
+  if (sf::st_is_longlat(occurrence_points_ll)) {
+    lon_occ <- occurrence.data[[longitude.col]]
+    lat_occ <- occurrence.data[[latitude.col]]
+    lon_bg <- background.data[[longitude.col]]
+    lat_bg <- background.data[[latitude.col]]
+    if (any(abs(lon_occ) > 180) || any(abs(lat_occ) > 90) || any(abs(lon_bg) > 180) || any(abs(lat_bg) > 90)) stop("Coordinate validation failed: values exceed valid lon/lat ranges (|lon| <= 180, |lat| <= 90) for a geographic CRS")
+  }
+
   # Set CRS (always work in meters: UTM for modest extents; LAEA for large/multi-zone/polar)
   choose_metric_crs <- function(points_ll) {
     bounding_box <- sf::st_bbox(points_ll)
     lon_span <- bounding_box["xmax"] - bounding_box["xmin"]
     lat_span <- bounding_box["ymax"] - bounding_box["ymin"]
+    if (lon_span > 180 && sf::st_is_longlat(points_ll)) warning("Occurrence extent spans more than 180 degrees longitude; antimeridian-crossing datasets may need manual CRS handling")
     ctr <- sf::st_coordinates(sf::st_centroid(sf::st_as_sfc(bounding_box)))
     ctr_lon <- ctr[1]
     ctr_lat <- ctr[2]
     near_pole <- (bounding_box["ymax"] > 83.5) || (bounding_box["ymin"] < -80) #UTM validity limits
     large_extent <- (lon_span > 12) || (lat_span > 12) #>~ two UTM zones or very tall
     if (!large_extent && !near_pole) {
-      zone <- floor((ctr_lon + 180) / 6) + 1 #UTM zone
+      zone <- max(1, min(60, floor((ctr_lon + 180) / 6) + 1)) #UTM zone
       epsg <- if (ctr_lat >= 0) 32600 + zone else 32700 + zone #north/south
       return(sf::st_crs(epsg))
     } else {
@@ -190,7 +197,7 @@ crop.background.buffered <- function(occurrence.data, #input data.frame or tibbl
   # Keep background points that intersect buffer
   background_intersects <- sf::st_intersects(background_points_utm, buffer_geometry) #sparse list
   keep_rows <- lengths(background_intersects) > 0
-  if (sum(keep_rows) == 0) stop("No background points fell within buffered region - returning no rows")
+  if (sum(keep_rows) == 0) stop("No background points fell within buffered region")
   if (isTRUE(verbose)) message("Retained ", sum(keep_rows), " of ", nrow(background.data), " background points after buffering (buffer.method = ", buffer.method, ")")
 
   # Return results
@@ -304,7 +311,7 @@ sample.down <- function(dataframe, #input dataframe to sample from
 #' autocorrelation.
 #'
 #' @param occurrence.data A `data.frame` or tibble containing occurrence records
-#'   and coordinate columns.
+#'   with longitude and latitude coordinates in decimal degrees.
 #' @param latitude.col A single character string giving the latitude column
 #'   name. Default is `"Latitude"`.
 #' @param longitude.col A single character string giving the longitude column
@@ -643,37 +650,62 @@ transform.skewed.variables <- function(data.frame, #input data frame containing 
     log(adjusted.values / (1 - adjusted.values))
   }
 
+  # Create function to apply selected numeric transformation
+  apply.numeric.transformation <- function(variable.values,
+                                           transformation.name,
+                                           shift.minimum = NA_real_) {
+    variable.values <- ifelse(abs(variable.values) < 1e-10, 0, variable.values) #prevent numerical issues near zero
+    transformed.values <- switch(transformation.name,
+                                 none = variable.values,
+                                 identity = variable.values,
+                                 log = log(variable.values),
+                                 log1p = log1p(variable.values),
+                                 sqrt = sqrt(variable.values),
+                                 cuberoot = sign(variable.values) * abs(variable.values)^(1/3),
+                                 log1p_shifted = log1p(variable.values - shift.minimum + 1e-6),
+                                 sqrt_shifted = sqrt(variable.values - shift.minimum + 1e-6),
+                                 variable.values)
+    return(transformed.values)
+  }
+
   # Create function to choose best transformation for numeric variables
   choose.best.transformation <- function(variable.values,
+                                         reference.values = NULL,
                                          skewness.threshold.local,
                                          prefer.log.for.right.tail = TRUE) {
     finite.values <- variable.values[is.finite(variable.values)]
-    if (length(unique(finite.values)) < 3) return(list(name = "none", transformed = variable.values, diagnostics = list(skew.before = NA_real_, skew.after = NA_real_, selection.reason = "none")))
+    reference.finite.values <- c(variable.values, reference.values)
+    reference.finite.values <- reference.finite.values[is.finite(reference.finite.values)]
+    if (length(unique(finite.values)) < 3) return(list(name = "none", transformed = variable.values, shift.minimum = NA_real_, diagnostics = list(skew.before = NA_real_, skew.after = NA_real_, selection.reason = "none")))
     skew.before <- detect.skewness(variable.values)
-    if (!is.na(skew.before) && abs(skew.before) < skewness.threshold.local) return(list(name = "none", transformed = variable.values, diagnostics = list(skew.before = skew.before, skew.after = skew.before, selection.reason = "skew_below_threshold")))
-    minimum.value <- suppressWarnings(min(finite.values, na.rm = TRUE))
+    if (!is.finite(skew.before)) return(list(name = "none", transformed = variable.values, shift.minimum = NA_real_, diagnostics = list(skew.before = skew.before, skew.after = skew.before, selection.reason = "skewness_not_finite")))
+    if (abs(skew.before) < skewness.threshold.local) return(list(name = "none", transformed = variable.values, shift.minimum = NA_real_, diagnostics = list(skew.before = skew.before, skew.after = skew.before, selection.reason = "skew_below_threshold")))
+    if (!length(reference.finite.values)) return(list(name = "none", transformed = variable.values, shift.minimum = NA_real_, diagnostics = list(skew.before = skew.before, skew.after = skew.before, selection.reason = "no_finite_reference_values")))
+    minimum.reference.value <- suppressWarnings(min(reference.finite.values, na.rm = TRUE))
     transformation.candidates <- list(identity = variable.values)
-    variable.values <- ifelse(abs(variable.values) < 1e-10, 0, variable.values) #prevent numerical issues near zero (avoid log of tiny/negative values)
-    if (is.finite(minimum.value) && minimum.value > 0) {
+    shift.minimum <- NA_real_
+    variable.values <- ifelse(abs(variable.values) < 1e-10, 0, variable.values) #prevent numerical issues near zero
+    if (is.finite(minimum.reference.value) && minimum.reference.value > 0) {
       transformation.candidates$log <- log(variable.values)
       transformation.candidates$sqrt <- sqrt(variable.values)
-    } else if (is.finite(minimum.value) && minimum.value >= 0) {
+    } else if (is.finite(minimum.reference.value) && minimum.reference.value >= 0) {
       transformation.candidates$log1p <- log1p(variable.values)
       transformation.candidates$sqrt <- sqrt(variable.values)
     } else {
-      shifted.values <- variable.values - min(variable.values, na.rm = TRUE) + 1e-6
-      transformation.candidates$log1p_shifted <- log1p(shifted.values)
-      transformation.candidates$sqrt_shifted  <- sqrt(shifted.values)
+      shift.minimum <- minimum.reference.value
+      transformation.candidates$log1p_shifted <- log1p(variable.values - shift.minimum + 1e-6)
+      transformation.candidates$sqrt_shifted <- sqrt(variable.values - shift.minimum + 1e-6)
       transformation.candidates$cuberoot <- sign(variable.values) * abs(variable.values)^(1/3)
     }
     candidate.skews <- vapply(transformation.candidates, detect.skewness, numeric(1))
     candidate.abs.skews <- abs(candidate.skews)
-    if (prefer.log.for.right.tail && is.finite(minimum.value) && minimum.value >= 0 && !is.na(skew.before) && (skew.before > 3) && "log" %in% names(transformation.candidates)) {
+    candidate.abs.skews[!is.finite(candidate.abs.skews)] <- Inf
+    if (prefer.log.for.right.tail && !is.na(skew.before) && skew.before > 3 && "log" %in% names(transformation.candidates)) {
       chosen.name <- "log"
       selection.reason <- "heavy_right_tail"
     } else {
       improvements <- abs(skew.before) - candidate.abs.skews
-      if (all(improvements <= 0, na.rm = TRUE)) {
+      if (!any(is.finite(improvements) & improvements > 0)) {
         chosen.name <- "none"
         selection.reason <- "transformation_does_not_improve_skewness"
       } else {
@@ -690,10 +722,10 @@ transform.skewed.variables <- function(data.frame, #input data frame containing 
     }
     list(name = chosen.name,
          transformed = transformed.values,
+         shift.minimum = shift.minimum,
          diagnostics = list(skew.before = skew.before,
                             skew.after = skew.after,
                             selection.reason = selection.reason))
-
   }
 
   # Normalize input and initialize output lists
@@ -719,6 +751,7 @@ transform.skewed.variables <- function(data.frame, #input data frame containing 
   # Iterate through each variable
   for (variable.name in colnames(data.frame)) {
     variable.values <- data.frame[[variable.name]]
+    bg.values <- if (!is.null(background.transformed.dataframe) && variable.name %in% colnames(background.transformed.dataframe)) background.transformed.dataframe[[variable.name]] else NULL
 
     # Handle non-numeric or too-few-unique values
     if (!is.numeric(variable.values) || length(unique(variable.values[is.finite(variable.values)])) < 3) {
@@ -765,9 +798,21 @@ transform.skewed.variables <- function(data.frame, #input data frame containing 
     }
 
     # Detect and transform proportion (0-1 continuous) variables
-    if (is.proportion.variable(variable.values)) {
+    if (is.proportion.variable(c(variable.values, bg.values))) {
       finite.values <- variable.values[is.finite(variable.values)]
       skew.before <- detect.skewness(finite.values)
+      if (!is.finite(skew.before) || abs(skew.before) < skewness.threshold) {
+        transformed.variable.list[[variable.name]] <- variable.values
+        transform.name.map[[variable.name]] <- variable.name
+        summary.record.list[[length(summary.record.list) + 1]] <- data.frame(variable = variable.name,
+                                                                             transform_chosen = "none",
+                                                                             transformed = FALSE,
+                                                                             skew_before = round(skew.before, 2),
+                                                                             skew_after = round(skew.before, 2),
+                                                                             selection_reason = ifelse(!is.finite(skew.before), "skewness_not_finite", "skew_below_threshold"),
+                                                                             stringsAsFactors = FALSE)
+        next
+      }
       logit.values <- perform.logit.transformation(variable.values)
       arcsin.values <- asin(sqrt(pmin(pmax(variable.values, 0), 1)))
       skew.logit <- detect.skewness(logit.values)
@@ -811,20 +856,16 @@ transform.skewed.variables <- function(data.frame, #input data frame containing 
     }
 
     # Regular numeric variable transformation
-    chosen.result <- choose.best.transformation(variable.values, skewness.threshold)
+    chosen.result <- choose.best.transformation(variable.values,
+                                                reference.values = bg.values,
+                                                skewness.threshold.local = skewness.threshold)
     chosen.name <- chosen.result$name
     transformed.variable.list[[variable.name]] <- chosen.result$transformed
     transform.name.map[[variable.name]] <- if (chosen.name == "none") variable.name else paste0(variable.name, "_", chosen.name)
     if (!is.null(background.transformed.dataframe) && variable.name %in% colnames(background.transformed.dataframe)) {
-      bg.values <- background.transformed.dataframe[[variable.name]]
-      background.transformed.dataframe[[variable.name]] <- switch(chosen.name,
-                                                                  log = log(bg.values),
-                                                                  log1p = log1p(bg.values),
-                                                                  sqrt = sqrt(bg.values),
-                                                                  cuberoot = sign(bg.values) * abs(bg.values)^(1/3),
-                                                                  log1p_shifted = log1p(bg.values - min(bg.values, na.rm = TRUE) + 1e-6),
-                                                                  sqrt_shifted = sqrt(bg.values - min(bg.values, na.rm = TRUE) + 1e-6),
-                                                                  bg.values)
+      background.transformed.dataframe[[variable.name]] <- apply.numeric.transformation(bg.values,
+                                                                                        chosen.name,
+                                                                                        chosen.result$shift.minimum)
     }
     summary.record.list[[length(summary.record.list) + 1]] <- data.frame(variable = variable.name,
                                                                          transform_chosen = chosen.name,
@@ -995,16 +1036,17 @@ remove.low.CV.vars <- function(Sp1.occurrence.data, #occurrence data for species
 
   # Remove NA-only variables
   vars_after_NA <- setdiff(test_vars_initial, NA_only_vars)
+  if (length(vars_after_NA) == 0) stop("No variables remain after filtering for missing or insufficient finite values")
 
   # Compute CV (with fallback when mean approx 0)
   compute_CV <- function(variable_values, variable_name) {
     variable_values <- variable_values[is.finite(variable_values)]
-    if (length(variable_values) <= 5) return(0)
+    if (length(variable_values) < 5) return(0)
     variable_mean <- mean(variable_values)
     variable_sd <- sd(variable_values)
     if (!is.finite(variable_sd) || variable_sd == 0) return(0) #no variation
     if (!is.finite(variable_mean) || abs(variable_mean) < 1e-7) { #mean near zero: CV invalid
-      if (verbose) message("Variable '", variable_name, "' has mean near zero (", format(variable_mean, digits = 4), ") - falling back to SD-based variability")
+      if (verbose) message("Variable '", variable_name, "' has mean near zero (", format(variable_mean, digits = 4), ") - falling back to SD-MAD-based variability")
       mad_val <- stats::mad(variable_values, constant = 1, na.rm = TRUE)
       if (!is.finite(mad_val) || mad_val == 0) return(0) #MAD=0 so truly constant
       return(variable_sd / (mad_val + 1e-12)) #SD/MAD scale-free variability
@@ -1013,16 +1055,17 @@ remove.low.CV.vars <- function(Sp1.occurrence.data, #occurrence data for species
   }
 
   # Compute CV for each species
-  CV_Sp1 <- sapply(vars_after_NA, function(v) compute_CV(Sp1_occurrence_df[[v]]))
-  CV_Sp2 <- sapply(vars_after_NA, function(v) compute_CV(Sp2_occurrence_df[[v]]))
+  CV_Sp1 <- sapply(vars_after_NA, function(v) compute_CV(Sp1_occurrence_df[[v]], v))
+  CV_Sp2 <- sapply(vars_after_NA, function(v) compute_CV(Sp2_occurrence_df[[v]], v))
 
   # Identify low-CV variables
-  lowCV_vars <- vars_after_NA[CV_Sp1 < CV.threshold | CV_Sp2 < CV.threshold]
+  lowCV_vars <- vars_after_NA[CV_Sp1 <= CV.threshold | CV_Sp2 <= CV.threshold]
   Z_lowCV <- length(lowCV_vars)
   if (Z_lowCV > 0 && verbose) message("Dropped ", Z_lowCV, " of ", length(vars_after_NA), " variables due to low variation (CV = ", CV.threshold, "): ", paste(lowCV_vars, collapse = ", "))
 
   # Determine retained variables
   retained_vars <- setdiff(vars_after_NA, lowCV_vars)
+  if (length(retained_vars) == 0) stop("No variables remain after low-CV filtering")
   N_retained <- length(retained_vars)
   if (verbose) message("")
   if (verbose) message("Retained ", N_retained, " of ", TOTAL_variables, " variables after filtering")
@@ -1033,6 +1076,10 @@ remove.low.CV.vars <- function(Sp1.occurrence.data, #occurrence data for species
   occurrence_Sp2.filtered <- Sp2.occurrence.data[, vars_to_keep, drop = FALSE]
   if (inherits(Sp1.occurrence.data, "sf")) occurrence_Sp1.filtered <- sf::st_set_geometry(occurrence_Sp1.filtered, sf::st_geometry(Sp1.occurrence.data))
   if (inherits(Sp2.occurrence.data, "sf")) occurrence_Sp2.filtered <- sf::st_set_geometry(occurrence_Sp2.filtered, sf::st_geometry(Sp2.occurrence.data))
+  missing_bg1 <- setdiff(retained_vars, names(Sp1.background.data))
+  missing_bg2 <- setdiff(retained_vars, names(Sp2.background.data))
+  if (length(missing_bg1) > 0) stop("Sp1.background.data is missing retained variables: ", paste(missing_bg1, collapse = ", "))
+  if (length(missing_bg2) > 0) stop("Sp2.background.data is missing retained variables: ", paste(missing_bg2, collapse = ", "))
   common_bg_cols1 <- intersect(vars_to_keep, names(Sp1.background.data))
   Sp1.background.data <- Sp1.background.data[, common_bg_cols1, drop = FALSE]
   common_bg_cols2 <- intersect(vars_to_keep, names(Sp2.background.data))
@@ -1073,8 +1120,9 @@ remove.low.CV.vars <- function(Sp1.occurrence.data, #occurrence data for species
 #' @param CV.threshold A single non-negative numeric value giving the minimum
 #'   coefficient of variation required in both species' backgrounds.
 #' @param overlap.threshold A single numeric value between 0 and 1 giving the
-#'   minimum acceptable overlap for both the univariate and bivariate analogy
-#'   filters. Set to `0` to skip overlap-based filtering entirely after the
+#'   minimum acceptable Schoener's D overlap for both the univariate KDE and
+#'   bivariate quantile-histogram analogy filters. Variables below this threshold
+#'   are removed. Set to `0` to skip overlap-based filtering after the
 #'   low-variation screen.
 #' @param max.NA.prop A single numeric value between 0 and 1 giving the maximum
 #'   allowed proportion of missing values per row before that row is discarded
@@ -1088,7 +1136,7 @@ remove.low.CV.vars <- function(Sp1.occurrence.data, #occurrence data for species
 #'   values is plotted.
 #' @param bin.n.2D Optional single numeric value giving the number of bins per
 #'   axis used in the bivariate overlap calculations. If `NULL`, the function
-#'   determines a value automatically.
+#'   determines a value automatically from the effective background sample size.
 #' @param max.pairs A single positive integer giving the maximum number of
 #'   variable pairs to evaluate in the bivariate overlap step.
 #' @param use.parallel Logical; if `TRUE`, parallel processing is used for the
@@ -1209,22 +1257,23 @@ filter.analogous.variables <- function(Sp1.background.data, #input data.frame or
     if (!length(finite_values)) return(NA_real_)
     mean_value <- mean(finite_values)
     sd_value <- stats::sd(finite_values)
-    if (!is.finite(mean_value) || abs(mean_value) < 1e-7) { #if mean is near zero, CV is undefined so fall back to SD-based variability
-      if (verbose) message("Variable '", variable_name, "' has mean near zero (", format(mean_value, digits = 4), ") - falling back to SD-based variability")
-      mad_val <- stats::mad(numeric_vector, constant = 1, na.rm = TRUE)
-      if (!is.finite(mad_val) || mad_val == 0) return(0) #if MAD=0, variable truly has almost no dispersion
-      return(sd_value / (mad_val + 1e-12)) #return SD/MAD as a scale-free variability measure
+    if (!is.finite(sd_value) || sd_value == 0) return(0)
+    if (!is.finite(mean_value) || abs(mean_value) < 1e-7) {
+      if (verbose) message("Variable '", variable_name, "' has mean near zero (", format(mean_value, digits = 4), ") - falling back to SD/MAD variability")
+      mad_val <- stats::mad(finite_values, constant = 1, na.rm = TRUE)
+      if (!is.finite(mad_val) || mad_val == 0) return(0)
+      return(sd_value / (mad_val + 1e-12))
     }
     abs(sd_value / mean_value)
   }
-  cv_species1 <- sapply(variable.names.shared, function(var) calculate.CV(background.numeric.species1[[var]], variable_name = var))
-  cv_species2 <- sapply(variable.names.shared, function(var) calculate.CV(background.numeric.species2[[var]], variable_name = var))
+  cv_species1 <- sapply(variable.names.shared, function(var) calculate.CV(background.numeric.species1[[var]], var))
+  cv_species2 <- sapply(variable.names.shared, function(var) calculate.CV(background.numeric.species2[[var]], var))
   variables.low.cv <- variable.names.shared[is.na(cv_species1) | cv_species1 <= CV.threshold | is.na(cv_species2) | cv_species2 <= CV.threshold]
   n.removed.cv <- length(variables.low.cv)
   n.prev <- length(variable.names.shared)
   if (n.removed.cv > 0 && verbose) message("Removed ", n.removed.cv, " of ", n.prev, " variables due to low variation (CV.threshold <= ", CV.threshold, ")")
   variable.names.shared <- setdiff(variable.names.shared, variables.low.cv)
-  if (length(variable.names.shared) == 0) stop("No.variables remain after filtering for coefficient of variation")
+  if (length(variable.names.shared) == 0) stop("No variables remain after filtering for coefficient of variation")
   background.numeric.species1 <- background.numeric.species1[variable.names.shared]
   background.numeric.species2 <- background.numeric.species2[variable.names.shared]
 
@@ -1809,7 +1858,10 @@ trim.to.analogous.environments <- function(Sp1.occurrence.data, #occurrence data
 #' Fit a DAPC-based niche divergence analysis and assess significance using
 #' permutation testing.
 #'
-#' @param data.input A matrix or `data.frame` of predictor variables.
+#' @param data.input A matrix or `data.frame` containing environmental predictor
+#'   variables and the grouping column specified by `species.col`. Non-numeric
+#'   predictor columns are removed before analysis. Exactly two groups are
+#'   required.
 #' @param N.crossval.replicates A single positive integer giving the number of
 #'   cross-validation replicates.
 #' @param N.permutations A single positive integer giving the number of
@@ -1828,18 +1880,45 @@ trim.to.analogous.environments <- function(Sp1.occurrence.data, #occurrence data
 #' @param overwrite Logical; if `TRUE`, overwrite existing outputs.
 #' @param output.dir Output directory used when `save = TRUE`.
 #' @param output.filename File name used when `save = TRUE`.
-#' @param Sp1.background.data Optional background dataset for species 1.
-#' @param Sp2.background.data Optional background dataset for species 2.
+#' @param Sp1.background.data Optional `data.frame` of background environmental
+#'   values for species 1. Required when `background.permutation.test = TRUE`.
+#'   Numeric environmental columns must match those in `Sp2.background.data`.
+#' @param Sp2.background.data Optional `data.frame` of background environmental
+#'   values for species 2. Required when `background.permutation.test = TRUE`.
+#'   Numeric environmental columns must match those in `Sp1.background.data`.
 #' @param background.permutation.test Logical; if `TRUE`, run a background-based
-#'   permutation test.
+#'   permutation test in which one species' occurrences are replaced by random
+#'   samples from the other species' background, and vice versa.
 #' @param use.parallel Character string specifying whether and how to use
-#'   parallel computing.
+#'   parallel computing. One of `"auto"`, `"Windows"`, `"Unix"`, or `"none"`.
+#'   `"auto"` uses `"Unix"` on Unix-like systems and `"Windows"` otherwise.
 #' @param N.cores A single positive integer giving the number of CPU cores.
 #' @param seed A single numeric value used to set the random seed.
 #' @param verbose Logical; if `TRUE`, print progress messages.
 #'
-#' @return A list containing cross-validation results, fitted DAPC results, and
-#'   permutation results.
+#' @return A named list containing:
+#'   \describe{
+#'     \item{crossval_run1}{First-stage cross-validation object, or `NULL` if
+#'       `fixed.n.pcs` was supplied.}
+#'     \item{optimal_pcs_crossval_run1}{Optimal number of PCs from the first
+#'       cross-validation stage, or `NA` if `fixed.n.pcs` was supplied.}
+#'     \item{crossval_run2}{Second-stage cross-validation object.}
+#'     \item{optimal_pcs_crossval_run2}{Final number of PCs retained for DAPC.}
+#'     \item{dapc_results}{Fitted DAPC object containing discriminant scores,
+#'       group assignments, posterior probabilities, and variable contributions.}
+#'     \item{pca_object}{PCA object used to generate the retained PC scores.}
+#'     \item{var_explained}{Cumulative proportion of variance explained by the
+#'       retained PCs.}
+#'     \item{observed_assign_prop}{Observed mean assignment accuracy.}
+#'     \item{permutation_assign_props}{Permutation null distribution of mean
+#'       assignment accuracy. If `background.permutation.test = TRUE`, this is a
+#'       list with `forward` and `reverse` background permutations.}
+#'     \item{p_val_assign}{Permutation p-value for assignment accuracy. If
+#'       `background.permutation.test = TRUE`, this is a named vector with
+#'       `forward` and `reverse` p-values.}
+#'     \item{ARI}{Adjusted Rand index comparing DAPC-predicted groupings to the
+#'       supplied group labels.}
+#'   }
 #' @export
 run.DAPC.crossval.permutation <- function(data.input, #matrix or data.frame of predictors (rows = samples, cols = variables)
                                           N.crossval.replicates = 100, #cross-validation replicates
@@ -2221,7 +2300,7 @@ run.DAPC.crossval.permutation <- function(data.input, #matrix or data.frame of p
     # Report if PCA rank or LDA training-size constraint capped maximum PCs
     if (verbose) {
       if (n.pca.max == pca_prelim$rank && pca_prelim$rank < max_possible_pcs) {
-        message("n.pca.max limited by PCA rank (max number of non-redundant PCs): pca_prelim$rank = ", pca_prelim$rank)
+        message("n.pca.max limited by PCA rank (max number of non-redundant PCs): ", pca_prelim$rank)
       }
       if (n.pca.max == (N.training - 1L) && (N.training - 1L) < max_possible_pcs) {
         message("n.pca.max limited by training-set size (DA requires PCs < number of training samples): N.training - 1 = ", N.training - 1L)
@@ -2945,17 +3024,33 @@ plot.DAPC.permutation <- function(dapc_result, #DAPC result object
 #'   each row of the input data.
 #' @param density.grid.resolution A single positive integer giving the number of
 #'   grid points used to estimate smoothed density overlap.
-#' @param weight.background Logical; if `TRUE`, apply background-based weighting
-#'   when calculating niche divergence metrics.
-#' @param Sp1.background.data Optional background data for species 1 used for
-#'   background-weighted calculations.
-#' @param Sp2.background.data Optional background data for species 2 used for
-#'   background-weighted calculations.
+#' @param weight.background Logical; if `TRUE`, project both background datasets
+#'   into LD1 space and apply background-availability weighting, up-weighting
+#'   rare environments and down-weighting common environments along the
+#'   discriminant axis.
+#' @param Sp1.background.data Optional `data.frame` of background environmental
+#'   values for species 1. Required when `weight.background = TRUE`; columns must
+#'   overlap the environmental variables used to fit the DAPC/PCA object.
+#' @param Sp2.background.data Optional `data.frame` of background environmental
+#'   values for species 2. Required when `weight.background = TRUE`; columns must
+#'   overlap the environmental variables used to fit the DAPC/PCA object.
 #' @param verbose Logical; if `TRUE`, print progress messages and metric values.
 #'
-#' @return A list containing Schoener's D, niche dissimilarity, niche breadth
-#'   exclusivity, niche divergence magnitude, niche divergence angle in degrees,
-#'   and the lower/upper niche limits for each group.
+#' @return A named list containing:
+#'   \describe{
+#'     \item{Schoener_D}{Schoener's D overlap between the two groups along LD1.}
+#'     \item{Niche_dissimilarity}{Niche dissimilarity based on density
+#'       separation.}
+#'     \item{Niche_breadth_exclusivity}{Niche breadth exclusivity based on
+#'       non-overlap of occupied LD1 ranges.}
+#'     \item{Niche_divergence_magnitude}{Composite divergence magnitude
+#'       calculated from niche dissimilarity and niche breadth exclusivity.}
+#'     \item{Niche_divergence_angle_degrees}{Divergence angle in degrees,
+#'       describing the relative contribution of density dissimilarity versus
+#'       breadth exclusivity.}
+#'     \item{niche_limits}{A nested list with lower and upper LD1 limits for
+#'       `group1` and `group2`.}
+#'   }
 #' @export
 calc.niche.divergence.metrics <- function(dapc_out, #DAPC results object
                                           group.assignment, #factor/character with labels for two groups
@@ -3217,7 +3312,11 @@ calc.niche.divergence.metrics <- function(dapc_out, #DAPC results object
 #' @param resolution Plot resolution in dpi when saving.
 #' @param verbose Logical; if `TRUE`, print progress messages.
 #'
-#' @return A ggplot object.
+#' @return A `data.frame` containing the plotted variable contributions. When
+#'   `show.plot = TRUE`, the function also displays the ggplot as a side effect.
+#'   When `save = TRUE`, the ggplot is also saved to disk using `filename`,
+#'   `output.dir`, and `type`.
+#'
 #' @rawNamespace export(plot.DAPC.var.contributions)
 plot.DAPC.var.contributions <- function(dapc.results, #DAPC object
                                         group.colors = c("#00005A", "darkgrey"), #two colors for groups
@@ -3691,7 +3790,7 @@ plot.top.DAPC.predictors <- function(dapc.results, #DAPC result object
 #' @param legend.box Logical; if `TRUE`, draw a legend box.
 #' @param legend.text.italics Logical; if `TRUE`, italicize legend text.
 #' @param legend.symbol.size Numeric size of legend symbols.
-#' @param show.plot Logical; if `TRUE`, return/print the plot.
+#' @param show.plot Logical; if `TRUE`, draw the plot.
 #' @param save Logical; if `TRUE`, save the plot to disk.
 #' @param overwrite Logical; if `TRUE`, allow overwriting an existing file.
 #' @param filename File name used when `save = TRUE`, without extension.
@@ -3702,7 +3801,10 @@ plot.top.DAPC.predictors <- function(dapc.results, #DAPC result object
 #' @param resolution Plot resolution in dpi when saving.
 #' @param verbose Logical; if `TRUE`, print messages during saving.
 #'
-#' @return A plot object.
+#' @return No return value. The function is called for its side
+#'   effects: drawing a base R map and, when `save = TRUE`, writing the plot to
+#'   disk.
+#'
 #' @rawNamespace export(plot.occurrences.map)
 plot.occurrences.map <- function(coordinates, #data.frame/matrix with coordinates
                                  latitude.col = "Latitude", #name of latitude column
@@ -3982,7 +4084,9 @@ plot.occurrences.map <- function(coordinates, #data.frame/matrix with coordinate
 #' @param name.length Either `"full"` or `"short"`.
 #' @param recognize.transformations Logical; preserve transformation suffixes in labels.
 #'
-#' @return A data.frame or vector with mapped names.
+#' @return The same object type as `input.data`. For a `data.frame`, column names
+#'   are replaced by mapped environmental variable labels. For a named vector,
+#'   vector names are replaced. Data values and row order are unchanged.
 #' @export
 map.env.variable.names <- function(input.data, #data frame or named numeric/vector to map variable names
                                    name.length = c("full", "short"), #use "full" for long descriptive names or "short" for abbreviated versions
@@ -4785,7 +4889,9 @@ map.env.variable.names <- function(input.data, #data frame or named numeric/vect
 #' Extract environmental variables for occurrence records, optionally generate
 #' background points within an accessible area, and write output tables to disk.
 #'
-#' @param occurrence.data A `data.frame` containing occurrence records.
+#' @param occurrence.data A `data.frame` containing occurrence records with
+#'   unique row names used as record identifiers, and coordinate columns named by
+#'   `longitude.col` and `latitude.col`.
 #' @param longitude.col A single character string giving the longitude column
 #'   name in `occurrence.data`.
 #' @param latitude.col A single character string giving the latitude column
@@ -4804,8 +4910,14 @@ map.env.variable.names <- function(input.data, #data frame or named numeric/vect
 #' @param csv.background.out.file File name for the background output CSV.
 #' @param output.dir Output directory for final CSV files.
 #' @param intermediate.files.dir Directory used for intermediate files.
-#' @param env.datasets Character vector naming the environmental datasets to
-#'   extract.
+#' @param env.datasets Character vector naming the built-in environmental
+#'   datasets to extract. Valid entries are `"elevation"`, `"ClimateNA"`, `"EVI"`,
+#'   `"terrain"`, `"ENVIREM"`, `"footprint"`, `"landcover"`, `"soil"`,
+#'   `"forest_height"`, `"atmosphere"`, `"nightlight"`, `"burned_area"`,
+#'   `"snow_water_equivalent"`, `"daylength"`, and `"soil_moisture"`.
+#'   `"ClimateNA"` and `"terrain"` require `"elevation"`.
+#'   `"ClimateNA"`, `"daylength"`, and `"snow_water_equivalent"` are only
+#'   available for North America.
 #' @param CRS.occurrences Coordinate reference system string for the occurrence
 #'   coordinates.
 #' @param overwrite Logical; if `TRUE`, overwrite existing outputs.
@@ -4813,8 +4925,10 @@ map.env.variable.names <- function(input.data, #data frame or named numeric/vect
 #'   intermediate files after processing.
 #' @param redownload.rasters Logical; if `TRUE`, force redownload of raster
 #'   inputs.
-#' @param custom.env.rasters Optional character vector of custom raster file
-#'   paths or URLs.
+#' @param custom.env.rasters Optional character vector of custom raster sources.
+#'   Each entry can be a local `.tif`/`.tiff`, a directory containing GeoTIFFs,
+#'   a `.zip` archive containing GeoTIFFs, or an HTTP/HTTPS URL to a `.tif`,
+#'   `.tiff`, or `.zip` file.
 #' @param custom.env.rasters.names Optional character vector naming each custom
 #'   raster dataset.
 #' @param custom.env.rasters.variable.names Optional character vector or list of
@@ -4826,8 +4940,11 @@ map.env.variable.names <- function(input.data, #data frame or named numeric/vect
 #' @param seed A single numeric value used to set the random seed.
 #' @param verbose Logical; if `TRUE`, print progress messages.
 #'
-#' @return A `data.frame` of extracted environmental values for occurrence
-#'   records.
+#' @return `NULL`. The function is called for its side effects: writing the
+#'   occurrence environmental table to a CSV file: `csv.occurrence.out.file` and, when
+#'   `generate.background.data = TRUE`, writing the background environmental
+#'   table to a CSV file too: `csv.background.out.file`.
+#'
 #' @export
 extract.env.and.background <- function(occurrence.data, #input data.frame with coords (rownames need to be unique IDs)
                                        longitude.col = "Longitude", #column name for longitude

@@ -85,7 +85,10 @@ contributing variables.}
 \item{verbose}{Logical; if \code{TRUE}, print progress messages.}
 }
 \value{
-A ggplot object.
+A \code{data.frame} containing the plotted variable contributions. When
+\code{show.plot = TRUE}, the function also displays the ggplot as a side effect.
+When \code{save = TRUE}, the ggplot is also saved to disk using \code{filename},
+\code{output.dir}, and \code{type}.
 }
 \description{
 Plot the relative contributions of environmental variables to the DAPC

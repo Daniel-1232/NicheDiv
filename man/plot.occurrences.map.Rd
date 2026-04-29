@@ -143,7 +143,7 @@ groups.}
 
 \item{legend.symbol.size}{Numeric size of legend symbols.}
 
-\item{show.plot}{Logical; if \code{TRUE}, return/print the plot.}
+\item{show.plot}{Logical; if \code{TRUE}, draw the plot.}
 
 \item{save}{Logical; if \code{TRUE}, save the plot to disk.}
 
@@ -164,7 +164,9 @@ groups.}
 \item{verbose}{Logical; if \code{TRUE}, print messages during saving.}
 }
 \value{
-A plot object.
+No return value. The function is called for its side
+effects: drawing a base R map and, when \code{save = TRUE}, writing the plot to
+disk.
 }
 \description{
 Plot occurrence coordinates, optionally with background points and map

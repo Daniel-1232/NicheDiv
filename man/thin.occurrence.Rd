@@ -20,7 +20,7 @@ thin.occurrence(
 }
 \arguments{
 \item{occurrence.data}{A \code{data.frame} or tibble containing occurrence records
-and coordinate columns.}
+with longitude and latitude coordinates in decimal degrees.}
 
 \item{latitude.col}{A single character string giving the latitude column
 name. Default is \code{"Latitude"}.}

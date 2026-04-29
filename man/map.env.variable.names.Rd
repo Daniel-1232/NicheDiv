@@ -18,7 +18,9 @@ map.env.variable.names(
 \item{recognize.transformations}{Logical; preserve transformation suffixes in labels.}
 }
 \value{
-A data.frame or vector with mapped names.
+The same object type as \code{input.data}. For a \code{data.frame}, column names
+are replaced by mapped environmental variable labels. For a named vector,
+vector names are replaced. Data values and row order are unchanged.
 }
 \description{
 Map environmental variable names to readable labels.

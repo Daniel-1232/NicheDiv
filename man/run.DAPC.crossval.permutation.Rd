@@ -27,7 +27,10 @@ run.DAPC.crossval.permutation(
 )
 }
 \arguments{
-\item{data.input}{A matrix or \code{data.frame} of predictor variables.}
+\item{data.input}{A matrix or \code{data.frame} containing environmental predictor
+variables and the grouping column specified by \code{species.col}. Non-numeric
+predictor columns are removed before analysis. Exactly two groups are
+required.}
 
 \item{N.crossval.replicates}{A single positive integer giving the number of
 cross-validation replicates.}
@@ -58,15 +61,21 @@ using the median.}
 
 \item{output.filename}{File name used when \code{save = TRUE}.}
 
-\item{Sp1.background.data}{Optional background dataset for species 1.}
+\item{Sp1.background.data}{Optional \code{data.frame} of background environmental
+values for species 1. Required when \code{background.permutation.test = TRUE}.
+Numeric environmental columns must match those in \code{Sp2.background.data}.}
 
-\item{Sp2.background.data}{Optional background dataset for species 2.}
+\item{Sp2.background.data}{Optional \code{data.frame} of background environmental
+values for species 2. Required when \code{background.permutation.test = TRUE}.
+Numeric environmental columns must match those in \code{Sp1.background.data}.}
 
 \item{background.permutation.test}{Logical; if \code{TRUE}, run a background-based
-permutation test.}
+permutation test in which one species' occurrences are replaced by random
+samples from the other species' background, and vice versa.}
 
 \item{use.parallel}{Character string specifying whether and how to use
-parallel computing.}
+parallel computing. One of \code{"auto"}, \code{"Windows"}, \code{"Unix"}, or \code{"none"}.
+\code{"auto"} uses \code{"Unix"} on Unix-like systems and \code{"Windows"} otherwise.}
 
 \item{N.cores}{A single positive integer giving the number of CPU cores.}
 
@@ -75,8 +84,29 @@ parallel computing.}
 \item{verbose}{Logical; if \code{TRUE}, print progress messages.}
 }
 \value{
-A list containing cross-validation results, fitted DAPC results, and
-permutation results.
+A named list containing:
+\describe{
+\item{crossval_run1}{First-stage cross-validation object, or \code{NULL} if
+\code{fixed.n.pcs} was supplied.}
+\item{optimal_pcs_crossval_run1}{Optimal number of PCs from the first
+cross-validation stage, or \code{NA} if \code{fixed.n.pcs} was supplied.}
+\item{crossval_run2}{Second-stage cross-validation object.}
+\item{optimal_pcs_crossval_run2}{Final number of PCs retained for DAPC.}
+\item{dapc_results}{Fitted DAPC object containing discriminant scores,
+group assignments, posterior probabilities, and variable contributions.}
+\item{pca_object}{PCA object used to generate the retained PC scores.}
+\item{var_explained}{Cumulative proportion of variance explained by the
+retained PCs.}
+\item{observed_assign_prop}{Observed mean assignment accuracy.}
+\item{permutation_assign_props}{Permutation null distribution of mean
+assignment accuracy. If \code{background.permutation.test = TRUE}, this is a
+list with \code{forward} and \code{reverse} background permutations.}
+\item{p_val_assign}{Permutation p-value for assignment accuracy. If
+\code{background.permutation.test = TRUE}, this is a named vector with
+\code{forward} and \code{reverse} p-values.}
+\item{ARI}{Adjusted Rand index comparing DAPC-predicted groupings to the
+supplied group labels.}
+}
 }
 \description{
 Fit a DAPC-based niche divergence analysis and assess significance using

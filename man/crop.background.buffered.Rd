@@ -32,15 +32,19 @@ in both input tables. Default is \code{"Latitude"}.}
 name in both input tables. Default is \code{"Longitude"}.}
 
 \item{CRS}{Coordinate reference system of the input coordinates, supplied as
-an EPSG string (for example \code{"EPSG:4326"}) or an \code{sf} CRS object.}
+an EPSG string (for example \code{"EPSG:4326"}) or an \code{sf} CRS object. If the
+CRS is geographic, longitude/latitude ranges are checked and buffering is
+performed after internally projecting to a metric CRS. If the CRS is already
+projected in meters, geometric operations are performed directly in that CRS.}
 
 \item{buffer.dist.meters}{A single positive numeric value giving the buffer
 distance, in meters, used to expand the occurrence-based geometry.}
 
 \item{buffer.method}{Character string specifying how the base geometry is
-built before buffering. One of \code{"hull"} (convex hull of all occurrences),
-\code{"points"} (union of per-point buffers), \code{"alpha"} (concave hull built with
-\code{concaveman}), or \code{"bbox"} (bounding box around all occurrences).}
+built before buffering. One of \code{"hull"} (default; convex hull of all
+occurrences), \code{"points"} (union of per-point buffers), \code{"alpha"} (concave
+hull built with \code{concaveman}), or \code{"bbox"} (bounding box around all
+occurrences).}
 
 \item{alpha}{A single positive numeric value controlling concavity when
 \code{buffer.method = "alpha"}. Ignored for the other methods.}

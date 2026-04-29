@@ -42,8 +42,9 @@ output occurrence table but exclude from environmental filtering.}
 coefficient of variation required in both species' backgrounds.}
 
 \item{overlap.threshold}{A single numeric value between 0 and 1 giving the
-minimum acceptable overlap for both the univariate and bivariate analogy
-filters. Set to \code{0} to skip overlap-based filtering entirely after the
+minimum acceptable Schoener's D overlap for both the univariate KDE and
+bivariate quantile-histogram analogy filters. Variables below this threshold
+are removed. Set to \code{0} to skip overlap-based filtering after the
 low-variation screen.}
 
 \item{max.NA.prop}{A single numeric value between 0 and 1 giving the maximum
@@ -62,7 +63,7 @@ values is plotted.}
 
 \item{bin.n.2D}{Optional single numeric value giving the number of bins per
 axis used in the bivariate overlap calculations. If \code{NULL}, the function
-determines a value automatically.}
+determines a value automatically from the effective background sample size.}
 
 \item{max.pairs}{A single positive integer giving the maximum number of
 variable pairs to evaluate in the bivariate overlap step.}

@@ -24,21 +24,37 @@ each row of the input data.}
 \item{density.grid.resolution}{A single positive integer giving the number of
 grid points used to estimate smoothed density overlap.}
 
-\item{weight.background}{Logical; if \code{TRUE}, apply background-based weighting
-when calculating niche divergence metrics.}
+\item{weight.background}{Logical; if \code{TRUE}, project both background datasets
+into LD1 space and apply background-availability weighting, up-weighting
+rare environments and down-weighting common environments along the
+discriminant axis.}
 
-\item{Sp1.background.data}{Optional background data for species 1 used for
-background-weighted calculations.}
+\item{Sp1.background.data}{Optional \code{data.frame} of background environmental
+values for species 1. Required when \code{weight.background = TRUE}; columns must
+overlap the environmental variables used to fit the DAPC/PCA object.}
 
-\item{Sp2.background.data}{Optional background data for species 2 used for
-background-weighted calculations.}
+\item{Sp2.background.data}{Optional \code{data.frame} of background environmental
+values for species 2. Required when \code{weight.background = TRUE}; columns must
+overlap the environmental variables used to fit the DAPC/PCA object.}
 
 \item{verbose}{Logical; if \code{TRUE}, print progress messages and metric values.}
 }
 \value{
-A list containing Schoener's D, niche dissimilarity, niche breadth
-exclusivity, niche divergence magnitude, niche divergence angle in degrees,
-and the lower/upper niche limits for each group.
+A named list containing:
+\describe{
+\item{Schoener_D}{Schoener's D overlap between the two groups along LD1.}
+\item{Niche_dissimilarity}{Niche dissimilarity based on density
+separation.}
+\item{Niche_breadth_exclusivity}{Niche breadth exclusivity based on
+non-overlap of occupied LD1 ranges.}
+\item{Niche_divergence_magnitude}{Composite divergence magnitude
+calculated from niche dissimilarity and niche breadth exclusivity.}
+\item{Niche_divergence_angle_degrees}{Divergence angle in degrees,
+describing the relative contribution of density dissimilarity versus
+breadth exclusivity.}
+\item{niche_limits}{A nested list with lower and upper LD1 limits for
+\code{group1} and \code{group2}.}
+}
 }
 \description{
 Calculate Schoener's D overlap and derived niche divergence metrics from

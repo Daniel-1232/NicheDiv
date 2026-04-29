@@ -32,7 +32,9 @@ extract.env.and.background(
 )
 }
 \arguments{
-\item{occurrence.data}{A \code{data.frame} containing occurrence records.}
+\item{occurrence.data}{A \code{data.frame} containing occurrence records with
+unique row names used as record identifiers, and coordinate columns named by
+\code{longitude.col} and \code{latitude.col}.}
 
 \item{longitude.col}{A single character string giving the longitude column
 name in \code{occurrence.data}.}
@@ -63,8 +65,14 @@ of largest landmask polygon pieces to retain.}
 
 \item{intermediate.files.dir}{Directory used for intermediate files.}
 
-\item{env.datasets}{Character vector naming the environmental datasets to
-extract.}
+\item{env.datasets}{Character vector naming the built-in environmental
+datasets to extract. Valid entries are \code{"elevation"}, \code{"ClimateNA"}, \code{"EVI"},
+\code{"terrain"}, \code{"ENVIREM"}, \code{"footprint"}, \code{"landcover"}, \code{"soil"},
+\code{"forest_height"}, \code{"atmosphere"}, \code{"nightlight"}, \code{"burned_area"},
+\code{"snow_water_equivalent"}, \code{"daylength"}, and \code{"soil_moisture"}.
+\code{"ClimateNA"} and \code{"terrain"} require \code{"elevation"}.
+\code{"ClimateNA"}, \code{"daylength"}, and \code{"snow_water_equivalent"} are only
+available for North America.}
 
 \item{CRS.occurrences}{Coordinate reference system string for the occurrence
 coordinates.}
@@ -77,8 +85,10 @@ intermediate files after processing.}
 \item{redownload.rasters}{Logical; if \code{TRUE}, force redownload of raster
 inputs.}
 
-\item{custom.env.rasters}{Optional character vector of custom raster file
-paths or URLs.}
+\item{custom.env.rasters}{Optional character vector of custom raster sources.
+Each entry can be a local \code{.tif}/\code{.tiff}, a directory containing GeoTIFFs,
+a \code{.zip} archive containing GeoTIFFs, or an HTTP/HTTPS URL to a \code{.tif},
+\code{.tiff}, or \code{.zip} file.}
 
 \item{custom.env.rasters.names}{Optional character vector naming each custom
 raster dataset.}
@@ -97,8 +107,10 @@ raster downloads to be considered valid.}
 \item{verbose}{Logical; if \code{TRUE}, print progress messages.}
 }
 \value{
-A \code{data.frame} of extracted environmental values for occurrence
-records.
+\code{NULL}. The function is called for its side effects: writing the
+occurrence environmental table to a CSV file: \code{csv.occurrence.out.file} and, when
+\code{generate.background.data = TRUE}, writing the background environmental
+table to a CSV file too: \code{csv.background.out.file}.
 }
 \description{
 Extract environmental variables for occurrence records, optionally generate
