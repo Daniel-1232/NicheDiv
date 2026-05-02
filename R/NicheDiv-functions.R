@@ -5085,11 +5085,18 @@ extract.env.and.background <- function(occurrence.data, #input data.frame with c
     is_raster_ext <- dest_ext %in% c("tif", "tiff")
     for (attempt in 1:max_attempts) {
       if (file.exists(dest) && file.size(dest) < min_size_mb * 1024^2) file.remove(dest)
-      suppressMessages(suppressWarnings(try(utils::download.file(url, destfile = dest, mode = "wb", quiet = TRUE), silent = TRUE)))
+      download_try <- try(utils::download.file(url,
+                                               destfile = dest,
+                                               mode = "wb",
+                                               quiet = TRUE),
+                          silent = TRUE)
+      if (inherits(download_try, "try-error")) message("Download failed: ", attr(download_try, "condition")$message)
       valid <- FALSE
       if (file.exists(dest) && file.size(dest) > min_size_mb * 1024^2) {
         if (is_raster_ext) {
           valid <- tryCatch({!is.null(dim(terra::rast(dest)))}, error = function(e) FALSE)
+        } else if (dest_ext == "zip") {
+          valid <- tryCatch(nrow(utils::unzip(dest, list = TRUE)) > 0, error = function(e) FALSE)
         } else {
           valid <- TRUE
         }
@@ -5599,11 +5606,8 @@ extract.env.and.background <- function(occurrence.data, #input data.frame with c
       environmental_dataset <- cbind(environmental_dataset, extracted_occurrences)
       if (generate.background.data && elevation_bg_exists) {
         extracted_background <- read.csv(elevation_bg_csv_file, row.names = 1, check.names = FALSE)
-        if (!is.null(background.data)) background.data <- cbind(background.data, extracted_background)
-      } else if (generate.background.data && !elevation_bg_exists) {
-        if (verbose) message("Elevation data for background is missing - downloading and extracting")
-        elevation_occ_exists <- TRUE
-        elevation_bg_exists <- FALSE
+        if (!elevation_variable_name %in% names(extracted_background)) stop("Cached elevation background file is missing column: ", elevation_variable_name)
+        if (!is.null(background.data)) background.data <- cbind(background.data, extracted_background[rownames(background.data), elevation_variable_name, drop = FALSE])
       }
     }
     if (!elevation_occ_exists || (generate.background.data && !elevation_bg_exists) || overwrite) {
@@ -6441,6 +6445,8 @@ extract.env.and.background <- function(occurrence.data, #input data.frame with c
     footprint_bg_csv_file <- file.path(intermediate_files_dir, "Footprint_extracted_background.csv")
     footprint_occ_exists <- file.exists(footprint_occ_csv_file)
     footprint_bg_exists <- file.exists(footprint_bg_csv_file)
+    footprint_geodata_cache_dir <- file.path(footprint_dir, "landuse")
+    if (file.exists(footprint_raster_file) && file.size(footprint_raster_file) > 1e6 && dir.exists(footprint_geodata_cache_dir)) unlink(footprint_geodata_cache_dir, recursive = TRUE, force = TRUE)
     if (footprint_occ_exists && (!generate.background.data || footprint_bg_exists) && !overwrite) {
       if (verbose) message("Human Footprint data already exist - skipping download and extraction")
       footprint_occurrence_values <- read.csv(footprint_occ_csv_file, row.names = 1, check.names = FALSE)
@@ -6455,13 +6461,19 @@ extract.env.and.background <- function(occurrence.data, #input data.frame with c
       if (generate.background.data && all(is.na(background.data[, setdiff(names(footprint_background_values), "ID")])))
         warning("All Human Footprint values in background data are NA - check CRS or extent")
     } else {
+      footprint_geodata_cache_dir <- file.path(footprint_dir, "landuse")
       if (!file.exists(footprint_raster_file) || file.size(footprint_raster_file) < 1e6 || redownload.rasters) {
-        footprint_raster <- geodata::footprint(year = 2009, path = footprint_dir, download = TRUE)
-        terra::writeRaster(footprint_raster, filename = footprint_raster_file, overwrite = TRUE)
+        if (dir.exists(footprint_geodata_cache_dir)) unlink(footprint_geodata_cache_dir, recursive = TRUE, force = TRUE)
+        if (file.exists(footprint_raster_file)) unlink(footprint_raster_file, force = TRUE)
+        footprint_url <- "https://geodata.ucdavis.edu/geodata/footprint/wildareas-v3-2009-human-footprint_geo.tif"
+        utils::download.file(footprint_url, destfile = footprint_raster_file, mode = "wb", quiet = TRUE)
+        if (!file.exists(footprint_raster_file) || file.size(footprint_raster_file) < 1e6) stop("Human Footprint download failed or produced an invalid file")
+        footprint_raster <- terra::rast(footprint_raster_file)
       } else {
         if (verbose) message("Human Footprint raster already present - skipping download")
         footprint_raster <- terra::rast(footprint_raster_file)
       }
+      if (file.exists(footprint_raster_file) && file.size(footprint_raster_file) > 1e6 && dir.exists(footprint_geodata_cache_dir)) unlink(footprint_geodata_cache_dir, recursive = TRUE, force = TRUE)
       names(footprint_raster) <- footprint_variable_name
       raster_crs <- terra::crs(footprint_raster)
       coord_env <- coordinate_vector_env
@@ -6616,6 +6628,7 @@ extract.env.and.background <- function(occurrence.data, #input data.frame with c
         output_files <- file.path(landcover_subset_dir, paste0("landcover_", landcover_variable_names, "_", landcover_subset_name, ".tif"))
         valid_files <- sapply(output_files, function(f) file.exists(f) && file.size(f) > 1e5)
         all_valid <- all(valid_files)
+        if (all_valid && !redownload.rasters && file.exists(landcover_zip_file)) file.remove(landcover_zip_file)
         if (all_valid && !redownload.rasters) {
           if (verbose) message("Landcover subset rasters already present - skipping download")
         } else {
@@ -6626,8 +6639,9 @@ extract.env.and.background <- function(occurrence.data, #input data.frame with c
             message("Landcover subset zip already present: ", landcover_subset_name)
           }
           utils::unzip(landcover_zip_file, exdir = landcover_subset_dir, overwrite = TRUE)
+          if (any(!file.exists(output_files))) stop("Not all landcover subset raster files were found after unzip for subset: ", landcover_subset_name)
+          if (file.exists(landcover_zip_file)) file.remove(landcover_zip_file)
         }
-        if (any(!file.exists(output_files))) stop("Not all landcover subset raster files were found after unzip for subset: ", landcover_subset_name)
       }
       landcover_raster_list <- lapply(output_files, terra::rast)
       landcover_raster_stack <- terra::rast(landcover_raster_list)
@@ -6727,47 +6741,47 @@ extract.env.and.background <- function(occurrence.data, #input data.frame with c
       if (is_europe_soil) {
         soil_subset_name <- "europe"
         soil_zip_url <- "https://zenodo.org/records/19614207/files/soil_europe.zip?download=1"
-        soil_zip_min_size_mb <- 170
+        soil_zip_min_size_mb <- 140
       } else if (is_asia_soil) {
         soil_subset_name <- "asia"
         soil_zip_url <- "https://zenodo.org/records/19614207/files/soil_asia.zip?download=1"
-        soil_zip_min_size_mb <- 580
+        soil_zip_min_size_mb <- 520
       } else if (is_northamerica_soil) {
         soil_subset_name <- "northamerica"
         soil_zip_url <- "https://zenodo.org/records/19614207/files/soil_northamerica.zip?download=1"
-        soil_zip_min_size_mb <- 300
+        soil_zip_min_size_mb <- 240
       } else if (is_southamerica_soil) {
         soil_subset_name <- "southamerica"
         soil_zip_url <- "https://zenodo.org/records/19614207/files/soil_southamerica.zip?download=1"
-        soil_zip_min_size_mb <- 130
+        soil_zip_min_size_mb <- 100
       } else if (is_africa_soil) {
         soil_subset_name <- "africa"
         soil_zip_url <- "https://zenodo.org/records/19614207/files/soil_africa.zip?download=1"
-        soil_zip_min_size_mb <- 210
+        soil_zip_min_size_mb <- 180
       } else if (is_australia_soil) {
         soil_subset_name <- "australia"
         soil_zip_url <- "https://zenodo.org/records/19614207/files/soil_australia.zip?download=1"
-        soil_zip_min_size_mb <- 100
+        soil_zip_min_size_mb <- 70
       } else if (is_indopacific_soil) {
         soil_subset_name <- "indopacific"
         soil_zip_url <- "https://zenodo.org/records/19614207/files/soil_indopacific.zip?download=1"
-        soil_zip_min_size_mb <- 630
+        soil_zip_min_size_mb <- 600
       } else if (is_eurasia_soil) {
         soil_subset_name <- "eurasia"
         soil_zip_url <- "https://zenodo.org/records/19614207/files/soil_eurasia.zip?download=1"
-        soil_zip_min_size_mb <- 640
+        soil_zip_min_size_mb <- 600
       } else if (is_holarctic_soil) {
         soil_subset_name <- "holarctic"
         soil_zip_url <- "https://zenodo.org/records/19614207/files/soil_holarctic.zip?download=1"
-        soil_zip_min_size_mb <- 940
+        soil_zip_min_size_mb <- 900
       } else if (is_newworld_soil) {
         soil_subset_name <- "newworld"
         soil_zip_url <- "https://zenodo.org/records/19614207/files/soil_newworld.zip?download=1"
-        soil_zip_min_size_mb <- 430
+        soil_zip_min_size_mb <- 400
       } else if (is_oldworld_soil) {
         soil_subset_name <- "oldworld"
         soil_zip_url <- "https://zenodo.org/records/19614207/files/soil_oldworld.zip?download=1"
-        soil_zip_min_size_mb <- 800
+        soil_zip_min_size_mb <- 700
       } else {
         soil_subset_name <- "global"
         if (verbose) message("Downloading global layer")
@@ -6795,6 +6809,7 @@ extract.env.and.background <- function(occurrence.data, #input data.frame with c
         output_files <- file.path(soil_subset_dir, paste0("soil_", soil_source_variables, "_", soil_subset_name, ".tif"))
         valid_files <- sapply(output_files, function(f) file.exists(f) && file.size(f) > 1e5)
         all_valid <- all(valid_files)
+        if (all_valid && !redownload.rasters && file.exists(soil_zip_file)) file.remove(soil_zip_file)
         if (all_valid && !redownload.rasters) {
           if (verbose) message("Soil subset rasters already present - skipping download")
         } else {
@@ -6804,8 +6819,9 @@ extract.env.and.background <- function(occurrence.data, #input data.frame with c
             message("Soil subset zip already present: ", soil_subset_name)
           }
           utils::unzip(soil_zip_file, exdir = soil_subset_dir, overwrite = TRUE)
+          if (any(!file.exists(output_files))) stop("Not all soil subset raster files were found after unzip for subset: ", soil_subset_name)
+          if (file.exists(soil_zip_file)) file.remove(soil_zip_file)
         }
-        if (any(!file.exists(output_files))) stop("Not all soil subset raster files were found after unzip for subset: ", soil_subset_name)
       }
       soil_raster_list <- list()
       for (i in seq_along(soil_source_variables)) {
@@ -7013,21 +7029,21 @@ extract.env.and.background <- function(occurrence.data, #input data.frame with c
     atmosphere_bg_csv_file <- file.path(intermediate_files_dir, "Atmosphere_extracted_background.csv")
     atmosphere_occ_exists <- file.exists(atmosphere_occ_csv_file)
     atmosphere_bg_exists <- file.exists(atmosphere_bg_csv_file)
-    if (atmosphere_occ_exists && file.info(atmosphere_occ_csv_file)$size > 0 && (!generate.background.data || atmosphere_bg_exists) && !overwrite) {
+    if (atmosphere_occ_exists && file.info(atmosphere_occ_csv_file)$size > 0 && (!generate.background.data || (atmosphere_bg_exists && file.info(atmosphere_bg_csv_file)$size > 0)) && !overwrite) {
       if (verbose) message("Atmosphere data already exist - skipping download and extraction")
       extracted_occurrences <- read.csv(atmosphere_occ_csv_file, row.names = 1, check.names = FALSE)
-      extracted_occurrences <- extracted_occurrences[base_ids, , drop = FALSE]
+      missing_atmosphere_occ_cols <- setdiff(atmosphere_variable_names, names(extracted_occurrences))
+      if (length(missing_atmosphere_occ_cols) > 0) stop("Cached atmosphere occurrence file is missing columns: ", paste(missing_atmosphere_occ_cols, collapse = ", "))
+      extracted_occurrences <- extracted_occurrences[base_ids, atmosphere_variable_names, drop = FALSE]
       environmental_dataset <- cbind(environmental_dataset, extracted_occurrences)
-      if (generate.background.data && atmosphere_bg_exists) {
+      if (generate.background.data) {
         extracted_background <- read.csv(atmosphere_bg_csv_file, row.names = 1, check.names = FALSE)
-        if (!is.null(background.data)) background.data <- cbind(background.data, extracted_background[rownames(background.data), , drop = FALSE])
-      } else if (generate.background.data && !atmosphere_bg_exists) {
-        if (verbose) message("Atmosphere data for background is missing - downloading and extracting")
-        atmosphere_occ_exists <- TRUE
-        atmosphere_bg_exists <- FALSE
+        missing_atmosphere_bg_cols <- setdiff(atmosphere_variable_names, names(extracted_background))
+        if (length(missing_atmosphere_bg_cols) > 0) stop("Cached atmosphere background file is missing columns: ", paste(missing_atmosphere_bg_cols, collapse = ", "))
+        if (!is.null(background.data)) background.data <- cbind(background.data, extracted_background[rownames(background.data), atmosphere_variable_names, drop = FALSE])
       }
     }
-    if (!atmosphere_occ_exists || (generate.background.data && !atmosphere_bg_exists) || overwrite) {
+    if (!atmosphere_occ_exists || (generate.background.data && (!atmosphere_bg_exists || file.info(atmosphere_bg_csv_file)$size == 0)) || overwrite) {
       africa_extent_atmosphere <- terra::ext(-20, 60, -35, 38)
       asia_extent_atmosphere <- terra::ext(35, 180, -10, 80)
       europe_extent_atmosphere <- terra::ext(-25, 45, 34, 72)
@@ -7077,8 +7093,9 @@ extract.env.and.background <- function(occurrence.data, #input data.frame with c
       )[[continent_name_atmosphere]]
       for (i in seq_along(atmosphere_variables)) {
         min_size_mb <- if (!is.null(expected_size_mb)) expected_size_mb[i] else 50
-        if (!file.exists(atmosphere_raster_files[i]) || file.size(atmosphere_raster_files[i]) < (min_size_mb * 1e6) || redownload.rasters)
-          robust.download.raster(atmosphere_raster_urls[i], atmosphere_raster_files[i], min_size_mb = min_size_mb)
+        if (!file.exists(atmosphere_raster_files[i]) || file.size(atmosphere_raster_files[i]) < (min_size_mb * 1e6) || redownload.rasters) {
+          robust.download.raster(url, atmosphere_raster_files[i], min_size_mb = min_size_mb)
+        }
       }
       srad_atmosphere_raster <- terra::rast(atmosphere_raster_files[1])
       wind_atmosphere_raster <- terra::rast(atmosphere_raster_files[2])
@@ -7097,34 +7114,41 @@ extract.env.and.background <- function(occurrence.data, #input data.frame with c
       }
       extracted_occurrences_atmosphere <- as.matrix(terra::extract(atmosphere_stack, coord_env, ID = FALSE))
       colnames(extracted_occurrences_atmosphere) <- names(atmosphere_stack)
-      environmental_dataset <- cbind(environmental_dataset, extracted_occurrences_atmosphere)
       srad_idx_atmosphere <- grep("^srad_", colnames(extracted_occurrences_atmosphere))
       wind_idx_atmosphere <- grep("^wind_", colnames(extracted_occurrences_atmosphere))
       vapr_idx_atmosphere <- grep("^vapr_", colnames(extracted_occurrences_atmosphere))
-      environmental_dataset$srad_median <- apply(extracted_occurrences_atmosphere[, srad_idx_atmosphere, drop = FALSE], 1, function(x) ifelse(all(is.na(x)), NA, median(x, na.rm = TRUE)))
-      environmental_dataset$srad_min <- apply(extracted_occurrences_atmosphere[, srad_idx_atmosphere, drop = FALSE], 1, function(x) ifelse(all(is.na(x)), NA, min(x, na.rm = TRUE)))
-      environmental_dataset$srad_max <- apply(extracted_occurrences_atmosphere[, srad_idx_atmosphere, drop = FALSE], 1, function(x) ifelse(all(is.na(x)), NA, max(x, na.rm = TRUE)))
-      environmental_dataset$wind_median <- apply(extracted_occurrences_atmosphere[, wind_idx_atmosphere, drop = FALSE], 1, function(x) ifelse(all(is.na(x)), NA, median(x, na.rm = TRUE)))
-      environmental_dataset$wind_min <- apply(extracted_occurrences_atmosphere[, wind_idx_atmosphere, drop = FALSE], 1, function(x) ifelse(all(is.na(x)), NA, min(x, na.rm = TRUE)))
-      environmental_dataset$wind_max <- apply(extracted_occurrences_atmosphere[, wind_idx_atmosphere, drop = FALSE], 1, function(x) ifelse(all(is.na(x)), NA, max(x, na.rm = TRUE)))
-      environmental_dataset$vapr_median <- apply(extracted_occurrences_atmosphere[, vapr_idx_atmosphere, drop = FALSE], 1, function(x) ifelse(all(is.na(x)), NA, median(x, na.rm = TRUE)))
-      environmental_dataset$vapr_min <- apply(extracted_occurrences_atmosphere[, vapr_idx_atmosphere, drop = FALSE], 1, function(x) ifelse(all(is.na(x)), NA, min(x, na.rm = TRUE)))
-      environmental_dataset$vapr_max <- apply(extracted_occurrences_atmosphere[, vapr_idx_atmosphere, drop = FALSE], 1, function(x) ifelse(all(is.na(x)), NA, max(x, na.rm = TRUE)))
-      write.csv(environmental_dataset[, atmosphere_variable_names, drop = FALSE], atmosphere_occ_csv_file)
+      if (!length(srad_idx_atmosphere) || !length(wind_idx_atmosphere) || !length(vapr_idx_atmosphere)) stop("Atmosphere raster stack is missing srad, wind, or vapr layers")
+      occ_atmosphere_summary <- data.frame(srad_median = apply(extracted_occurrences_atmosphere[, srad_idx_atmosphere, drop = FALSE], 1, function(x) ifelse(all(is.na(x)), NA, median(x, na.rm = TRUE))),
+                                           srad_min = apply(extracted_occurrences_atmosphere[, srad_idx_atmosphere, drop = FALSE], 1, function(x) ifelse(all(is.na(x)), NA, min(x, na.rm = TRUE))),
+                                           srad_max = apply(extracted_occurrences_atmosphere[, srad_idx_atmosphere, drop = FALSE], 1, function(x) ifelse(all(is.na(x)), NA, max(x, na.rm = TRUE))),
+                                           wind_median = apply(extracted_occurrences_atmosphere[, wind_idx_atmosphere, drop = FALSE], 1, function(x) ifelse(all(is.na(x)), NA, median(x, na.rm = TRUE))),
+                                           wind_min = apply(extracted_occurrences_atmosphere[, wind_idx_atmosphere, drop = FALSE], 1, function(x) ifelse(all(is.na(x)), NA, min(x, na.rm = TRUE))),
+                                           wind_max = apply(extracted_occurrences_atmosphere[, wind_idx_atmosphere, drop = FALSE], 1, function(x) ifelse(all(is.na(x)), NA, max(x, na.rm = TRUE))),
+                                           vapr_median = apply(extracted_occurrences_atmosphere[, vapr_idx_atmosphere, drop = FALSE], 1, function(x) ifelse(all(is.na(x)), NA, median(x, na.rm = TRUE))),
+                                           vapr_min = apply(extracted_occurrences_atmosphere[, vapr_idx_atmosphere, drop = FALSE], 1, function(x) ifelse(all(is.na(x)), NA, min(x, na.rm = TRUE))),
+                                           vapr_max = apply(extracted_occurrences_atmosphere[, vapr_idx_atmosphere, drop = FALSE], 1, function(x) ifelse(all(is.na(x)), NA, max(x, na.rm = TRUE))),
+                                           check.names = FALSE)
+      rownames(occ_atmosphere_summary) <- rownames(environmental_dataset)
+      occ_atmosphere_summary <- occ_atmosphere_summary[, atmosphere_variable_names, drop = FALSE]
+      environmental_dataset <- cbind(environmental_dataset, occ_atmosphere_summary)
+      write.csv(occ_atmosphere_summary, atmosphere_occ_csv_file, row.names = TRUE)
       if (!is.null(background.data) && generate.background.data) {
         extracted_background_atmosphere <- as.matrix(terra::extract(atmosphere_stack, coord_bg, ID = FALSE))
         colnames(extracted_background_atmosphere) <- names(atmosphere_stack)
-        background.data <- cbind(background.data, extracted_background_atmosphere)
-        background.data$srad_median <- apply(extracted_background_atmosphere[, srad_idx_atmosphere, drop = FALSE], 1, function(x) ifelse(all(is.na(x)), NA, median(x, na.rm = TRUE)))
-        background.data$srad_min <- apply(extracted_background_atmosphere[, srad_idx_atmosphere, drop = FALSE], 1, function(x) ifelse(all(is.na(x)), NA, min(x, na.rm = TRUE)))
-        background.data$srad_max <- apply(extracted_background_atmosphere[, srad_idx_atmosphere, drop = FALSE], 1, function(x) ifelse(all(is.na(x)), NA, max(x, na.rm = TRUE)))
-        background.data$wind_median <- apply(extracted_background_atmosphere[, wind_idx_atmosphere, drop = FALSE], 1, function(x) ifelse(all(is.na(x)), NA, median(x, na.rm = TRUE)))
-        background.data$wind_min <- apply(extracted_background_atmosphere[, wind_idx_atmosphere, drop = FALSE], 1, function(x) ifelse(all(is.na(x)), NA, min(x, na.rm = TRUE)))
-        background.data$wind_max <- apply(extracted_background_atmosphere[, wind_idx_atmosphere, drop = FALSE], 1, function(x) ifelse(all(is.na(x)), NA, max(x, na.rm = TRUE)))
-        background.data$vapr_median <- apply(extracted_background_atmosphere[, vapr_idx_atmosphere, drop = FALSE], 1, function(x) ifelse(all(is.na(x)), NA, median(x, na.rm = TRUE)))
-        background.data$vapr_min <- apply(extracted_background_atmosphere[, vapr_idx_atmosphere, drop = FALSE], 1, function(x) ifelse(all(is.na(x)), NA, min(x, na.rm = TRUE)))
-        background.data$vapr_max <- apply(extracted_background_atmosphere[, vapr_idx_atmosphere, drop = FALSE], 1, function(x) ifelse(all(is.na(x)), NA, max(x, na.rm = TRUE)))
-        write.csv(background.data[, atmosphere_variable_names, drop = FALSE], atmosphere_bg_csv_file)
+        bg_atmosphere_summary <- data.frame(srad_median = apply(extracted_background_atmosphere[, srad_idx_atmosphere, drop = FALSE], 1, function(x) ifelse(all(is.na(x)), NA, median(x, na.rm = TRUE))),
+                                            srad_min = apply(extracted_background_atmosphere[, srad_idx_atmosphere, drop = FALSE], 1, function(x) ifelse(all(is.na(x)), NA, min(x, na.rm = TRUE))),
+                                            srad_max = apply(extracted_background_atmosphere[, srad_idx_atmosphere, drop = FALSE], 1, function(x) ifelse(all(is.na(x)), NA, max(x, na.rm = TRUE))),
+                                            wind_median = apply(extracted_background_atmosphere[, wind_idx_atmosphere, drop = FALSE], 1, function(x) ifelse(all(is.na(x)), NA, median(x, na.rm = TRUE))),
+                                            wind_min = apply(extracted_background_atmosphere[, wind_idx_atmosphere, drop = FALSE], 1, function(x) ifelse(all(is.na(x)), NA, min(x, na.rm = TRUE))),
+                                            wind_max = apply(extracted_background_atmosphere[, wind_idx_atmosphere, drop = FALSE], 1, function(x) ifelse(all(is.na(x)), NA, max(x, na.rm = TRUE))),
+                                            vapr_median = apply(extracted_background_atmosphere[, vapr_idx_atmosphere, drop = FALSE], 1, function(x) ifelse(all(is.na(x)), NA, median(x, na.rm = TRUE))),
+                                            vapr_min = apply(extracted_background_atmosphere[, vapr_idx_atmosphere, drop = FALSE], 1, function(x) ifelse(all(is.na(x)), NA, min(x, na.rm = TRUE))),
+                                            vapr_max = apply(extracted_background_atmosphere[, vapr_idx_atmosphere, drop = FALSE], 1, function(x) ifelse(all(is.na(x)), NA, max(x, na.rm = TRUE))),
+                                            check.names = FALSE)
+        rownames(bg_atmosphere_summary) <- rownames(background.data)
+        bg_atmosphere_summary <- bg_atmosphere_summary[, atmosphere_variable_names, drop = FALSE]
+        background.data <- cbind(background.data, bg_atmosphere_summary)
+        write.csv(bg_atmosphere_summary, atmosphere_bg_csv_file, row.names = TRUE)
       }
       if (any(!atmosphere_variable_names %in% names(environmental_dataset))) stop("Atmosphere columns missing from occurrence data after extraction - extraction seems to not have worked")
       if (generate.background.data && any(!atmosphere_variable_names %in% names(background.data))) stop("Atmosphere columns missing from background data after extraction - extraction seems to not have worked")
@@ -7134,8 +7158,9 @@ extract.env.and.background <- function(occurrence.data, #input data.frame with c
       if (exists("extracted_occurrences_atmosphere")) rm(extracted_occurrences_atmosphere)
       if (exists("extracted_background_atmosphere")) rm(extracted_background_atmosphere)
       invisible(gc())
-      if (delete.intermediate.files.folders && "atmosphere" %in% datasets_requested)
+      if (delete.intermediate.files.folders && "atmosphere" %in% datasets_requested) {
         unlink(file.path(rasters.dir, "atmosphere"), recursive = TRUE, force = TRUE)
+    }
     }
   }
 
@@ -7207,78 +7232,91 @@ extract.env.and.background <- function(occurrence.data, #input data.frame with c
     }
   }
 
-  # Download and process Burned area data (monthly means across 2019-2024; ESA FireCCI Sentinel-3 SYN v1.1; 25km resolution; download via zenodo mirror)
-  if ("burned_area" %in% datasets_requested) {
-    invisible(gc())
-    counter <- counter + 1
-    if (verbose) message("")
-    if (verbose) message(sprintf("-- Downloading and extracting Burned area data (ca. 2 min): env.dataset %d of %d --",
-                                 counter, total_datasets))
-    burned_area_variable_name <- "Burned_area"
-    burned_area_dir <- file.path(rasters.dir, "burned_area")
-    if (!dir.exists(burned_area_dir)) dir.create(burned_area_dir, recursive = TRUE)
-    burned_area_raster_file <- file.path(burned_area_dir, "FireCCI_BurnedArea_MonthlyMean_Global_0.25deg.zip")
-    burned_area_occ_csv_file <- file.path(intermediate_files_dir, "burned_area_extracted_occurrence.csv")
-    burned_area_bg_csv_file <- file.path(intermediate_files_dir, "burned_area_extracted_background.csv")
-    burned_area_occ_exists <- file.exists(burned_area_occ_csv_file)
-    burned_area_bg_exists <- file.exists(burned_area_bg_csv_file)
-    if (burned_area_occ_exists && (!generate.background.data || burned_area_bg_exists) && !overwrite) {
-      if (verbose) message("Burned area data already exist - skipping download and extraction - loading from intermediate files")
-      occ_burn <- read.csv(burned_area_occ_csv_file, row.names = 1, check.names = FALSE)
-      occ_burn <- occ_burn[base_ids, , drop = FALSE]
-      environmental_dataset <- cbind(environmental_dataset, occ_burn)
-      if (generate.background.data && burned_area_bg_exists) {
-        bg_burn <- read.csv(burned_area_bg_csv_file, row.names = 1, check.names = FALSE)
-        if (!is.null(background.data)) background.data <- cbind(background.data, bg_burn[rownames(background.data), , drop = FALSE])
-      }
-      if (all(sapply(sprintf("Burned_area_%02d", 1:12), \(nm) all(is.na(environmental_dataset[[nm]]))))) warning("All Burned area values in occurrence data are NA - check CRS or extent")
-      if (generate.background.data && all(sapply(sprintf("Burned_area_%02d", 1:12), \(nm) all(is.na(background.data[[nm]]))))) warning("All Burned area values in background data are NA - check CRS or extent")
-    } else {
-      burned_area_url <- "https://zenodo.org/records/17487469/files/FireCCI_BurnedArea_MonthlyMean_Global_0.25deg.zip?download=1"
-      if (!file.exists(burned_area_raster_file) || file.size(burned_area_raster_file) < 2.6e6 || redownload.rasters) {
-        robust.download.raster(burned_area_url, burned_area_raster_file, min_size_mb = 2.6)
-      } else {
-        if (verbose) message("Burned area raster already present - skipping download")
-      }
-      utils::unzip(burned_area_raster_file, exdir = burned_area_dir)
-      burned_tifs <- list.files(burned_area_dir, pattern = "\\.tif$", full.names = TRUE)
-      burned_tifs <- burned_tifs[file.info(burned_tifs)$size > 180000]
-      if (length(burned_tifs) != 12) {
-        robust.download.raster(burned_area_url, burned_area_raster_file, min_size_mb = 2.6)
-        utils::unzip(burned_area_raster_file, exdir = burned_area_dir)
-        burned_tifs <- list.files(burned_area_dir, pattern = "\\.tif$", full.names = TRUE)
-        burned_tifs <- burned_tifs[file.info(burned_tifs)$size > 180000]
-      }
-      burned_area_raster <- terra::rast(burned_tifs)
-      names(burned_area_raster) <- sprintf("Burned_area_%02d", 1:12)
-      raster_crs <- terra::crs(burned_area_raster)
-      coord_env <- coordinate_vector_env
-      coord_bg <- coordinate_vector_bg
-      if (!terra::same.crs(coordinate_vector_env, burned_area_raster)) {
-        if (verbose) message("Projecting coordinates to match Burned area raster CRS")
-        coord_env <- terra::project(coordinate_vector_env, raster_crs)
-        if (!is.null(coordinate_vector_bg)) coord_bg <- terra::project(coordinate_vector_bg, raster_crs)
-      }
-      extracted_occurrences <- as.matrix(terra::extract(burned_area_raster, coord_env, ID = FALSE))
-      colnames(extracted_occurrences) <- names(burned_area_raster)
-      environmental_dataset <- cbind(environmental_dataset, extracted_occurrences)
-      write.csv(environmental_dataset[, names(burned_area_raster), drop = FALSE], burned_area_occ_csv_file)
-      if (!is.null(background.data) && generate.background.data) {
-        extracted_background <- as.matrix(terra::extract(burned_area_raster, coord_bg, ID = FALSE))
-        colnames(extracted_background) <- names(burned_area_raster)
-        background.data <- cbind(background.data, extracted_background)
-        write.csv(background.data[, names(burned_area_raster), drop = FALSE], burned_area_bg_csv_file)
-      }
-      if (any(!names(burned_area_raster) %in% names(environmental_dataset))) stop("Burned area column missing from occurrence data after extraction - extraction seems to not have worked")
-      if (generate.background.data && any(!names(burned_area_raster) %in% names(background.data))) stop("Burned area column missing from background data after extraction - extraction seems to not have worked")
-      suppressWarnings(try(terra::tmpFiles(remove = TRUE), silent = TRUE))
-      if (exists("burned_area_raster")) rm(burned_area_raster)
-      if (exists("extracted_occurrences")) rm(extracted_occurrences)
-      if (exists("extracted_background")) rm(extracted_background)
+    # Download and process Burned area data (monthly means across 2019-2024; ESA FireCCI Sentinel-3 SYN v1.1; 25km resolution; download via zenodo mirror)
+    if ("burned_area" %in% datasets_requested) {
       invisible(gc())
-      if (delete.intermediate.files.folders && "burned_area" %in% datasets_requested) unlink(file.path(rasters.dir, "burned_area"), recursive = TRUE, force = TRUE)
+      counter <- counter + 1
+      if (verbose) message("")
+      if (verbose) message(sprintf("-- Downloading and extracting Burned area data (ca. 2 min): env.dataset %d of %d --",
+                                   counter, total_datasets))
+      burned_area_variable_name <- "Burned_area"
+      burned_area_dir <- file.path(rasters.dir, "burned_area")
+      if (!dir.exists(burned_area_dir)) dir.create(burned_area_dir, recursive = TRUE)
+      burned_area_raster_file <- file.path(burned_area_dir, "FireCCI_BurnedArea_MonthlyMean_Global_0.25deg.zip")
+      burned_area_occ_csv_file <- file.path(intermediate_files_dir, "burned_area_extracted_occurrence.csv")
+      burned_area_bg_csv_file <- file.path(intermediate_files_dir, "burned_area_extracted_background.csv")
+      burned_area_occ_exists <- file.exists(burned_area_occ_csv_file)
+      burned_area_bg_exists <- file.exists(burned_area_bg_csv_file)
+      burned_area_existing_tifs <- list.files(burned_area_dir, pattern = "^FireCCI_BurnedArea_Mean_[0-9]{2}\\.tif$", full.names = TRUE)
+      burned_area_existing_tifs <- burned_area_existing_tifs[file.info(burned_area_existing_tifs)$size > 180000]
+      if (length(burned_area_existing_tifs) == 12 && file.exists(burned_area_raster_file)) file.remove(burned_area_raster_file)
+      if (burned_area_occ_exists && (!generate.background.data || burned_area_bg_exists) && !overwrite) {
+        if (verbose) message("Burned area data already exist - skipping download and extraction - loading from intermediate files")
+        occ_burn <- read.csv(burned_area_occ_csv_file, row.names = 1, check.names = FALSE)
+        occ_burn <- occ_burn[base_ids, , drop = FALSE]
+        environmental_dataset <- cbind(environmental_dataset, occ_burn)
+        if (generate.background.data && burned_area_bg_exists) {
+          bg_burn <- read.csv(burned_area_bg_csv_file, row.names = 1, check.names = FALSE)
+          if (!is.null(background.data)) background.data <- cbind(background.data, bg_burn[rownames(background.data), , drop = FALSE])
+        }
+        if (all(sapply(sprintf("Burned_area_%02d", 1:12), function(nm) all(is.na(environmental_dataset[[nm]]))))) warning("All Burned area values in occurrence data are NA - check CRS or extent")
+        if (generate.background.data && all(sapply(sprintf("Burned_area_%02d", 1:12), function(nm) all(is.na(background.data[[nm]]))))) warning("All Burned area values in background data are NA - check CRS or extent")
+      } else {
+        burned_area_url <- "https://zenodo.org/records/17487469/files/FireCCI_BurnedArea_MonthlyMean_Global_0.25deg.zip?download=1"
+        if (length(burned_area_existing_tifs) == 12 && !redownload.rasters) {
+          burned_tifs <- burned_area_existing_tifs
+        } else {
+          if (!file.exists(burned_area_raster_file) || file.size(burned_area_raster_file) < 2.6e6 || redownload.rasters) {
+            robust.download.raster(burned_area_url, burned_area_raster_file, min_size_mb = 2.6)
+          } else {
+            if (verbose) message("Burned area raster zip already present - skipping download")
+          }
+          utils::unzip(burned_area_raster_file, exdir = burned_area_dir, overwrite = TRUE)
+          burned_tifs <- list.files(burned_area_dir, pattern = "^FireCCI_BurnedArea_Mean_[0-9]{2}\\.tif$", full.names = TRUE)
+          burned_tifs <- burned_tifs[file.info(burned_tifs)$size > 180000]
+          if (length(burned_tifs) != 12) {
+            robust.download.raster(burned_area_url, burned_area_raster_file, min_size_mb = 2.6)
+            utils::unzip(burned_area_raster_file, exdir = burned_area_dir, overwrite = TRUE)
+            burned_tifs <- list.files(burned_area_dir, pattern = "^FireCCI_BurnedArea_Mean_[0-9]{2}\\.tif$", full.names = TRUE)
+            burned_tifs <- burned_tifs[file.info(burned_tifs)$size > 180000]
+          }
+        }
+        if (length(burned_tifs) != 12) stop("Not all burned-area raster files were found after unzip")
+        if (file.exists(burned_area_raster_file)) file.remove(burned_area_raster_file)
+        burned_area_raster <- terra::rast(burned_tifs)
+        names(burned_area_raster) <- sprintf("Burned_area_%02d", 1:12)
+        raster_crs <- terra::crs(burned_area_raster)
+        coord_env <- coordinate_vector_env
+        coord_bg <- coordinate_vector_bg
+        if (!terra::same.crs(coordinate_vector_env, burned_area_raster)) {
+          if (verbose) message("Projecting coordinates to match Burned area raster CRS")
+          coord_env <- terra::project(coordinate_vector_env, raster_crs)
+          if (!is.null(coordinate_vector_bg)) coord_bg <- terra::project(coordinate_vector_bg, raster_crs)
+        }
+        extracted_occurrences <- as.matrix(terra::extract(burned_area_raster, coord_env, ID = FALSE))
+        colnames(extracted_occurrences) <- names(burned_area_raster)
+        rownames(extracted_occurrences) <- rownames(environmental_dataset)
+        environmental_dataset <- cbind(environmental_dataset, extracted_occurrences)
+        write.csv(environmental_dataset[, names(burned_area_raster), drop = FALSE], burned_area_occ_csv_file)
+        if (!is.null(background.data) && generate.background.data) {
+          extracted_background <- as.matrix(terra::extract(burned_area_raster, coord_bg, ID = FALSE))
+          colnames(extracted_background) <- names(burned_area_raster)
+          rownames(extracted_background) <- rownames(background.data)
+          background.data <- cbind(background.data, extracted_background)
+          write.csv(background.data[, names(burned_area_raster), drop = FALSE], burned_area_bg_csv_file)
+        }
+        if (any(!names(burned_area_raster) %in% names(environmental_dataset))) stop("Burned area column missing from occurrence data after extraction - extraction seems to not have worked")
+        if (generate.background.data && any(!names(burned_area_raster) %in% names(background.data))) stop("Burned area column missing from background data after extraction - extraction seems to not have worked")
+        if (all(sapply(sprintf("Burned_area_%02d", 1:12), function(nm) all(is.na(environmental_dataset[[nm]]))))) warning("All Burned area values in occurrence data are NA - check CRS or extent")
+        if (generate.background.data && all(sapply(sprintf("Burned_area_%02d", 1:12), function(nm) all(is.na(background.data[[nm]]))))) warning("All Burned area values in background data are NA - check CRS or extent")
+        suppressWarnings(try(terra::tmpFiles(remove = TRUE), silent = TRUE))
+        if (exists("burned_area_raster")) rm(burned_area_raster)
+        if (exists("extracted_occurrences")) rm(extracted_occurrences)
+        if (exists("extracted_background")) rm(extracted_background)
+        invisible(gc())
+        if (delete.intermediate.files.folders && "burned_area" %in% datasets_requested) unlink(file.path(rasters.dir, "burned_area"), recursive = TRUE, force = TRUE)
+      }
     }
-  }
 
   # Download and process Snow Water Equivalent (SWE) data (monthly means 2023, only for North America; 1 km resolution; download via zenodo mirror; derived from Daymet: https://daymet.ornl.gov/; Daymet Lambert Conformal Conic)
   if ("snow_water_equivalent" %in% datasets_requested && is_north_america_SWE) {
