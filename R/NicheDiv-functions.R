@@ -609,21 +609,27 @@ transform.skewed.variables <- function(data.frame, #input data frame containing 
   if (!is.numeric(skewness.threshold) || length(skewness.threshold) != 1 || skewness.threshold <= 0) stop("skewness.threshold must be a positive numeric value (recommended: 1)")
   if (!is.logical(verbose) || length(verbose) != 1) stop("verbose must be TRUE or FALSE")
   if (!is.null(exclude.cols) && !is.character(exclude.cols)) stop("exclude.cols must be NULL or a character vector of column names")
-  if (is.null(exclude.cols)) exclude.cols <- character(0)
-
-  # Validate numeric content
-  numeric.cols <- sapply(data.frame, is.numeric)
-  if (sum(numeric.cols) == 0) stop("No numeric columns found in data.frame - nothing to transform")
-
-  # Extract input
-  data.frame_original <- data.frame
-  background.dataframe_original <- background.dataframe
-
-  # Validate shared columns if background provided
+  if (is.null(exclude.cols))
+    exclude.cols <- character(0)
+  helper_cols <- c(".row_id", ".key")
   if (!is.null(background.dataframe)) {
     shared.cols <- intersect(colnames(data.frame), colnames(background.dataframe))
-    if (length(shared.cols) == 0) stop("No shared column names between data.frame and background.dataframe")
+    if (length(shared.cols) == 0)
+      stop("No shared column names between data.frame and background.dataframe")
+    occurrence.only.cols <- setdiff(colnames(data.frame), colnames(background.dataframe))
+    occurrence.only.cols.not.excluded <- setdiff(occurrence.only.cols, c(exclude.cols, helper_cols))
+    if (length(occurrence.only.cols.not.excluded) > 0) {
+      stop(paste0("These columns are present in data.frame but missing from background.dataframe: ",
+                  paste(occurrence.only.cols.not.excluded, collapse = ", "),
+                  "- add columns to exclude.cols or add matching columns to background.dataframe"))
+    }
   }
+  numeric.cols <- sapply(data.frame[, !(names(data.frame) %in% c(exclude.cols, helper_cols)), drop = FALSE], is.numeric)
+  if (sum(numeric.cols) == 0)
+    stop("No numeric columns found in data.frame after removing exclude.cols - nothing to transform")
+
+  data.frame_original <- data.frame
+  background.dataframe_original <- background.dataframe
 
   # Create function to compute unbiased sample skewness (Fisher-Pearson g1)
   detect.skewness <- function(numeric.vector) {
@@ -729,7 +735,6 @@ transform.skewed.variables <- function(data.frame, #input data frame containing 
   }
 
   # Normalize input and initialize output lists
-  helper_cols <- c(".row_id", ".key")
   excluded.original <- data.frame[, names(data.frame) %in% exclude.cols, drop = FALSE]
   data.frame <- data.frame[, !(names(data.frame) %in% c(exclude.cols, helper_cols)), drop = FALSE]
   transformed.variable.list <- list()
@@ -817,8 +822,7 @@ transform.skewed.variables <- function(data.frame, #input data frame containing 
       arcsin.values <- asin(sqrt(pmin(pmax(variable.values, 0), 1)))
       skew.logit <- detect.skewness(logit.values)
       skew.arcsin <- detect.skewness(arcsin.values)
-      improvements <- c(abs(skew.before) - abs(skew.logit),
-                        abs(skew.before) - abs(skew.arcsin))
+      improvements <- c(abs(skew.before) - abs(skew.logit), abs(skew.before) - abs(skew.arcsin))
       names(improvements) <- c("logit_shrunk", "arcsine_sqrt")
       if (all(improvements <= 0, na.rm = TRUE)) {
         transformed.values <- variable.values
@@ -901,7 +905,10 @@ transform.skewed.variables <- function(data.frame, #input data frame containing 
   final_order <- unlist(lapply(colnames(data.frame_original), function(nm) transform.name.map[[nm]]))
   final_order <- unique(final_order[final_order %in% colnames(occ_full)])
   occ_full <- occ_full[, final_order, drop = FALSE]
-  if (!is.null(bg_full)) bg_full <- bg_full[, final_order, drop = FALSE]
+  if (!is.null(bg_full)) {
+    bg_final_order <- final_order[final_order %in% colnames(bg_full)]
+    bg_full <- bg_full[, bg_final_order, drop = FALSE]
+  }
 
   # Verbose summary
   if (verbose) {
@@ -2906,6 +2913,7 @@ plot.DAPC.permutation <- function(dapc_result, #DAPC result object
   }
   p_acc_raw <- mean(permutation_accuracies >= observed_accuracy, na.rm = TRUE)
   p_acc <- pval.format(p_acc_raw)
+  .pt <- 72.27 / 25.4
 
   # Build histogram panel
   build_histogram_panel <- function(null_distribution, observed_value, p_info, x_label) {
@@ -5327,7 +5335,9 @@ extract.env.and.background <- function(occurrence.data, #input data.frame with c
         }
       )
     }
-    suppressMessages(suppressWarnings(invisible(capture.output(countries_full <- readRDS(gadm_file)))) ) #coerce to SpatVector
+    suppressMessages(suppressWarnings(invisible(capture.output(countries_full <- readRDS(gadm_file)))))
+    if (inherits(countries_full, "PackedSpatVector")) countries_full <- terra::unwrap(countries_full)
+    if (!inherits(countries_full, "SpatVector")) countries_full <- terra::vect(countries_full)
     overlap_idx <- terra::relate(terra::vect(study_area), countries_full, relation = "intersects")[1, ]
     geodata.countries <- sort(unique(na.omit(countries_full$GID_0[which(overlap_idx)])))
     countries_crop <- terra::crop(countries_full, terra::vect(study_area))
@@ -7550,7 +7560,7 @@ extract.env.and.background <- function(occurrence.data, #input data.frame with c
           if (!is.na(tif_size) && tif_size > 0) {
             tif_ok <- tryCatch({
               test_rast <- terra::rast(tif_file)
-              ok <- inherits(test_rast, "SpatRaster") && nlyr(test_rast) >= 1
+              ok <- inherits(test_rast, "SpatRaster") && terra::nlyr(test_rast) >= 1
               rm(test_rast)
               invisible(gc())
               ok
@@ -7629,7 +7639,7 @@ extract.env.and.background <- function(occurrence.data, #input data.frame with c
             if (!is.na(tif_size) && tif_size > 0) {
               tif_ok <- tryCatch({
                 test_rast <- terra::rast(tif_file)
-                ok <- inherits(test_rast, "SpatRaster") && nlyr(test_rast) >= 1
+                ok <- inherits(test_rast, "SpatRaster") && terra::nlyr(test_rast) >= 1
                 rm(test_rast)
                 invisible(gc())
                 ok
@@ -7664,7 +7674,7 @@ extract.env.and.background <- function(occurrence.data, #input data.frame with c
             if (!is.na(tif_size) && tif_size > 0) {
               tif_ok <- tryCatch({
                 test_rast <- terra::rast(tif_file)
-                ok <- inherits(test_rast, "SpatRaster") && nlyr(test_rast) >= 1
+                ok <- inherits(test_rast, "SpatRaster") && terra::nlyr(test_rast) >= 1
                 rm(test_rast)
                 invisible(gc())
                 ok
@@ -7706,7 +7716,7 @@ extract.env.and.background <- function(occurrence.data, #input data.frame with c
             stop("No CRS detected for custom raster: ", basename(custom_source), " - provide custom.env.rasters.crs")
           }
         }
-        if (nlyr(custom_raster) == 1 && (is.null(names(custom_raster)) || names(custom_raster) == "" || names(custom_raster) == "lyr.1")) {
+        if (terra::nlyr(custom_raster) == 1 && (is.null(names(custom_raster)) || names(custom_raster) == "" || names(custom_raster) == "lyr.1")) {
           names(custom_raster) <- if (length(custom_var_name) == 1) custom_var_name else custom_name
         }
         raster_crs <- terra::crs(custom_raster)
@@ -7717,12 +7727,12 @@ extract.env.and.background <- function(occurrence.data, #input data.frame with c
           coord_env <- terra::project(coordinate_vector_env, raster_crs)
           if (!is.null(coordinate_vector_bg)) coord_bg <- terra::project(coordinate_vector_bg, raster_crs)
         }
-        if (length(custom_var_name) == nlyr(custom_raster)) {
+        if (length(custom_var_name) == terra::nlyr(custom_raster)) {
           names(custom_raster) <- custom_var_name
         } else if (length(custom_var_name) == 1) {
-          names(custom_raster) <- if (nlyr(custom_raster) > 1) paste0(custom_var_name, "_", seq_len(nlyr(custom_raster))) else custom_var_name
+          names(custom_raster) <- if (terra::nlyr(custom_raster) > 1) paste0(custom_var_name, "_", seq_len(terra::nlyr(custom_raster))) else custom_var_name
         } else {
-          stop("custom.env.rasters.variable.names for ", custom_name, " must have length 1 or match nlyr(custom_raster)")
+          stop("custom.env.rasters.variable.names for ", custom_name, " must have length 1 or match terra::nlyr(custom_raster)")
         }
         result <- extract.and.cache.env.dataset(dataset_name = custom_name,
                                                 raster_object = custom_raster,
