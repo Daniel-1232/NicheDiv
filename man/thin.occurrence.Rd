@@ -2,7 +2,7 @@
 % Please edit documentation in R/NicheDiv-functions.R
 \name{thin.occurrence}
 \alias{thin.occurrence}
-\title{Spatially thin occurrence records}
+\title{Spatially thin occurrence records and evaluate remaining spatial autocorrelation}
 \usage{
 thin.occurrence(
   occurrence.data,
@@ -23,49 +23,147 @@ thin.occurrence(
 with longitude and latitude coordinates in decimal degrees.}
 
 \item{latitude.col}{A single character string giving the latitude column
-name. Default is \code{"Latitude"}.}
+name (default: \code{"Latitude"}).}
 
 \item{longitude.col}{A single character string giving the longitude column
-name. Default is \code{"Longitude"}.}
+name (default: \code{"Longitude"}).}
 
 \item{thinning.dist.km}{A single positive numeric value giving the minimum
-allowed distance, in kilometres, between retained occurrence records.}
+allowed distance, in kilometers, between retained occurrence records
+(default: \code{1}).}
 
 \item{exclude.cols}{Optional character vector of non-environmental columns to
 exclude from Moran's I calculations. Coordinate columns are excluded
-automatically.}
+automatically (default: \code{NULL}).}
 
-\item{N.thinning.replicates}{A single positive integer giving the number of
-thinning replicates to run. The replicate retaining the most points is kept;
-ties can be broken by total missingness when \code{prioritize.NA = TRUE}.}
+\item{N.thinning.replicates}{A single positive integer-like numeric value
+giving the number of thinning replicates to run. The replicate retaining the
+most points is kept; ties are broken by total missingness when
+\code{prioritize.NA = TRUE} (default: \code{100}).}
 
-\item{calc.Morans.I}{Logical; if \code{TRUE}, Moran's I is calculated for numeric
-variables in the thinned dataset as a diagnostic of residual spatial
-autocorrelation.}
+\item{calc.Morans.I}{Logical; if \code{TRUE}, Moran's I is calculated for retained
+numeric non-coordinate variables as a diagnostic of residual spatial
+autocorrelation (default: \code{TRUE}).}
 
 \item{plot.Morans.I}{Logical; if \code{TRUE} and \code{calc.Morans.I = TRUE}, a
-histogram of Moran's I values is plotted.}
+histogram of Moran's I values is plotted (default: \code{TRUE}).}
 
-\item{prioritize.NA}{Logical; if \code{TRUE}, ties during thinning are resolved by
-preferentially removing rows with more missing values and, when necessary,
-by choosing the best replicate with the lowest total missingness.}
+\item{prioritize.NA}{Logical; if \code{TRUE}, rows with more missing values are
+preferentially removed during thinning conflicts and, when necessary, the
+final replicate is chosen based on the lowest total missingness
+(default: \code{TRUE}).}
 
 \item{seed}{A single numeric value used to set the random seed for
-reproducibility.}
+reproducibility (default: \code{1}).}
 
 \item{verbose}{Logical; if \code{TRUE}, progress messages about thinning and the
-Moran's I summary are printed.}
+Moran's I summary are printed (default: \code{TRUE}).}
 }
 \value{
 A \code{data.frame} containing the retained occurrence rows after spatial
-thinning. Any Moran's I statistics are produced as printed/graphical side
+thinning. Moran's I statistics are produced as printed and/or graphical side
 effects and are not returned as part of the output object.
 }
 \description{
 Enforce a minimum nearest-neighbour distance among occurrence records by
-iteratively removing spatially redundant points. The function can run
-multiple thinning replicates, optionally prioritize retention of rows with
-fewer missing values, and optionally calculate and plot Moran's I values for
-the retained environmental variables as a diagnostic of residual spatial
-autocorrelation.
+iteratively removing spatially redundant points. The function runs multiple
+thinning replicates, prioritizes retention of rows with fewer missing values,
+and calculates and plots Moran's I values for retained numeric non-coordinate
+variables as a diagnostic of residual spatial autocorrelation.
+}
+\details{
+Spatial thinning is used to reduce occurrence clustering, sampling bias, and
+residual spatial autocorrelation, all of which can influence ecological niche
+models and downstream environmental comparisons (Dormann et al., 2007; Veloz,
+2009; Boria et al., 2014; Fourcade et al., 2014; Aiello-Lammens et al., 2015;
+Kramer-Schadt et al., 2013; Inman et al., 2021; Lamboley & Fourcade, 2024).
+Enforcing a minimum nearest-neighbour distance among occurrence records helps
+reduce the disproportionate influence of spatially clustered samples, which
+often reflect accessibility, collector effort, or database biases rather than
+biological density.
+
+The default thinning threshold (\code{thinning.dist.km = 1}) is intended to
+approximate the spatial resolution of many fine-scale environmental GIS layers
+commonly used in ecological niche modeling. However, no single thinning
+distance is universally appropriate. Suitable values depend on predictor
+resolution, occurrence density, the spatial structure of sampling bias, the
+biology of the study organism, and the geographic extent of the study system
+(Aiello-Lammens et al., 2015; Boria et al., 2014; Fourcade et al., 2014;
+Kramer-Schadt et al., 2013; Inman et al., 2021; Lamboley & Fourcade, 2024).
+Larger thinning distances may be appropriate when occurrence clustering
+reflects broad-scale sampling bias, whereas smaller distances may be preferable
+for narrowly distributed taxa, sparse datasets, fine-resolution predictors, or
+cases where stronger thinning would remove too many records (Veloz, 2009;
+Aiello-Lammens et al., 2015; Boria et al., 2014; Kramer-Schadt et al., 2013).
+
+Because thinning can reduce but does not necessarily eliminate spatial
+structure, residual spatial autocorrelation is evaluated with Moran's I
+(Moran, 1950). Moran's I provides a standardized measure of whether similar
+environmental values remain spatially clustered after thinning, which is
+important because spatial autocorrelation can inflate model performance, bias
+statistical inference, and reduce the effective independence of occurrence
+records (Legendre, 1993; Fortin & Dale, 2005; Dormann et al., 2007; Veloz,
+2009).
+
+When sample sizes allow, users may consider increasing the thinning distance
+until Moran's I values fall below approximately 0.5, corresponding to moderate
+spatial autocorrelation (Legendre, 1993; Fortin & Dale, 2005). This threshold
+is intentionally conservative and should be interpreted as a practical
+diagnostic rather than a universal rule. The goal is to reduce residual spatial
+dependence to biologically acceptable levels while retaining enough occurrence
+records for downstream analyses (Dormann et al., 2007).
+}
+\references{
+Aiello-Lammens, M. E., Boria, R. A., Radosavljevic, A., Vilela, B., &
+Anderson, R. P. (2015). spThin: An R package for spatial thinning of species
+occurrence records for use in ecological niche models. \emph{Ecography},
+38(5), 541-545. https://doi.org/10.1111/ecog.01132
+
+Boria, R. A., Olson, L. E., Goodman, S. M., & Anderson, R. P. (2014). Spatial
+filtering to reduce sampling bias can improve the performance of ecological
+niche models. \emph{Ecological Modelling}, 275, 73-77.
+https://doi.org/10.1016/j.ecolmodel.2013.12.012
+
+Dormann, C. F., M. McPherson, J., B. Araújo, M., Bivand, R., Bolliger, J.,
+Carl, G., G. Davies, R., Hirzel, A., Jetz, W., Daniel Kissling, W., Kühn, I.,
+Ohlemüller, R., R. Peres-Neto, P., Reineking, B., Schröder, B., M. Schurr,
+F., & Wilson, R. (2007). Methods to account for spatial autocorrelation in
+the analysis of species distributional data: A review. \emph{Ecography},
+30(5), 609-628. https://doi.org/10.1111/j.2007.0906-7590.05171.x
+
+Fortin, M.-J., & Dale, M. R. T. (2005). \emph{Spatial analysis: A guide for
+ecologists}. Cambridge University Press.
+
+Fourcade, Y., Engler, J. O., Rödder, D., & Secondi, J. (2014). Mapping species
+distributions with MAXENT using a geographically biased sample of presence
+data: A performance assessment of methods for correcting sampling bias.
+\emph{PLOS ONE}, 9(5), e97122.
+https://doi.org/10.1371/journal.pone.0097122
+
+Inman, R., Franklin, J., Esque, T., & Nussear, K. (2021). Comparing sample
+bias correction methods for species distribution modeling using virtual
+species. \emph{Ecosphere}, 12(3). https://doi.org/10.1002/ecs2.3422
+
+Kramer-Schadt, S., Niedballa, J., Pilgrim, J. D., Schröder, B., Lindenborn,
+J., Reinfelder, V., Stillfried, M., Heckmann, I., Scharf, A. K., Augeri,
+D. M., Cheyne, S. M., Hearn, A. J., Ross, J., Macdonald, D. W., Mathai, J.,
+Eaton, J., Marshall, A. J., Semiadi, G., Rustam, R., et al. (2013). The
+importance of correcting for sampling bias in MaxEnt species distribution
+models. \emph{Diversity and Distributions}, 19(11), 1366-1379.
+https://doi.org/10.1111/ddi.12096
+
+Lamboley, Q., & Fourcade, Y. (2024). No optimal spatial filtering distance for
+mitigating sampling bias in ecological niche models. \emph{Journal of
+Biogeography}, 51(9), 1783-1794. https://doi.org/10.1111/jbi.14854
+
+Legendre, P. (1993). Spatial autocorrelation: Trouble or new paradigm?
+\emph{Ecology}, 74(6), 1659-1673. https://doi.org/10.2307/1939924
+
+Moran, P. A. P. (1950). Notes on continuous stochastic phenomena.
+\emph{Biometrika}, 37, 17-23.
+
+Veloz, S. D. (2009). Spatially autocorrelated sampling falsely inflates
+measures of accuracy for presence-only niche models. \emph{Journal of
+Biogeography}, 36(12), 2290-2299.
+https://doi.org/10.1111/j.1365-2699.2009.02174.x
 }

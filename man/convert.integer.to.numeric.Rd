@@ -7,8 +7,7 @@
 convert.integer.to.numeric(dataframe)
 }
 \arguments{
-\item{dataframe}{A \code{data.frame} or tibble. Integer columns are converted to
-numeric; all other columns are returned unchanged.}
+\item{dataframe}{A \code{data.frame} or tibble.}
 }
 \value{
 A \code{data.frame} with the same dimensions, row order, and column names

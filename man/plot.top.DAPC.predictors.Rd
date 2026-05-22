@@ -38,75 +38,114 @@
 )
 }
 \arguments{
-\item{dapc.results}{DAPC result object or wrapper list containing variable
-contribution information.}
+\item{dapc.results}{DAPC result object returned by
+\code{run.DAPC.crossval.permutation()}, or a nested object containing
+\verb{$dapc_results}. The object must contain variable contribution information.}
 
-\item{group.colors}{Character vector of colors used for the plotted groups.}
+\item{group.colors}{Character vector of two colors used for the plotted groups.
+Can be named with group levels to enforce a specific group-color mapping
+(default: \code{c("#00005A", "darkgrey")}).}
 
-\item{predictor.data}{A \code{data.frame} containing the raw predictor values to
-plot for the top contributing variables.}
+\item{predictor.data}{A \code{data.frame} or matrix containing the raw predictor
+values to plot for the top contributing variables.}
 
 \item{species.labels}{Factor or character vector giving group identity for
-rows in \code{predictor.data}.}
+rows in \code{predictor.data}. Exactly two groups are required.}
 
-\item{N.top.variables}{A single positive integer giving the number of top
-contributing variables to plot.}
+\item{N.top.variables}{A single positive integer-like numeric value giving the
+number of top contributing variables to plot (default: \code{6}).}
 
-\item{alpha.density}{Numeric transparency for density fills.}
+\item{alpha.density}{A single numeric value between \code{0} and \code{1} controlling
+transparency of density fills (default: \code{0.75}).}
 
-\item{axis.ticks.font.size}{Numeric font size for axis tick labels.}
+\item{axis.ticks.font.size}{A single positive numeric value giving the axis
+tick-label font size (default: \code{7}).}
 
-\item{axis.labels.font.size}{Numeric font size for axis titles.}
+\item{axis.labels.font.size}{A single positive numeric value giving the axis
+title font size (default: \code{9.1}).}
 
-\item{variable.font.size}{Numeric font size for facet labels or variable
-labels.}
+\item{variable.font.size}{A single positive numeric value giving the facet
+label font size for variable names (default: \code{9.1}).}
 
-\item{legend.label}{Legend title.}
+\item{legend.label}{A single character string giving the legend title
+(default: \code{"Species"}).}
 
-\item{legend.position}{Legend position.}
+\item{legend.position}{Legend position. Either one of \code{"right"}, \code{"left"},
+\code{"top"}, \code{"bottom"}, \code{"none"}, or a numeric vector \code{c(x, y)}
+(default: \code{"right"}).}
 
-\item{legend.title.font.size}{Numeric font size for the legend title.}
+\item{legend.title.font.size}{A single positive numeric value giving the
+legend title font size (default: \code{9.1}).}
 
-\item{legend.text.font.size}{Numeric font size for legend entries.}
+\item{legend.text.font.size}{A single positive numeric value giving the legend
+text font size (default: \code{9.1}).}
 
-\item{legend.text.italics}{Logical; if \code{TRUE}, italicize legend text.}
+\item{legend.text.italics}{Logical; if \code{TRUE}, legend entries are italicized
+(default: \code{FALSE}).}
 
-\item{legend.symbol.size}{Numeric size of legend symbols.}
+\item{legend.symbol.size}{A single positive numeric value giving the legend
+key size in points (default: \code{15}).}
 
-\item{add.title}{Logical; if \code{TRUE}, add a plot title.}
+\item{add.title}{Logical; if \code{TRUE}, a plot title is added (default: \code{TRUE}).}
 
-\item{title.font.size}{Numeric font size for the plot title.}
+\item{title.font.size}{A single positive numeric value giving the plot title
+font size (default: \code{9.1}).}
 
-\item{title.text}{Plot title text.}
+\item{title.text}{Optional character string giving the plot title when
+\code{add.title = TRUE}. If \code{NULL}, a title is generated automatically
+(default: \code{NULL}).}
 
-\item{plot.nrow}{Number of rows in the faceted plot layout.}
+\item{plot.nrow}{Optional single positive integer-like numeric value giving
+the number of rows in the faceted plot layout. If \code{NULL}, this is determined
+automatically (default: \code{NULL}).}
 
-\item{plot.ncol}{Number of columns in the faceted plot layout.}
+\item{plot.ncol}{Optional single positive integer-like numeric value giving
+the number of columns in the faceted plot layout. If \code{NULL}, this is
+determined automatically (default: \code{NULL}).}
 
-\item{show.plot}{Logical; if \code{TRUE}, print/return the plot.}
+\item{show.plot}{Logical; if \code{TRUE}, the plot is returned visibly
+(default: \code{TRUE}).}
 
-\item{save}{Logical; if \code{TRUE}, save the plot to disk.}
+\item{save}{Logical; if \code{TRUE}, the plot is saved to disk
+(default: \code{FALSE}).}
 
-\item{overwrite}{Logical; if \code{TRUE}, allow overwriting an existing file.}
+\item{overwrite}{Logical; if \code{TRUE}, an existing file is overwritten when
+\code{save = TRUE} (default: \code{FALSE}).}
 
-\item{filename}{File name used when \code{save = TRUE}, without extension.}
+\item{filename}{A single character string giving the output filename without
+extension when \code{save = TRUE} (default: \code{"top_DAPC_predictors"}).}
 
-\item{output.dir}{Output directory used when \code{save = TRUE}.}
+\item{output.dir}{Optional character string giving the directory for saved
+plots when \code{save = TRUE} (default: \code{NULL}; if \code{NULL}, the current working
+directory is used).}
 
-\item{type}{Output file type when saving.}
+\item{type}{A single character string giving the output file type. One of
+\code{"png"}, \code{"svg"}, or \code{"jpg"} (default: \code{"svg"}).}
 
-\item{width}{Plot width when saving.}
+\item{width}{A single positive numeric value giving plot width in centimeters
+when \code{save = TRUE} (default: \code{16}).}
 
-\item{height}{Plot height when saving.}
+\item{height}{A single positive numeric value giving plot height in
+centimeters when \code{save = TRUE} (default: \code{10}).}
 
-\item{resolution}{Plot resolution in dpi when saving.}
+\item{resolution}{A single positive numeric value giving plot resolution in
+dpi when saving raster formats (default: \code{300}).}
 
-\item{verbose}{Logical; if \code{TRUE}, print progress messages.}
+\item{verbose}{Logical; if \code{TRUE}, progress messages are printed
+(default: \code{TRUE}).}
 }
 \value{
-A ggplot object.
+A \code{ggplot} object. If \code{show.plot = TRUE}, the plot is returned
+visibly; otherwise it is returned invisibly.
 }
 \description{
 Plot density distributions of the top environmental predictors contributing to
-DAPC separation, faceted across the highest-contributing variables.
+DAPC separation.
+}
+\details{
+This plot links the multivariate DAPC discriminant axis back to the original
+environmental predictors by showing the distributions of the variables with
+the highest contributions to group separation. These top-predictor density
+plots show how the most influential original variables differ between groups.
+Variables are ranked by their DAPC contribution values.
 }

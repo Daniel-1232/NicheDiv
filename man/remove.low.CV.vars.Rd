@@ -2,7 +2,7 @@
 % Please edit documentation in R/NicheDiv-functions.R
 \name{remove.low.CV.vars}
 \alias{remove.low.CV.vars}
-\title{Remove low-information variables based on coefficient of variation}
+\title{Remove low-information variables}
 \usage{
 remove.low.CV.vars(
   Sp1.occurrence.data,
@@ -28,14 +28,14 @@ data for species 1.}
 data for species 2.}
 
 \item{exclude.cols}{Optional character vector of column names to exclude from
-filtering and retain in the returned datasets.}
+filtering and retain in the returned datasets (default: \code{NULL}).}
 
 \item{CV.threshold}{A single non-negative numeric value giving the minimum
 coefficient of variation required for a variable to be retained. Variables
-falling below this threshold in either species are removed.}
+falling below this threshold in either species are removed (default: \code{0.01}).}
 
 \item{verbose}{Logical; if \code{TRUE}, messages describing removed and retained
-variables are printed.}
+variables are printed (default: \code{TRUE}).}
 }
 \value{
 A named list with filtered occurrence and background datasets
@@ -46,8 +46,83 @@ non-numeric (\code{dropped_non_numeric}), had too few finite observations
 \code{kept_variables} for the retained environmental predictors.
 }
 \description{
-Remove environmental predictors that show negligible variation in either
-species' occurrence data, while keeping occurrence and background datasets
-synchronized. Non-numeric variables and variables with too few finite values
-are also removed before coefficient-of-variation filtering.
+Remove environmental predictors that show negligible variation based on
+coefficient of variation in either species' occurrence data, while keeping
+occurrence and background datasets synchronized. Non-numeric variables and
+variables with too few finite values are also removed before
+coefficient-of-variation filtering.
+}
+\details{
+Predictors with no or very low variability provide little discriminatory
+information because they contribute minimally to between-group separation in
+multivariate analyses. Including near-constant predictors increases
+dimensionality without adding meaningful signal, can worsen collinearity and
+numerical conditioning, and may contribute to unstable covariance estimates or
+singular matrices during principal component analysis or discriminant analysis
+(Dormann et al., 2013; Greenacre & Primicerio, 2014).
+
+The coefficient of variation is used to identify low-information predictors
+because it measures relative dispersion as the standard deviation scaled by
+the magnitude of the mean (Pearson, 1896; Sokal & Rohlf, 2012; Zar, 2010).
+This makes it unitless and scale-invariant, allowing environmental predictors
+measured in different units and magnitudes to be compared directly before
+standardization. In contrast, variance is unit-bearing and depends strongly on
+measurement scale, so variables with larger numeric units can appear more
+variable even when their relative dispersion is negligible.
+
+The default threshold (\code{CV.threshold = 0.01}) removes variables with less than
+one percent relative variability compared with their mean. Such variables are
+effectively constant across occurrences and are unlikely to provide useful
+discriminatory information. Filtering is applied using both species'
+occurrence datasets, so a predictor is removed if it has low relative
+variability in either species. This conservative rule avoids retaining
+predictors that may separate poorly because one species has little or no
+usable variation.
+
+Variables with too few finite observations are removed because sparse data
+cannot provide reliable estimates of variability. A coefficient of variation
+estimated from very few values is highly sensitive to individual observations
+and can give a misleading impression of predictor informativeness. Removing
+such variables reduces the risk of retaining predictors whose apparent
+variation reflects missingness or sampling artifacts rather than biological or
+environmental signal.
+
+For variables with means close to zero, the coefficient of variation can become
+unstable or undefined because very small denominators can spuriously inflate
+relative variability. In these cases, a scale-free fallback based on dispersion
+relative to robust absolute deviation is used to avoid treating near-zero means
+as evidence of high informativeness (Maronna et al., 2006; Zar, 2010). The
+same threshold is used for this fallback so that low-information filtering
+remains comparable across variables.
+
+The same retained variable set is applied to both occurrence and background
+datasets. This keeps species-specific occurrence and background inputs
+synchronized and prevents downstream analyses from using different predictor
+spaces for occurrence records and environmental backgrounds.
+}
+\references{
+Dormann, C. F., Elith, J., Bacher, S., Buchmann, C., Carl, G., Carré, G.,
+Marquéz, J. R. G., Gruber, B., Lafourcade, B., Leitão, P. J.,
+Münkemüller, T., McClean, C., Osborne, P. E., Reineking, B., Schröder, B.,
+Skidmore, A. K., Zurell, D., & Lautenbach, S. (2013). Collinearity: A
+review of methods to deal with it and a simulation study evaluating their
+performance. \emph{Ecography}, 36(1), 27-46.
+https://doi.org/10.1111/j.1600-0587.2012.07348.x
+
+Greenacre, M., & Primicerio, R. (2014). \emph{Multivariate analysis of
+ecological data}. Fundación BBVA.
+
+Maronna, R. A., Martin, R. D., & Yohai, V. J. (2006). \emph{Robust
+statistics}. Wiley. https://doi.org/10.1002/0470010940
+
+Pearson, K. (1896). VII. Mathematical contributions to the theory of
+evolution.—III. Regression, heredity, and panmixia. \emph{Philosophical
+Transactions of the Royal Society of London. Series A, Containing Papers of
+a Mathematical or Physical Character}, 187, 253-318.
+https://doi.org/10.1098/rsta.1896.0007
+
+Sokal, R. R., & Rohlf, F. J. (2012). \emph{Biometry: The principles and
+practice of statistics in biological research} (4th ed.). W. H. Freeman.
+
+Zar, J. H. (2010). \emph{Biostatistical analysis}. Pearson.
 }

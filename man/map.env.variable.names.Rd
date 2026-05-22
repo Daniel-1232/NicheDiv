@@ -11,17 +11,40 @@ map.env.variable.names(
 )
 }
 \arguments{
-\item{input.data}{A data.frame or named vector.}
+\item{input.data}{A \code{data.frame}, named vector, or matrix with row names. For
+a \code{data.frame}, column names are mapped. For a named vector, vector names are
+mapped. For a matrix, row names are mapped.}
 
-\item{name.length}{Either \code{"full"} or \code{"short"}.}
+\item{name.length}{Character string specifying the label length to use. One of
+\code{"full"} for descriptive labels with units where available, or \code{"short"} for
+abbreviated labels (default: \code{"full"}).}
 
-\item{recognize.transformations}{Logical; preserve transformation suffixes in labels.}
+\item{recognize.transformations}{Logical; if \code{TRUE}, transformation suffixes
+such as \code{"_log"}, \code{"_sqrt"}, or \code{"_arcsine_sqrt"} are detected and preserved
+in the mapped label (default: \code{TRUE}).}
 }
 \value{
 The same object type as \code{input.data}. For a \code{data.frame}, column names
 are replaced by mapped environmental variable labels. For a named vector,
-vector names are replaced. Data values and row order are unchanged.
+vector names are replaced. For a matrix, row names are replaced. Data values,
+row order, and column order are unchanged.
 }
 \description{
-Map environmental variable names to readable labels.
+Replace internal abbreviated environmental variable names with readable
+full or shortened labels. The function can map column names of a \code{data.frame},
+names of a named vector, or row names of a matrix.
+}
+\details{
+This utility is used to convert compact environmental variable names into
+labels that are easier to interpret in tables and plots. Full labels are
+intended for descriptive output where units and temporal information are
+useful, whereas short labels are intended for compact visualizations or
+summaries where space is limited.
+
+When \code{recognize.transformations = TRUE}, the function first identifies known
+transformation suffixes and maps the base environmental variable name. The
+transformation suffix is then appended to the readable label, allowing
+transformed variables to remain identifiable while still using descriptive
+environmental names. Variable names that are not found in the mapping table are
+returned unchanged.
 }

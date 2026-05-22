@@ -32,65 +32,119 @@
 )
 }
 \arguments{
-\item{dapc.results}{DAPC result object containing variable contribution
-information.}
+\item{dapc.results}{DAPC result object returned by
+\code{run.DAPC.crossval.permutation()}, or a nested object containing
+\verb{$dapc_results}. The object must contain variable contributions, variable
+loadings, and group coordinates.}
 
-\item{group.colors}{Character vector of colors used for the plotted groups or
-contribution directions.}
+\item{group.colors}{Character vector of two colors used for the plotted groups
+or contribution directions. Can be named with group levels to enforce a
+specific group-color mapping (default: \code{c("#00005A", "darkgrey")}).}
 
-\item{min.contribution.threshold}{A single non-negative numeric value giving
-the minimum contribution required for a variable to be plotted.}
+\item{min.contribution.threshold}{Optional single non-negative numeric value
+giving the minimum contribution required for a variable to be plotted
+(default: \code{NULL}).}
 
-\item{top.N}{Optional positive integer limiting the plot to the top
-contributing variables.}
+\item{top.N}{Optional single positive integer-like numeric value limiting the
+plot to the top contributing variables after ordering by contribution
+(default: \code{NULL}).}
 
-\item{axis.labels.font.size}{Numeric font size for axis titles.}
+\item{axis.labels.font.size}{A single positive numeric value giving the axis
+title font size (default: \code{9.1}).}
 
-\item{axis.ticks.font.size}{Numeric font size for axis tick labels.}
+\item{axis.ticks.font.size}{A single positive numeric value giving the axis
+tick-label font size (default: \code{7}).}
 
-\item{title.font.size}{Numeric font size for the plot title.}
+\item{title.font.size}{A single positive numeric value giving the plot title
+font size (default: \code{9.1}).}
 
-\item{legend.title.font.size}{Numeric font size for the legend title.}
+\item{legend.title.font.size}{A single positive numeric value giving the
+legend title font size (default: \code{9.1}).}
 
-\item{legend.text.font.size}{Numeric font size for legend entries.}
+\item{legend.text.font.size}{A single positive numeric value giving the legend
+text font size (default: \code{9.1}).}
 
-\item{legend.text.italics}{Logical; if \code{TRUE}, italicize legend text.}
+\item{legend.text.italics}{Logical; if \code{TRUE}, legend entries are italicized
+(default: \code{FALSE}).}
 
-\item{legend.symbol.size}{Numeric size of legend symbols.}
+\item{legend.symbol.size}{A single positive numeric value giving the legend
+key size in points (default: \code{15}).}
 
-\item{legend.position}{Legend position.}
+\item{legend.position}{Legend position. Either one of \code{"right"}, \code{"left"},
+\code{"top"}, \code{"bottom"}, \code{"none"}, or a numeric vector \code{c(x, y)}
+(default: \code{"right"}).}
 
-\item{add.title}{Logical; if \code{TRUE}, add a plot title.}
+\item{add.title}{Logical; if \code{TRUE}, a plot title is added (default: \code{TRUE}).}
 
-\item{title.text}{Plot title text.}
+\item{title.text}{A single character string giving the plot title when
+\code{add.title = TRUE} (default: \code{"Variable contributions to niche divergence"}).}
 
-\item{show.plot}{Logical; if \code{TRUE}, print/return the plot.}
+\item{show.plot}{Logical; if \code{TRUE}, the plot is displayed
+(default: \code{TRUE}).}
 
-\item{save}{Logical; if \code{TRUE}, save the plot to disk.}
+\item{save}{Logical; if \code{TRUE}, the plot is saved to disk
+(default: \code{FALSE}).}
 
-\item{overwrite}{Logical; if \code{TRUE}, allow overwriting an existing file.}
+\item{overwrite}{Logical; if \code{TRUE}, an existing file is overwritten when
+\code{save = TRUE} (default: \code{FALSE}).}
 
-\item{filename}{File name used when \code{save = TRUE}, without extension.}
+\item{filename}{A single character string giving the output filename without
+extension when \code{save = TRUE} (default: \code{"DAPC_var_contributions"}).}
 
-\item{output.dir}{Output directory used when \code{save = TRUE}.}
+\item{output.dir}{Optional character string giving the directory for saved
+plots when \code{save = TRUE} (default: \code{NULL}; if \code{NULL}, the current working
+directory is used).}
 
-\item{type}{Output file type when saving.}
+\item{type}{A single character string giving the output file type. One of
+\code{"png"}, \code{"svg"}, or \code{"jpg"} (default: \code{"svg"}).}
 
-\item{width}{Plot width when saving.}
+\item{width}{A single positive numeric value giving plot width in centimeters
+when \code{save = TRUE} (default: \code{20}).}
 
-\item{height}{Plot height when saving.}
+\item{height}{A single positive numeric value giving plot height in
+centimeters when \code{save = TRUE} (default: \code{15}).}
 
-\item{resolution}{Plot resolution in dpi when saving.}
+\item{resolution}{A single positive numeric value giving plot resolution in
+dpi when saving raster formats (default: \code{300}).}
 
-\item{verbose}{Logical; if \code{TRUE}, print progress messages.}
+\item{verbose}{Logical; if \code{TRUE}, progress messages are printed
+(default: \code{TRUE}).}
 }
 \value{
-A \code{data.frame} containing the plotted variable contributions. When
-\code{show.plot = TRUE}, the function also displays the ggplot as a side effect.
-When \code{save = TRUE}, the ggplot is also saved to disk using \code{filename},
-\code{output.dir}, and \code{type}.
+A \code{data.frame} containing the plotted variable contributions,
+loadings, and inferred contribution directions. If \code{show.plot = TRUE}, the
+plot is displayed as a side effect. If \code{save = TRUE}, the plot is also saved
+to disk using \code{filename}, \code{output.dir}, and \code{type}.
 }
 \description{
 Plot the relative contributions of environmental variables to the DAPC
-discriminant axis.
+discriminant axis and indicate group associated with higher values for
+each variable.
+}
+\details{
+Variable contributions identify environmental predictors that contribute most
+strongly to separation along the DAPC discriminant axis. The discriminant axis
+is a linear combination of retained principal components, which are themselves
+linear combinations of the original predictors. Back-transforming the
+discriminant axis to the original predictor space gives each variable a
+loading that reflects its weight in the fitted discrimination.
+
+Contributions are calculated from squared loadings normalized to sum to one,
+so each value represents the relative proportion of discrimination associated
+with a predictor. Larger values indicate stronger contribution to separation
+along the discriminant axis, whereas values near zero indicate little
+contribution to the fitted group separation.
+
+The direction of effect is determined from the sign of each variable loading
+relative to the group centroids on the discriminant axis. This indicates which
+group is associated with higher values of each predictor along the fitted
+discriminant direction. The direction should be interpreted as an axis-based
+association, not as evidence of an independent causal effect.
+
+Variable contributions should be interpreted cautiously when predictors are
+strongly correlated. PCA reduces collinearity for model fitting, but the
+back-transformed contributions still reflect shared covariance structure among
+the original predictors. Therefore, high contributions indicate variables or
+correlated variable sets associated with niche divergence, rather than fully
+independent effects of individual predictors.
 }

@@ -18,16 +18,17 @@ transform.}
 
 \item{background.dataframe}{Optional \code{data.frame} to which the same
 transformations selected for \code{data.frame} are applied. Shared column names
-are required when this argument is supplied.}
+are required when this argument is supplied (default: \code{NULL}).}
 
 \item{skewness.threshold}{A single positive numeric value giving the absolute
-skewness threshold above which variables are considered for transformation.}
+skewness threshold above which variables are considered for transformation
+(default: \code{1}).}
 
 \item{exclude.cols}{Optional character vector of column names to leave
-unchanged and carry through to the output.}
+unchanged and carry through to the output (default: \code{NULL}).}
 
 \item{verbose}{Logical; if \code{TRUE}, a summary of the number and type of
-transformations applied is printed.}
+transformations applied is printed (default: \code{TRUE}).}
 }
 \value{
 A named list with three elements: \code{transformed}, the transformed
@@ -37,10 +38,68 @@ transformation; and \code{background.transformed}, the transformed background
 table if \code{background.dataframe} was supplied, otherwise \code{NULL}.
 }
 \description{
-Evaluate numeric variables for skewness and, when appropriate, apply a
+Evaluate numeric variables for skewness and (when appropriate) apply a
 transformation that reduces absolute skewness. The same transformation rules
 can optionally be applied to a matching background dataset so that occurrence
 and background data remain on the same scale.
+}
+\details{
+Skewed environmental variables are transformed to stabilize variance, reduce
+the influence of extreme values, and limit the disproportionate effect of
+heavy-tailed predictors on multivariate analyses. Strongly right- or
+left-skewed variables can dominate the first few principal component axes and
+bias discriminant functions toward variables with long tails, compressed
+ranges, or extreme observations (Bartlett, 1947; Box & Cox, 1964; Osborne,
+2010). Transforming skewed variables before ordination or discrimination can
+therefore improve comparability among predictors and reduce artifacts caused
+by differences in distributional shape rather than biological signal.
+
+Skewness quantifies the asymmetry of a distribution by comparing the relative
+weight of its left and right tails (Fisher, 1930; Joanes & Gill, 1998). Values
+near zero indicate approximate symmetry, positive values indicate a longer
+right tail, and negative values indicate a longer left tail. The default
+threshold of \code{skewness.threshold = 1} treats variables with absolute skewness
+greater than or equal to one as substantially asymmetric and therefore
+candidates for transformation (Bulmer, 1979; Doane & Seward, 2011).
+
+Different transformations are appropriate for different data ranges because
+environmental predictors can be strictly positive, non-negative with zeros,
+bounded proportions, or variables that include negative values. For strictly
+positive variables, logarithmic and square-root transformations are commonly
+used to reduce right skew, with logarithmic transformations providing stronger
+compression of long right tails (Bartlett, 1947; Box & Cox, 1964; Emerson &
+Stoto, 1983). For non-negative variables that include zeros, transformations
+that safely accommodate zero values are used to avoid undefined logarithms
+while still reducing the influence of large values (Cleveland, 1984; Emerson &
+Stoto, 1983).
+
+Continuous proportion variables bounded between zero and one require special
+consideration because their variance and skewness often depend strongly on
+proximity to the boundaries. Logit-type transformations can spread values near
+zero and one while preserving mid-range differences, whereas arcsine
+square-root transformations have historically been used for bounded
+proportional data, especially when values are concentrated near the
+boundaries. Because these transformations can behave differently depending on
+the distribution of the data, the selected transformation should reduce
+skewness rather than be applied automatically to all proportional variables
+(Warton & Hui, 2011).
+
+Variables containing negative values require transformations that preserve
+ordering while allowing the full observed range to be retained. Shifted
+transformations and power-type transformations are useful in this context
+because they can reduce asymmetry without discarding negative observations or
+forcing arbitrary truncation of the data range (Manly, 1976; Tukey, 1977; John
+& Draper, 1980). Signed power transformations, such as signed cube-root
+transformations, can be especially useful when variables span both negative
+and positive values because they preserve sign while reducing the influence of
+extreme magnitudes.
+
+Variables with too few unique finite values, binary variables, and other
+two-level variables are not transformed because continuous transformations
+provide little benefit for such predictors and can make their interpretation
+less clear. When occurrence and background datasets are supplied together, the
+same selected transformation is applied to both datasets so that environmental
+values remain directly comparable across occurrence and background samples.
 }
 \examples{
 env.data <- data.frame(
@@ -58,4 +117,53 @@ result <- transform.skewed.variables(
 names(result)
 head(result$transformed)
 
+}
+\references{
+Bartlett, M. S. (1947). The use of transformations. \emph{Biometrics}, 3(1),
+39. https://doi.org/10.2307/3001536
+
+Box, G. E. P., & Cox, D. R. (1964). An analysis of transformations.
+\emph{Journal of the Royal Statistical Society Series B: Statistical
+Methodology}, 26(2), 211-243.
+https://doi.org/10.1111/j.2517-6161.1964.tb00553.x
+
+Bulmer, M. G. (1979). \emph{Principles of statistics}. Dover Publications.
+
+Cleveland, W. S. (1984). Graphical methods for data presentation: Full scale
+breaks, dot charts, and multibased logging. \emph{The American Statistician},
+38(4), 270-280. https://doi.org/10.1080/00031305.1984.10483224
+
+Doane, D. P., & Seward, L. E. (2011). Measuring skewness: A forgotten
+statistic? \emph{Journal of Statistics Education}, 19(2).
+https://doi.org/10.1080/10691898.2011.11889611
+
+Emerson, J. D., & Stoto, M. A. (1983). Transforming data. In
+\emph{Understanding robust and exploratory data analysis} (pp. 97-128).
+Wiley.
+
+Fisher, R. A. (1930). Moments and product moments of sampling distributions.
+\emph{Proceedings of the London Mathematical Society}, s2-30(1), 199-238.
+https://doi.org/10.1112/plms/s2-30.1.199
+
+Joanes, D. N., & Gill, C. A. (1998). Comparing measures of sample skewness
+and kurtosis. \emph{Journal of the Royal Statistical Society: Series D
+(The Statistician)}, 47(1), 183-189.
+https://doi.org/10.1111/1467-9884.00122
+
+John, J. A., & Draper, N. R. (1980). An alternative family of transformations.
+\emph{Applied Statistics}, 29(2), 190.
+https://doi.org/10.2307/2986305
+
+Manly, B. F. J. (1976). Exponential data transformations. \emph{The
+Statistician}, 25(1), 37. https://doi.org/10.2307/2988129
+
+Osborne, J. (2010). Improving your data transformations: Applying the Box-Cox
+transformation. \emph{Practical Assessment, Research, and Evaluation},
+15(1), 12. https://doi.org/10.7275/qbpc-gk17
+
+Tukey, J. W. (1977). \emph{Exploratory data analysis}. Addison-Wesley.
+
+Warton, D. I., & Hui, F. K. C. (2011). The arcsine is asinine: The analysis of
+proportions in ecology. \emph{Ecology}, 92(1), 3-10.
+https://doi.org/10.1890/10-0340.1
 }

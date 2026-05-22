@@ -18,8 +18,7 @@ NULL
 #' occurrence or background data contain integer storage modes that should be
 #' treated as numeric in downstream calculations.
 #'
-#' @param dataframe A `data.frame` or tibble. Integer columns are converted to
-#'   numeric; all other columns are returned unchanged.
+#' @param dataframe A `data.frame` or tibble.
 #'
 #' @return A `data.frame` with the same dimensions, row order, and column names
 #'   as `dataframe`, except that any columns of type integer are converted to
@@ -50,9 +49,9 @@ convert.integer.to.numeric <- function(dataframe) {
 #'   background points to be clipped to the buffered extent. It must contain the
 #'   same coordinate columns as `occurrence.data`.
 #' @param latitude.col A single character string giving the latitude column name
-#'   in both input tables. Default is `"Latitude"`.
+#'   in both input tables. Default: `"Latitude"`.
 #' @param longitude.col A single character string giving the longitude column
-#'   name in both input tables. Default is `"Longitude"`.
+#'   name in both input tables. Default: `"Longitude"`.
 #' @param CRS Coordinate reference system of the input coordinates, supplied as
 #'   an EPSG string (for example `"EPSG:4326"`) or an `sf` CRS object. If the
 #'   CRS is geographic, longitude/latitude ranges are checked and buffering is
@@ -70,10 +69,116 @@ convert.integer.to.numeric <- function(dataframe) {
 #' @param verbose Logical; if `TRUE`, progress messages about dropped rows and
 #'   retained background points are printed.
 #'
+#' @details
+#' The convex hull (`buffer.method = "hull"`) is the default geometry because it
+#' provides a robust, simple, and biologically meaningful approximation of the
+#' accessible area (`M`; Soberón & Peterson, 2005; Barve et al., 2011; Owens et
+#' al., 2013). The convex hull traces the outer extent of occurrence records and
+#' can approximate the area that has likely been accessible to the species,
+#' especially when expanded by an ecologically informed dispersal buffer. Compared
+#' with bounding boxes, convex hulls usually avoid strongly overinflated areas,
+#' and compared with concave hulls, they avoid dependence on an additional shape
+#' parameter.
+#'
+#' Three alternative geometries are also available. Concave hulls
+#' (`buffer.method = "alpha"`) can follow the detailed shape of occurrence
+#' distributions and may better approximate complex ranges, but they are
+#' sensitive to the concavity parameter (`alpha`; Edelsbrunner & Mücke, 1994;
+#' Pateiro-López & Rodríguez-Casal, 2010; Fourcade, 2016). Lower `alpha` values
+#' produce more concave outlines that fit the points more closely but may create
+#' holes, fragmentation, or unstable geometries. Higher `alpha` values produce
+#' smoother outlines that increasingly resemble the convex hull. The default
+#' `alpha = 3` is intended as a robust compromise that captures some range
+#' complexity while reducing over-fragmentation (Fourcade, 2016;
+#' Pateiro-López & Rodríguez-Casal, 2010).
+#'
+#' Per-point buffers (`buffer.method = "points"`) generate local circular buffers
+#' around each occurrence record and unite those buffers into a single clipping
+#' geometry. This can be useful for fragmented or disjunct distributions because
+#' it does not force distant occurrence clusters into one continuous polygon
+#' (Anderson & Raza, 2010; Fourcade et al., 2014). However, per-point buffers can
+#' also produce patchy outlines and are most useful when background sampling is
+#' dense enough to retain sufficient points within the buffered areas.
+#'
+#' Bounding boxes (`buffer.method = "bbox"`) provide the most inclusive geometry
+#' by enclosing all occurrence records within a rectangle defined by the minimum
+#' and maximum coordinate values. Bounding boxes are simple and can retain larger
+#' background sample sizes, but they are usually the least realistic approximation
+#' of the accessible area and can substantially overestimate the environmental
+#' conditions available to a species (Phillips et al., 2006; Peterson et al.,
+#' 2007, 2011; VanDerWal et al., 2009). They should generally be avoided unless
+#' occurrence sample sizes or very small species distributions make the other
+#' methods too restrictive.
+#'
 #' @return A filtered `data.frame` containing only the rows of
 #'   `background.data` whose coordinates fall within the buffered clipping
 #'   geometry. Column structure and row order from the retained background rows
 #'   are preserved.
+#'
+#' @references
+#' Anderson, R. P., & Raza, A. (2010). The effect of the extent of the study
+#'   region on GIS models of species geographic distributions and estimates of
+#'   niche evolution: preliminary tests with montane rodents (genus Nephelomys)
+#'   in Venezuela. \emph{Journal of Biogeography}, 37(7), 1378-1393.
+#'   https://doi.org/10.1111/j.1365-2699.2010.02290.x
+#'
+#' Barve, N., Barve, V., Jiménez-Valverde, A., Lira-Noriega, A., Maher, S. P.,
+#'   Peterson, A. T., Soberón, J., & Villalobos, F. (2011). The crucial role of
+#'   the accessible area in ecological niche modeling and species distribution
+#'   modeling. \emph{Ecological Modelling}, 222(11), 1810-1819.
+#'   https://doi.org/10.1016/j.ecolmodel.2011.02.011
+#'
+#' Edelsbrunner, H., & Mücke, E. P. (1994). Three-dimensional alpha shapes.
+#'   \emph{ACM Transactions on Graphics}, 13(1), 43-72.
+#'   https://doi.org/10.1145/174462.156635
+#'
+#' Fourcade, Y. (2016). Comparing species distributions modelled from occurrence
+#'   data and from expert-based range maps. Implication for predicting range
+#'   shifts with climate change. \emph{Ecological Informatics}, 36, 8-14.
+#'   https://doi.org/10.1016/j.ecoinf.2016.09.002
+#'
+#' Fourcade, Y., Engler, J. O., Rödder, D., & Secondi, J. (2014). Mapping species
+#'   distributions with MAXENT using a geographically biased sample of presence
+#'   data: A performance assessment of methods for correcting sampling bias.
+#'   \emph{PLOS ONE}, 9(5), e97122.
+#'   https://doi.org/10.1371/journal.pone.0097122
+#'
+#' Owens, H. L., Campbell, L. P., Dornak, L. L., Saupe, E. E., Barve, N.,
+#'   Soberón, J., Ingenloff, K., Lira-Noriega, A., Hensz, C. M., Myers, C. E.,
+#'   & Peterson, A. T. (2013). Constraints on interpretation of ecological niche
+#'   models by limited environmental ranges on calibration areas.
+#'   \emph{Ecological Modelling}, 263, 10-18.
+#'   https://doi.org/10.1016/j.ecolmodel.2013.04.011
+#'
+#' Pateiro-López, B., & Rodríguez-Casal, A. (2010). Generalizing the convex hull
+#'   of a sample: The R package alphahull. \emph{Journal of Statistical
+#'   Software}, 34(5).
+#'   https://doi.org/10.18637/jss.v034.i05
+#'
+#' Peterson, A. T., Papeş, T., & Eaton, M. (2007). Transferability and model
+#'   evaluation in ecological niche modeling: A comparison of GARP and Maxent.
+#'   \emph{Ecography}, 30(4), 550-560.
+#'   https://doi.org/10.1111/j.0906-7590.2007.05102.x
+#'
+#' Peterson, A. T., Soberón, J., Pearson, R. G., Anderson, R. P.,
+#'   Martínez-Meyer, E., Nakamura, M., & Araújo, M. B. (2011). \emph{Ecological
+#'   niches and geographic distributions}. Princeton University Press.
+#'   https://doi.org/10.1515/9781400840670
+#'
+#' Phillips, S. J., Anderson, R. P., & Schapire, R. E. (2006). Maximum entropy
+#'   modeling of species geographic distributions. \emph{Ecological Modelling},
+#'   190(3-4), 231-259.
+#'   https://doi.org/10.1016/j.ecolmodel.2005.03.026
+#'
+#' Soberón, J., & Peterson, A. T. (2005). Interpretation of models of fundamental
+#'   ecological niches and species' distributional areas. \emph{Biodiversity
+#'   Informatics}, 2(0).
+#'   https://doi.org/10.17161/bi.v2i0.4
+#'
+#' VanDerWal, J., Shoo, L. P., Graham, C., & Williams, S. E. (2009). Selecting
+#'   pseudo-absence data for presence-only distribution modeling: How far should
+#'   you stray from what you know? \emph{Ecological Modelling}, 220(4), 589-594.
+#'   https://doi.org/10.1016/j.ecolmodel.2008.11.010
 #'
 #' @export
 crop.background.buffered <- function(occurrence.data, #input data.frame or tibble with occurrence records (must include latitude and longitude cols)
@@ -213,7 +318,7 @@ crop.background.buffered <- function(occurrence.data, #input data.frame or tibbl
 #' Poisson-tail weights; alternatively, uniform random sampling can be used.
 #'
 #' @param dataframe A `data.frame`, tibble, or `sf` object to sample from.
-#' @param N.rows A single positive integer giving the number of rows to retain.
+#' @param N.rows A positive integer giving the number of rows to retain.
 #'   If `N.rows` is greater than or equal to the number of available rows, the
 #'   original object is returned unchanged.
 #' @param prioritize.NA.poisson Logical; if `TRUE` (default), rows with fewer
@@ -221,9 +326,9 @@ crop.background.buffered <- function(occurrence.data, #input data.frame or tibbl
 #'   weights. If `FALSE`, rows are sampled uniformly without replacement.
 #' @param poisson.lambda Optional positive numeric value controlling the
 #'   steepness of the Poisson-tail weighting applied to row-wise NA counts. If
-#'   `NULL`, the median row-wise NA count is used.
+#'   `NULL` (default), the median row-wise NA count is used.
 #' @param seed A single numeric value used to set the random seed for
-#'   reproducible sampling.
+#'   reproducible sampling (default: 1).
 #'
 #' @return An object containing the sampled rows. The returned object has the
 #'   same class and columns as `dataframe` whenever possible (including `sf`
@@ -300,46 +405,144 @@ sample.down <- function(dataframe, #input dataframe to sample from
 }
 
 
-## Function to perform spatial thinning and check remaining spatial autocorrelation (using Moran's I)
-#' Spatially thin occurrence records
+## Function to perform spatial thinning and check remaining spatial autocorrelation
+#' Spatially thin occurrence records and evaluate remaining spatial autocorrelation
 #'
 #' Enforce a minimum nearest-neighbour distance among occurrence records by
-#' iteratively removing spatially redundant points. The function can run
-#' multiple thinning replicates, optionally prioritize retention of rows with
-#' fewer missing values, and optionally calculate and plot Moran's I values for
-#' the retained environmental variables as a diagnostic of residual spatial
-#' autocorrelation.
+#' iteratively removing spatially redundant points. The function runs multiple
+#' thinning replicates, prioritizes retention of rows with fewer missing values,
+#' and calculates and plots Moran's I values for retained numeric non-coordinate
+#' variables as a diagnostic of residual spatial autocorrelation.
 #'
 #' @param occurrence.data A `data.frame` or tibble containing occurrence records
 #'   with longitude and latitude coordinates in decimal degrees.
 #' @param latitude.col A single character string giving the latitude column
-#'   name. Default is `"Latitude"`.
+#'   name (default: `"Latitude"`).
 #' @param longitude.col A single character string giving the longitude column
-#'   name. Default is `"Longitude"`.
+#'   name (default: `"Longitude"`).
 #' @param thinning.dist.km A single positive numeric value giving the minimum
-#'   allowed distance, in kilometres, between retained occurrence records.
+#'   allowed distance, in kilometers, between retained occurrence records
+#'   (default: `1`).
 #' @param exclude.cols Optional character vector of non-environmental columns to
 #'   exclude from Moran's I calculations. Coordinate columns are excluded
-#'   automatically.
-#' @param N.thinning.replicates A single positive integer giving the number of
-#'   thinning replicates to run. The replicate retaining the most points is kept;
-#'   ties can be broken by total missingness when `prioritize.NA = TRUE`.
-#' @param calc.Morans.I Logical; if `TRUE`, Moran's I is calculated for numeric
-#'   variables in the thinned dataset as a diagnostic of residual spatial
-#'   autocorrelation.
+#'   automatically (default: `NULL`).
+#' @param N.thinning.replicates A single positive integer-like numeric value
+#'   giving the number of thinning replicates to run. The replicate retaining the
+#'   most points is kept; ties are broken by total missingness when
+#'   `prioritize.NA = TRUE` (default: `100`).
+#' @param calc.Morans.I Logical; if `TRUE`, Moran's I is calculated for retained
+#'   numeric non-coordinate variables as a diagnostic of residual spatial
+#'   autocorrelation (default: `TRUE`).
 #' @param plot.Morans.I Logical; if `TRUE` and `calc.Morans.I = TRUE`, a
-#'   histogram of Moran's I values is plotted.
-#' @param prioritize.NA Logical; if `TRUE`, ties during thinning are resolved by
-#'   preferentially removing rows with more missing values and, when necessary,
-#'   by choosing the best replicate with the lowest total missingness.
+#'   histogram of Moran's I values is plotted (default: `TRUE`).
+#' @param prioritize.NA Logical; if `TRUE`, rows with more missing values are
+#'   preferentially removed during thinning conflicts and, when necessary, the
+#'   final replicate is chosen based on the lowest total missingness
+#'   (default: `TRUE`).
 #' @param seed A single numeric value used to set the random seed for
-#'   reproducibility.
+#'   reproducibility (default: `1`).
 #' @param verbose Logical; if `TRUE`, progress messages about thinning and the
-#'   Moran's I summary are printed.
+#'   Moran's I summary are printed (default: `TRUE`).
+#'
+#' @details
+#' Spatial thinning is used to reduce occurrence clustering, sampling bias, and
+#' residual spatial autocorrelation, all of which can influence ecological niche
+#' models and downstream environmental comparisons (Dormann et al., 2007; Veloz,
+#' 2009; Boria et al., 2014; Fourcade et al., 2014; Aiello-Lammens et al., 2015;
+#' Kramer-Schadt et al., 2013; Inman et al., 2021; Lamboley & Fourcade, 2024).
+#' Enforcing a minimum nearest-neighbour distance among occurrence records helps
+#' reduce the disproportionate influence of spatially clustered samples, which
+#' often reflect accessibility, collector effort, or database biases rather than
+#' biological density.
+#'
+#' The default thinning threshold (`thinning.dist.km = 1`) is intended to
+#' approximate the spatial resolution of many fine-scale environmental GIS layers
+#' commonly used in ecological niche modeling. However, no single thinning
+#' distance is universally appropriate. Suitable values depend on predictor
+#' resolution, occurrence density, the spatial structure of sampling bias, the
+#' biology of the study organism, and the geographic extent of the study system
+#' (Aiello-Lammens et al., 2015; Boria et al., 2014; Fourcade et al., 2014;
+#' Kramer-Schadt et al., 2013; Inman et al., 2021; Lamboley & Fourcade, 2024).
+#' Larger thinning distances may be appropriate when occurrence clustering
+#' reflects broad-scale sampling bias, whereas smaller distances may be preferable
+#' for narrowly distributed taxa, sparse datasets, fine-resolution predictors, or
+#' cases where stronger thinning would remove too many records (Veloz, 2009;
+#' Aiello-Lammens et al., 2015; Boria et al., 2014; Kramer-Schadt et al., 2013).
+#'
+#' Because thinning can reduce but does not necessarily eliminate spatial
+#' structure, residual spatial autocorrelation is evaluated with Moran's I
+#' (Moran, 1950). Moran's I provides a standardized measure of whether similar
+#' environmental values remain spatially clustered after thinning, which is
+#' important because spatial autocorrelation can inflate model performance, bias
+#' statistical inference, and reduce the effective independence of occurrence
+#' records (Legendre, 1993; Fortin & Dale, 2005; Dormann et al., 2007; Veloz,
+#' 2009).
+#'
+#' When sample sizes allow, users may consider increasing the thinning distance
+#' until Moran's I values fall below approximately 0.5, corresponding to moderate
+#' spatial autocorrelation (Legendre, 1993; Fortin & Dale, 2005). This threshold
+#' is intentionally conservative and should be interpreted as a practical
+#' diagnostic rather than a universal rule. The goal is to reduce residual spatial
+#' dependence to biologically acceptable levels while retaining enough occurrence
+#' records for downstream analyses (Dormann et al., 2007).
 #'
 #' @return A `data.frame` containing the retained occurrence rows after spatial
-#'   thinning. Any Moran's I statistics are produced as printed/graphical side
+#'   thinning. Moran's I statistics are produced as printed and/or graphical side
 #'   effects and are not returned as part of the output object.
+#'
+#' @references
+#' Aiello-Lammens, M. E., Boria, R. A., Radosavljevic, A., Vilela, B., &
+#'   Anderson, R. P. (2015). spThin: An R package for spatial thinning of species
+#'   occurrence records for use in ecological niche models. \emph{Ecography},
+#'   38(5), 541-545. https://doi.org/10.1111/ecog.01132
+#'
+#' Boria, R. A., Olson, L. E., Goodman, S. M., & Anderson, R. P. (2014). Spatial
+#'   filtering to reduce sampling bias can improve the performance of ecological
+#'   niche models. \emph{Ecological Modelling}, 275, 73-77.
+#'   https://doi.org/10.1016/j.ecolmodel.2013.12.012
+#'
+#' Dormann, C. F., M. McPherson, J., B. Araújo, M., Bivand, R., Bolliger, J.,
+#'   Carl, G., G. Davies, R., Hirzel, A., Jetz, W., Daniel Kissling, W., Kühn, I.,
+#'   Ohlemüller, R., R. Peres-Neto, P., Reineking, B., Schröder, B., M. Schurr,
+#'   F., & Wilson, R. (2007). Methods to account for spatial autocorrelation in
+#'   the analysis of species distributional data: A review. \emph{Ecography},
+#'   30(5), 609-628. https://doi.org/10.1111/j.2007.0906-7590.05171.x
+#'
+#' Fortin, M.-J., & Dale, M. R. T. (2005). \emph{Spatial analysis: A guide for
+#'   ecologists}. Cambridge University Press.
+#'
+#' Fourcade, Y., Engler, J. O., Rödder, D., & Secondi, J. (2014). Mapping species
+#'   distributions with MAXENT using a geographically biased sample of presence
+#'   data: A performance assessment of methods for correcting sampling bias.
+#'   \emph{PLOS ONE}, 9(5), e97122.
+#'   https://doi.org/10.1371/journal.pone.0097122
+#'
+#' Inman, R., Franklin, J., Esque, T., & Nussear, K. (2021). Comparing sample
+#'   bias correction methods for species distribution modeling using virtual
+#'   species. \emph{Ecosphere}, 12(3). https://doi.org/10.1002/ecs2.3422
+#'
+#' Kramer-Schadt, S., Niedballa, J., Pilgrim, J. D., Schröder, B., Lindenborn,
+#'   J., Reinfelder, V., Stillfried, M., Heckmann, I., Scharf, A. K., Augeri,
+#'   D. M., Cheyne, S. M., Hearn, A. J., Ross, J., Macdonald, D. W., Mathai, J.,
+#'   Eaton, J., Marshall, A. J., Semiadi, G., Rustam, R., et al. (2013). The
+#'   importance of correcting for sampling bias in MaxEnt species distribution
+#'   models. \emph{Diversity and Distributions}, 19(11), 1366-1379.
+#'   https://doi.org/10.1111/ddi.12096
+#'
+#' Lamboley, Q., & Fourcade, Y. (2024). No optimal spatial filtering distance for
+#'   mitigating sampling bias in ecological niche models. \emph{Journal of
+#'   Biogeography}, 51(9), 1783-1794. https://doi.org/10.1111/jbi.14854
+#'
+#' Legendre, P. (1993). Spatial autocorrelation: Trouble or new paradigm?
+#'   \emph{Ecology}, 74(6), 1659-1673. https://doi.org/10.2307/1939924
+#'
+#' Moran, P. A. P. (1950). Notes on continuous stochastic phenomena.
+#'   \emph{Biometrika}, 37, 17-23.
+#'
+#' Veloz, S. D. (2009). Spatially autocorrelated sampling falsely inflates
+#'   measures of accuracy for presence-only niche models. \emph{Journal of
+#'   Biogeography}, 36(12), 2290-2299.
+#'   https://doi.org/10.1111/j.1365-2699.2009.02174.x
 #'
 #' @export
 thin.occurrence <- function(occurrence.data, #input data.frame with occurrence records
@@ -556,7 +759,7 @@ thin.occurrence <- function(occurrence.data, #input data.frame with occurrence r
 ## Function to identify and transform skewed variables
 #' Identify and transform skewed environmental variables
 #'
-#' Evaluate numeric variables for skewness and, when appropriate, apply a
+#' Evaluate numeric variables for skewness and (when appropriate) apply a
 #' transformation that reduces absolute skewness. The same transformation rules
 #' can optionally be applied to a matching background dataset so that occurrence
 #' and background data remain on the same scale.
@@ -565,19 +768,127 @@ thin.occurrence <- function(occurrence.data, #input data.frame with occurrence r
 #'   transform.
 #' @param background.dataframe Optional `data.frame` to which the same
 #'   transformations selected for `data.frame` are applied. Shared column names
-#'   are required when this argument is supplied.
+#'   are required when this argument is supplied (default: `NULL`).
 #' @param skewness.threshold A single positive numeric value giving the absolute
-#'   skewness threshold above which variables are considered for transformation.
+#'   skewness threshold above which variables are considered for transformation
+#'   (default: `1`).
 #' @param exclude.cols Optional character vector of column names to leave
-#'   unchanged and carry through to the output.
+#'   unchanged and carry through to the output (default: `NULL`).
 #' @param verbose Logical; if `TRUE`, a summary of the number and type of
-#'   transformations applied is printed.
+#'   transformations applied is printed (default: `TRUE`).
+#'
+#' @details
+#' Skewed environmental variables are transformed to stabilize variance, reduce
+#' the influence of extreme values, and limit the disproportionate effect of
+#' heavy-tailed predictors on multivariate analyses. Strongly right- or
+#' left-skewed variables can dominate the first few principal component axes and
+#' bias discriminant functions toward variables with long tails, compressed
+#' ranges, or extreme observations (Bartlett, 1947; Box & Cox, 1964; Osborne,
+#' 2010). Transforming skewed variables before ordination or discrimination can
+#' therefore improve comparability among predictors and reduce artifacts caused
+#' by differences in distributional shape rather than biological signal.
+#'
+#' Skewness quantifies the asymmetry of a distribution by comparing the relative
+#' weight of its left and right tails (Fisher, 1930; Joanes & Gill, 1998). Values
+#' near zero indicate approximate symmetry, positive values indicate a longer
+#' right tail, and negative values indicate a longer left tail. The default
+#' threshold of `skewness.threshold = 1` treats variables with absolute skewness
+#' greater than or equal to one as substantially asymmetric and therefore
+#' candidates for transformation (Bulmer, 1979; Doane & Seward, 2011).
+#'
+#' Different transformations are appropriate for different data ranges because
+#' environmental predictors can be strictly positive, non-negative with zeros,
+#' bounded proportions, or variables that include negative values. For strictly
+#' positive variables, logarithmic and square-root transformations are commonly
+#' used to reduce right skew, with logarithmic transformations providing stronger
+#' compression of long right tails (Bartlett, 1947; Box & Cox, 1964; Emerson &
+#' Stoto, 1983). For non-negative variables that include zeros, transformations
+#' that safely accommodate zero values are used to avoid undefined logarithms
+#' while still reducing the influence of large values (Cleveland, 1984; Emerson &
+#' Stoto, 1983).
+#'
+#' Continuous proportion variables bounded between zero and one require special
+#' consideration because their variance and skewness often depend strongly on
+#' proximity to the boundaries. Logit-type transformations can spread values near
+#' zero and one while preserving mid-range differences, whereas arcsine
+#' square-root transformations have historically been used for bounded
+#' proportional data, especially when values are concentrated near the
+#' boundaries. Because these transformations can behave differently depending on
+#' the distribution of the data, the selected transformation should reduce
+#' skewness rather than be applied automatically to all proportional variables
+#' (Warton & Hui, 2011).
+#'
+#' Variables containing negative values require transformations that preserve
+#' ordering while allowing the full observed range to be retained. Shifted
+#' transformations and power-type transformations are useful in this context
+#' because they can reduce asymmetry without discarding negative observations or
+#' forcing arbitrary truncation of the data range (Manly, 1976; Tukey, 1977; John
+#' & Draper, 1980). Signed power transformations, such as signed cube-root
+#' transformations, can be especially useful when variables span both negative
+#' and positive values because they preserve sign while reducing the influence of
+#' extreme magnitudes.
+#'
+#' Variables with too few unique finite values, binary variables, and other
+#' two-level variables are not transformed because continuous transformations
+#' provide little benefit for such predictors and can make their interpretation
+#' less clear. When occurrence and background datasets are supplied together, the
+#' same selected transformation is applied to both datasets so that environmental
+#' values remain directly comparable across occurrence and background samples.
 #'
 #' @return A named list with three elements: `transformed`, the transformed
 #'   occurrence table; `summary`, a `data.frame` describing the transformation
 #'   chosen for each evaluated variable, including skewness before and after
 #'   transformation; and `background.transformed`, the transformed background
 #'   table if `background.dataframe` was supplied, otherwise `NULL`.
+#'
+#' @references
+#' Bartlett, M. S. (1947). The use of transformations. \emph{Biometrics}, 3(1),
+#'   39. https://doi.org/10.2307/3001536
+#'
+#' Box, G. E. P., & Cox, D. R. (1964). An analysis of transformations.
+#'   \emph{Journal of the Royal Statistical Society Series B: Statistical
+#'   Methodology}, 26(2), 211-243.
+#'   https://doi.org/10.1111/j.2517-6161.1964.tb00553.x
+#'
+#' Bulmer, M. G. (1979). \emph{Principles of statistics}. Dover Publications.
+#'
+#' Cleveland, W. S. (1984). Graphical methods for data presentation: Full scale
+#'   breaks, dot charts, and multibased logging. \emph{The American Statistician},
+#'   38(4), 270-280. https://doi.org/10.1080/00031305.1984.10483224
+#'
+#' Doane, D. P., & Seward, L. E. (2011). Measuring skewness: A forgotten
+#'   statistic? \emph{Journal of Statistics Education}, 19(2).
+#'   https://doi.org/10.1080/10691898.2011.11889611
+#'
+#' Emerson, J. D., & Stoto, M. A. (1983). Transforming data. In
+#'   \emph{Understanding robust and exploratory data analysis} (pp. 97-128).
+#'   Wiley.
+#'
+#' Fisher, R. A. (1930). Moments and product moments of sampling distributions.
+#'   \emph{Proceedings of the London Mathematical Society}, s2-30(1), 199-238.
+#'   https://doi.org/10.1112/plms/s2-30.1.199
+#'
+#' Joanes, D. N., & Gill, C. A. (1998). Comparing measures of sample skewness
+#'   and kurtosis. \emph{Journal of the Royal Statistical Society: Series D
+#'   (The Statistician)}, 47(1), 183-189.
+#'   https://doi.org/10.1111/1467-9884.00122
+#'
+#' John, J. A., & Draper, N. R. (1980). An alternative family of transformations.
+#'   \emph{Applied Statistics}, 29(2), 190.
+#'   https://doi.org/10.2307/2986305
+#'
+#' Manly, B. F. J. (1976). Exponential data transformations. \emph{The
+#'   Statistician}, 25(1), 37. https://doi.org/10.2307/2988129
+#'
+#' Osborne, J. (2010). Improving your data transformations: Applying the Box-Cox
+#'   transformation. \emph{Practical Assessment, Research, and Evaluation},
+#'   15(1), 12. https://doi.org/10.7275/qbpc-gk17
+#'
+#' Tukey, J. W. (1977). \emph{Exploratory data analysis}. Addison-Wesley.
+#'
+#' Warton, D. I., & Hui, F. K. C. (2011). The arcsine is asinine: The analysis of
+#'   proportions in ecology. \emph{Ecology}, 92(1), 3-10.
+#'   https://doi.org/10.1890/10-0340.1
 #'
 #' @examples
 #' env.data <- data.frame(
@@ -928,13 +1239,14 @@ transform.skewed.variables <- function(data.frame, #input data frame containing 
 }
 
 
-## Function to remove variables with low coefficient of variation (CV) from occurrence data (also removes them from background)
-#' Remove low-information variables based on coefficient of variation
+## Function to remove variables with low coefficient of variation from occurrence data
+#' Remove low-information variables
 #'
-#' Remove environmental predictors that show negligible variation in either
-#' species' occurrence data, while keeping occurrence and background datasets
-#' synchronized. Non-numeric variables and variables with too few finite values
-#' are also removed before coefficient-of-variation filtering.
+#' Remove environmental predictors that show negligible variation based on
+#' coefficient of variation in either species' occurrence data, while keeping
+#' occurrence and background datasets synchronized. Non-numeric variables and
+#' variables with too few finite values are also removed before
+#' coefficient-of-variation filtering.
 #'
 #' @param Sp1.occurrence.data A `data.frame` or `sf` object containing occurrence
 #'   data for species 1.
@@ -945,12 +1257,60 @@ transform.skewed.variables <- function(data.frame, #input data frame containing 
 #' @param Sp2.background.data A `data.frame` or `sf` object containing background
 #'   data for species 2.
 #' @param exclude.cols Optional character vector of column names to exclude from
-#'   filtering and retain in the returned datasets.
+#'   filtering and retain in the returned datasets (default: `NULL`).
 #' @param CV.threshold A single non-negative numeric value giving the minimum
 #'   coefficient of variation required for a variable to be retained. Variables
-#'   falling below this threshold in either species are removed.
+#'   falling below this threshold in either species are removed (default: `0.01`).
 #' @param verbose Logical; if `TRUE`, messages describing removed and retained
-#'   variables are printed.
+#'   variables are printed (default: `TRUE`).
+#'
+#' @details
+#' Predictors with no or very low variability provide little discriminatory
+#' information because they contribute minimally to between-group separation in
+#' multivariate analyses. Including near-constant predictors increases
+#' dimensionality without adding meaningful signal, can worsen collinearity and
+#' numerical conditioning, and may contribute to unstable covariance estimates or
+#' singular matrices during principal component analysis or discriminant analysis
+#' (Dormann et al., 2013; Greenacre & Primicerio, 2014).
+#'
+#' The coefficient of variation is used to identify low-information predictors
+#' because it measures relative dispersion as the standard deviation scaled by
+#' the magnitude of the mean (Pearson, 1896; Sokal & Rohlf, 2012; Zar, 2010).
+#' This makes it unitless and scale-invariant, allowing environmental predictors
+#' measured in different units and magnitudes to be compared directly before
+#' standardization. In contrast, variance is unit-bearing and depends strongly on
+#' measurement scale, so variables with larger numeric units can appear more
+#' variable even when their relative dispersion is negligible.
+#'
+#' The default threshold (`CV.threshold = 0.01`) removes variables with less than
+#' one percent relative variability compared with their mean. Such variables are
+#' effectively constant across occurrences and are unlikely to provide useful
+#' discriminatory information. Filtering is applied using both species'
+#' occurrence datasets, so a predictor is removed if it has low relative
+#' variability in either species. This conservative rule avoids retaining
+#' predictors that may separate poorly because one species has little or no
+#' usable variation.
+#'
+#' Variables with too few finite observations are removed because sparse data
+#' cannot provide reliable estimates of variability. A coefficient of variation
+#' estimated from very few values is highly sensitive to individual observations
+#' and can give a misleading impression of predictor informativeness. Removing
+#' such variables reduces the risk of retaining predictors whose apparent
+#' variation reflects missingness or sampling artifacts rather than biological or
+#' environmental signal.
+#'
+#' For variables with means close to zero, the coefficient of variation can become
+#' unstable or undefined because very small denominators can spuriously inflate
+#' relative variability. In these cases, a scale-free fallback based on dispersion
+#' relative to robust absolute deviation is used to avoid treating near-zero means
+#' as evidence of high informativeness (Maronna et al., 2006; Zar, 2010). The
+#' same threshold is used for this fallback so that low-information filtering
+#' remains comparable across variables.
+#'
+#' The same retained variable set is applied to both occurrence and background
+#' datasets. This keeps species-specific occurrence and background inputs
+#' synchronized and prevents downstream analyses from using different predictor
+#' spaces for occurrence records and environmental backgrounds.
 #'
 #' @return A named list with filtered occurrence and background datasets
 #'   (`occurrence_Sp1`, `occurrence_Sp2`, `background.Sp1`, `background.Sp2`),
@@ -958,6 +1318,32 @@ transform.skewed.variables <- function(data.frame, #input data frame containing 
 #'   non-numeric (`dropped_non_numeric`), had too few finite observations
 #'   (`dropped_NA_only`), or had low variation (`dropped_lowCV`), plus
 #'   `kept_variables` for the retained environmental predictors.
+#'
+#' @references
+#' Dormann, C. F., Elith, J., Bacher, S., Buchmann, C., Carl, G., Carré, G.,
+#'   Marquéz, J. R. G., Gruber, B., Lafourcade, B., Leitão, P. J.,
+#'   Münkemüller, T., McClean, C., Osborne, P. E., Reineking, B., Schröder, B.,
+#'   Skidmore, A. K., Zurell, D., & Lautenbach, S. (2013). Collinearity: A
+#'   review of methods to deal with it and a simulation study evaluating their
+#'   performance. \emph{Ecography}, 36(1), 27-46.
+#'   https://doi.org/10.1111/j.1600-0587.2012.07348.x
+#'
+#' Greenacre, M., & Primicerio, R. (2014). \emph{Multivariate analysis of
+#'   ecological data}. Fundación BBVA.
+#'
+#' Maronna, R. A., Martin, R. D., & Yohai, V. J. (2006). \emph{Robust
+#'   statistics}. Wiley. https://doi.org/10.1002/0470010940
+#'
+#' Pearson, K. (1896). VII. Mathematical contributions to the theory of
+#'   evolution.—III. Regression, heredity, and panmixia. \emph{Philosophical
+#'   Transactions of the Royal Society of London. Series A, Containing Papers of
+#'   a Mathematical or Physical Character}, 187, 253-318.
+#'   https://doi.org/10.1098/rsta.1896.0007
+#'
+#' Sokal, R. R., & Rohlf, F. J. (2012). \emph{Biometry: The principles and
+#'   practice of statistics in biological research} (4th ed.). W. H. Freeman.
+#'
+#' Zar, J. H. (2010). \emph{Biostatistical analysis}. Pearson.
 #'
 #' @export
 remove.low.CV.vars <- function(Sp1.occurrence.data, #occurrence data for species 1
@@ -1107,7 +1493,7 @@ remove.low.CV.vars <- function(Sp1.occurrence.data, #occurrence data for species
 
 
 ## Function to account for environmental analogy bias by removing variables with non-analogous distributions in background data
-#' Filter environmental variables to those analogous between backgrounds
+#' Filter environmental variables to analogous background environment
 #'
 #' Screen background environmental variables for comparability between two taxa
 #' by sequentially removing predictors with too few observations, low variation,
@@ -1123,41 +1509,174 @@ remove.low.CV.vars <- function(Sp1.occurrence.data, #occurrence data for species
 #'   contain the same environmental columns as the background tables, plus any
 #'   optional columns listed in `exclude.cols`.
 #' @param exclude.cols Optional character vector of columns to retain in the
-#'   output occurrence table but exclude from environmental filtering.
+#'   output occurrence table but exclude from environmental filtering
+#'   (default: `NULL`).
 #' @param CV.threshold A single non-negative numeric value giving the minimum
-#'   coefficient of variation required in both species' backgrounds.
+#'   coefficient of variation required in both species' backgrounds
+#'   (default: `0.01`).
 #' @param overlap.threshold A single numeric value between 0 and 1 giving the
-#'   minimum acceptable Schoener's D overlap for both the univariate KDE and
-#'   bivariate quantile-histogram analogy filters. Variables below this threshold
-#'   are removed. Set to `0` to skip overlap-based filtering after the
-#'   low-variation screen.
+#'   minimum acceptable environmental overlap for both the univariate and
+#'   bivariate analogy filters. Variables below this threshold are removed. Set
+#'   to `0` to skip overlap-based filtering after the low-variation screen
+#'   (default: `0.7`).
 #' @param max.NA.prop A single numeric value between 0 and 1 giving the maximum
 #'   allowed proportion of missing values per row before that row is discarded
-#'   from the background tables.
-#' @param min.rows A single positive integer giving the minimum number of
-#'   non-missing observations required per species for a variable to be tested.
+#'   from the background tables (default: `0.2`).
+#' @param min.rows A single positive integer-like numeric value giving the
+#'   minimum number of non-missing observations required per species for a
+#'   variable to be tested (default: `15`).
 #' @param impute.NA.median Logical; if `TRUE`, eligible missing values are
 #'   replaced by the variable median during overlap calculations. If `FALSE`,
-#'   incomplete cases are removed instead.
+#'   incomplete cases are removed instead (default: `TRUE`).
 #' @param plot.1D.overlap Logical; if `TRUE`, a histogram of univariate overlap
-#'   values is plotted.
+#'   values is plotted (default: `TRUE`).
 #' @param bin.n.2D Optional single numeric value giving the number of bins per
 #'   axis used in the bivariate overlap calculations. If `NULL`, the function
-#'   determines a value automatically from the effective background sample size.
-#' @param max.pairs A single positive integer giving the maximum number of
-#'   variable pairs to evaluate in the bivariate overlap step.
+#'   determines a value automatically from the effective background sample size
+#'   (default: `NULL`).
+#' @param max.pairs A single positive integer-like numeric value giving the
+#'   maximum number of variable pairs to evaluate in the bivariate overlap step
+#'   (default: `10000`).
 #' @param use.parallel Logical; if `TRUE`, parallel processing is used for the
-#'   bivariate overlap calculations.
-#' @param N.cores A single positive integer giving the number of CPU cores to
-#'   use when `use.parallel = TRUE`.
+#'   bivariate overlap calculations (default: `FALSE`).
+#' @param N.cores A single positive integer-like numeric value giving the number
+#'   of CPU cores to use when `use.parallel = TRUE` (default: `3`).
 #' @param seed A single numeric value used to set the random seed for
-#'   reproducible pair subsampling.
+#'   reproducible pair subsampling (default: `1`).
 #' @param verbose Logical; if `TRUE`, progress messages describing each filtering
-#'   step are printed.
+#'   step are printed (default: `TRUE`).
+#'
+#' @details
+#' Environmental analogy screening reduces bias caused by comparing species
+#' across background environments that are poorly comparable or partly
+#' non-analogous. Non-analogous environments can distort estimates of niche
+#' similarity, inflate apparent niche divergence, and increase extrapolation risk
+#' when species have access to different portions of environmental space (Barve
+#' et al., 2011; Peterson et al., 2011; Guisan et al., 2014; Brown & Carnaval,
+#' 2019).
+#'
+#' Low-information predictors are removed before analogy screening because
+#' near-constant variables contribute little to environmental discrimination and
+#' can make overlap estimates unstable. The coefficient of variation is used
+#' because it measures relative variability on a unitless scale, allowing
+#' predictors measured in different units and magnitudes to be compared before
+#' standardization (Pearson, 1896; Sokal & Rohlf, 2012; Zar, 2010). The default
+#' threshold (`CV.threshold = 0.01`) treats variables with less than one percent
+#' relative variability as effectively constant.
+#'
+#' Variables with too few observations are excluded because overlap estimates are
+#' unreliable when based on sparse data. The default requirement
+#' (`min.rows = 15`) is intended to remove variables with insufficient
+#' information for stable estimates while avoiding unnecessarily strict filtering
+#' in datasets with limited background availability. Missing data are also
+#' restricted because high missingness can make apparent overlap depend more on
+#' data availability than on environmental similarity. The default missingness
+#' threshold (`max.NA.prop = 0.2`) follows common guidance that moderate levels of
+#' missingness can often be handled cautiously, whereas higher levels increase
+#' the risk of imputation-driven bias (Harrell, 2015; van Buuren, 2018).
+#'
+#' Univariate overlap screening evaluates whether each predictor has sufficient
+#' marginal environmental overlap between species' accessible background spaces.
+#' This step removes variables that are individually non-analogous and therefore
+#' likely to drive comparisons through extrapolation rather than shared
+#' environmental conditions. Overlap values are interpreted on the same general
+#' scale as Schoener's D, where larger values indicate greater similarity between
+#' environmental distributions (Schoener, 1968; Warren et al., 2008; Rödder &
+#' Engler, 2011).
+#'
+#' Bivariate overlap screening is included because variables can appear
+#' comparable in isolation but become non-analogous when considered jointly.
+#' Pairwise screening therefore helps detect non-analogous combinations of
+#' predictors and differences in environmental covariance structure that are not
+#' visible from univariate comparisons alone (Peterson et al., 2011; Mesgaran et
+#' al., 2014). Requiring retained predictors to participate in sufficiently
+#' overlapping bivariate combinations reduces the risk that downstream analyses
+#' are driven by environmental combinations available to one species but absent
+#' from the other.
+#'
+#' The default overlap threshold (`overlap.threshold = 0.7`) is intended as a
+#' practical compromise between retaining informative predictors and excluding
+#' variables with poor analogy. Lower values allow greater environmental
+#' non-analogy and higher extrapolation risk, whereas stricter thresholds may
+#' remove biologically meaningful predictors and leave too few variables for
+#' downstream analyses (Barve et al., 2011; Warren et al., 2008; Rödder & Engler,
+#' 2011; Peterson et al., 2011).
+#'
+#' Screening is restricted to univariate and bivariate projections because
+#' estimating overlap in higher-dimensional environmental space requires rapidly
+#' increasing sample sizes and becomes increasingly sensitive to sparse data. In
+#' practice, many major extrapolation risks are detectable in marginal or pairwise
+#' dimensions, making univariate and bivariate screening a tractable compromise
+#' between computational feasibility and effective detection of environmental
+#' non-analogy (Silverman, 1986; Scott, 2015; Mesgaran et al., 2014).
 #'
 #' @return A filtered `data.frame` containing `Sp1.Sp2.occurrence.data` subset
 #'   to the retained analogous environmental variables, plus any columns named in
 #'   `exclude.cols` that were present in the input occurrence table.
+#'
+#' @references
+#' Barve, N., Barve, V., Jiménez-Valverde, A., Lira-Noriega, A., Maher, S. P.,
+#'   Peterson, A. T., Soberón, J., & Villalobos, F. (2011). The crucial role of
+#'   the accessible area in ecological niche modeling and species distribution
+#'   modeling. \emph{Ecological Modelling}, 222(11), 1810-1819.
+#'   https://doi.org/10.1016/j.ecolmodel.2011.02.011
+#'
+#' Brown, J., & Carnaval, A. C. (2019). A tale of two niches: Methods, concepts,
+#'   and evolution. \emph{Frontiers of Biogeography}, 11(4).
+#'   https://doi.org/10.21425/F5FBG44158
+#'
+#' Guisan, A., Petitpierre, B., Broennimann, O., Daehler, C., & Kueffer, C.
+#'   (2014). Unifying niche shift studies. Insights from biological invasions.
+#'   \emph{Trends in Ecology & Evolution}, 29(5), 260-269.
+#'   https://doi.org/10.1016/j.tree.2014.02.009
+#'
+#' Harrell, F. E. (2015). \emph{Regression modeling strategies: With applications
+#'   to linear models, logistic and ordinal regression, and survival analysis}
+#'   (2nd ed.). Springer.
+#'
+#' Mesgaran, M. B., Cousens, R. D., & Webber, B. L. (2014). Here be dragons: A
+#'   tool for quantifying novelty due to covariate range and correlation change
+#'   when projecting species distribution models. \emph{Diversity and
+#'   Distributions}, 20(10), 1147-1159. https://doi.org/10.1111/ddi.12209
+#'
+#' Pearson, K. (1896). VII. Mathematical contributions to the theory of
+#'   evolution.—III. Regression, heredity, and panmixia. \emph{Philosophical
+#'   Transactions of the Royal Society of London. Series A, Containing Papers of
+#'   a Mathematical or Physical Character}, 187, 253-318.
+#'   https://doi.org/10.1098/rsta.1896.0007
+#'
+#' Peterson, A. T., Soberón, J., Pearson, R. G., Anderson, R. P.,
+#'   Martínez-Meyer, E., Nakamura, M., & Araújo, M. B. (2011). \emph{Ecological
+#'   niches and geographic distributions}. Princeton University Press.
+#'   https://doi.org/10.1515/9781400840670
+#'
+#' Rödder, D., & Engler, J. O. (2011). Quantitative metrics of overlaps in
+#'   Grinnellian niches: Advances and possible drawbacks. \emph{Global Ecology
+#'   and Biogeography}, 20(6), 915-927.
+#'   https://doi.org/10.1111/j.1466-8238.2011.00659.x
+#'
+#' Schoener, T. W. (1968). The anolis lizards of Bimini: Resource partitioning
+#'   in a complex fauna. \emph{Ecology}, 49(4), 704-726.
+#'   https://doi.org/10.2307/1935534
+#'
+#' Scott, D. W. (2015). \emph{Multivariate density estimation: Theory, practice,
+#'   and visualization} (2nd ed.). Wiley.
+#'
+#' Silverman, B. W. (1986). \emph{Density estimation for statistics and data
+#'   analysis}. Chapman and Hall.
+#'
+#' Sokal, R. R., & Rohlf, F. J. (2012). \emph{Biometry: The principles and
+#'   practice of statistics in biological research} (4th ed.). W. H. Freeman.
+#'
+#' van Buuren, S. (2018). \emph{Flexible imputation of missing data}. Chapman &
+#'   Hall/CRC.
+#'
+#' Warren, D. L., Glor, R. E., & Turelli, M. (2008). Environmental niche
+#'   equivalency versus conservatism: Quantitative approaches to niche evolution.
+#'   \emph{Evolution}, 62(11), 2868-2883.
+#'   https://doi.org/10.1111/j.1558-5646.2008.00482.x
+#'
+#' Zar, J. H. (2010). \emph{Biostatistical analysis}. Pearson.
 #'
 #' @export
 filter.analogous.variables <- function(Sp1.background.data, #input data.frame or sf with background data for species 1
@@ -1509,44 +2028,147 @@ filter.analogous.variables <- function(Sp1.background.data, #input data.frame or
 }
 
 
-## Function to trim occurrences and backgrounds to shared analogous environmental space (Brown & Carnaval 2019, Humboldt g2e logic)
+## Function to trim occurrences and backgrounds to shared analogous environmental space
 #' Trim occurrence and background data to analogous environmental space
 #'
 #' Restrict species occurrence and background datasets to the portion of
 #' environmental space shared between both species, following the logic of
-#' analogous-environment trimming described by Brown and Carnaval (2019) and
-#' the g2e workflow implemented in Humboldt. The function compares the
-#' environmental backgrounds of two species, identifies the shared analogous
-#' portion of environmental space, and retains only occurrence and background
-#' records falling within that shared space.
+#' analogous-environment trimming described by Brown and Carnaval (2019) and the
+#' g2e workflow implemented in the Humboldt R package. The function compares
+#' the environmental backgrounds of two species, identifies the shared analogous
+#' portion of environmental space, and retains only occurrence records falling
+#' within that shared space.
 #'
-#' @param Sp1.occurrence.data A `data.frame` or `sf` object containing
-#'   occurrence records for species 1.
-#' @param Sp2.occurrence.data A `data.frame` or `sf` object containing
-#'   occurrence records for species 2.
-#' @param Sp1.background.data A `data.frame` or `sf` object containing
-#'   background environmental data for species 1.
-#' @param Sp2.background.data A `data.frame` or `sf` object containing
-#'   background environmental data for species 2.
+#' @param Sp1.occurrence.data A `data.frame` or `sf` object containing occurrence
+#'   records for species 1.
+#' @param Sp2.occurrence.data A `data.frame` or `sf` object containing occurrence
+#'   records for species 2.
+#' @param Sp1.background.data A `data.frame` or `sf` object containing background
+#'   environmental data for species 1.
+#' @param Sp2.background.data A `data.frame` or `sf` object containing background
+#'   environmental data for species 2.
 #' @param exclude.cols Optional character vector of column names to exclude from
-#'   analogous-space estimation.
+#'   analogous-space estimation (default: `NULL`).
 #' @param keep.occurrence.cols Optional character vector of occurrence-data
-#'   columns that should always be retained in the output.
-#' @param analogous.window.size Numeric value controlling the width of the
-#'   analogous-environment retention window in environmental space.
-#' @param grid.resolution Integer giving the number of grid cells per PCA axis
-#'   used to estimate shared environmental space.
-#' @param max.NA.prop Maximum proportion of missing values allowed per row
-#'   before that row is removed from the environmental-space analysis.
+#'   columns that should always be retained and placed first in the output
+#'   (default: `NULL`).
+#' @param analogous.window.size A single non-negative numeric value controlling
+#'   the width of the analogous-environment retention window in environmental
+#'   PCA space (default: `5`).
+#' @param grid.resolution A single integer-like numeric value giving the number
+#'   of grid divisions per PCA axis used to estimate shared environmental space
+#'   (default: `50`).
+#' @param max.NA.prop A single numeric value between 0 and 1 giving the maximum
+#'   allowed proportion of missing values per background row before that row is
+#'   removed from analogous-space estimation (default: `0.2`).
 #' @param impute.NA.median Logical; if `TRUE`, eligible missing values are
-#'   imputed using the median before estimating analogous space.
+#'   imputed using the variable median before estimating analogous environmental
+#'   space. If `FALSE`, incomplete rows are removed instead (default: `TRUE`).
 #' @param downsample.equal.sizes Logical; if `TRUE`, the two trimmed occurrence
-#'   datasets are downsampled to equal sample sizes after trimming.
-#' @param verbose Logical; if `TRUE`, print progress messages and summary
-#'   information during trimming.
+#'   datasets are downsampled to equal sample sizes after trimming
+#'   (default: `TRUE`).
+#' @param verbose Logical; if `TRUE`, progress messages and summary information
+#'   are printed during trimming (default: `TRUE`).
 #'
-#' @return A `data.frame` combining the retained occurrence rows for both
-#'   species after Humboldt-style trimming to analogous environmental space.
+#' @details
+#' Humboldt-style analogous trimming is used as a complementary correction to
+#' predictor-based environmental analogy screening. Whereas variable filtering
+#' removes environmental predictors that are poorly comparable between species,
+#' occurrence trimming removes occurrence records that fall outside the
+#' environmentally shared region of the two species' accessible background
+#' spaces. This helps reduce bias caused by non-analogous environments, which can
+#' inflate apparent niche divergence and make comparisons depend on extrapolated
+#' portions of environmental space rather than on conditions available to both
+#' species (Brown & Carnaval, 2019; Guisan et al., 2014; Peterson et al., 2011).
+#'
+#' The method summarizes the combined environmental backgrounds of both species
+#' in a shared principal component space. Using a common ordination space ensures
+#' that both species are compared along the same environmental axes rather than
+#' in separate species-specific coordinate systems. Principal component analysis
+#' is appropriate here because it provides a reduced environmental space that
+#' captures dominant gradients of covariation among predictors while allowing
+#' occurrence and background points to be evaluated on the same scale (Chessel et
+#' al., 2004; Dray & Dufour, 2007; Bougeard & Dray, 2018; Thioulouse et al.,
+#' 2018).
+#'
+#' Prior to trimming, low-information predictors and rows with excessive
+#' missingness are removed because near-constant variables and heavily incomplete
+#' observations can distort environmental-space estimates. The missingness
+#' threshold (`max.NA.prop = 0.2`) is intended as a practical default that
+#' permits moderate missingness while reducing the risk that the shared
+#' environmental space is driven by imputation or incomplete background records
+#' (Harrell, 2015; van Buuren, 2018).
+#'
+#' The analogous trimming window controls how strictly environmental space is
+#' shared between species. Smaller windows impose stricter analogy requirements
+#' and remove more records, whereas larger windows retain more records but may
+#' allow a broader range of marginally comparable environments. The default
+#' window size (`analogous.window.size = 5`) is intended as a moderate compromise
+#' that reduces extrapolation into non-analogous environmental regions while
+#' retaining enough occurrence records for downstream analyses.
+#'
+#' Reciprocal trimming is used so that neither species defines the analogous
+#' space unilaterally. By restricting each species relative to the environmental
+#' space occupied by the other, the retained region represents a shared subset of
+#' background environmental space rather than the environmental availability of
+#' only one species. This is important for niche-divergence analyses because
+#' asymmetric trimming can bias comparisons toward the species with the broader
+#' or more densely sampled background environment (Brown & Carnaval, 2019).
+#'
+#' After the shared analogous region is identified, occurrence records are
+#' retained only when they fall inside that shared environmental space. This
+#' produces occurrence datasets restricted to comparable environmental
+#' conditions, reducing the influence of extrapolated or non-analogous
+#' occurrences that could otherwise bias downstream comparisons of niche
+#' divergence, niche overlap, or discriminant environmental separation.
+#'
+#' Equalizing sample sizes after trimming is useful when downstream
+#' methods are sensitive to unequal occurrence counts. Downsampling to matched
+#' sample sizes can reduce imbalance between species and make subsequent
+#' comparisons less dependent on differences in retained occurrence density.
+#'
+#' @return A `data.frame` combining the retained occurrence rows for both species
+#'   after Humboldt-style trimming to analogous environmental space. If
+#'   `downsample.equal.sizes = TRUE`, the returned species subsets are
+#'   downsampled to equal sample sizes.
+#'
+#' @references
+#' Bougeard, S., & Dray, S. (2018). Supervised multiblock analysis in R with the
+#'   ade4 package. \emph{Journal of Statistical Software}, 86(1).
+#'   https://doi.org/10.18637/jss.v086.i01
+#'
+#' Brown, J., & Carnaval, A. C. (2019). A tale of two niches: Methods, concepts,
+#'   and evolution. \emph{Frontiers of Biogeography}, 11(4).
+#'   https://doi.org/10.21425/F5FBG44158
+#'
+#' Chessel, D., Dufour, A., & Thioulouse, J. (2004). The ade4 Package - I:
+#'   One-table methods. \emph{R News}, 4(1), 5-10.
+#'
+#' Dray, S., & Dufour, A.-B. (2007). The ade4 package: Implementing the duality
+#'   diagram for ecologists. \emph{Journal of Statistical Software}, 22(4).
+#'   https://doi.org/10.18637/jss.v022.i04
+#'
+#' Guisan, A., Petitpierre, B., Broennimann, O., Daehler, C., & Kueffer, C.
+#'   (2014). Unifying niche shift studies. Insights from biological invasions.
+#'   \emph{Trends in Ecology & Evolution}, 29(5), 260-269.
+#'   https://doi.org/10.1016/j.tree.2014.02.009
+#'
+#' Harrell, F. E. (2015). \emph{Regression modeling strategies: With applications
+#'   to linear models, logistic and ordinal regression, and survival analysis}
+#'   (2nd ed.). Springer.
+#'
+#' Peterson, A. T., Soberón, J., Pearson, R. G., Anderson, R. P.,
+#'   Martínez-Meyer, E., Nakamura, M., & Araújo, M. B. (2011). \emph{Ecological
+#'   niches and geographic distributions}. Princeton University Press.
+#'   https://doi.org/10.1515/9781400840670
+#'
+#' Thioulouse, J., Dray, S., Dufour, A.-B., Siberchicot, A., Jombart, T., &
+#'   Pavoine, S. (2018). \emph{Multivariate analysis of ecological data with
+#'   ade4}. Springer New York. https://doi.org/10.1007/978-1-4939-8850-1
+#'
+#' van Buuren, S. (2018). \emph{Flexible imputation of missing data}. Chapman &
+#'   Hall/CRC.
+#'
 #' @export
 trim.to.analogous.environments <- function(Sp1.occurrence.data, #occurrence data for species 1
                                            Sp2.occurrence.data, #occurrence data for species 2
@@ -1859,60 +2481,141 @@ trim.to.analogous.environments <- function(Sp1.occurrence.data, #occurrence data
 }
 
 
-## Function to run DAPC niche divergence test with crossvalidation and permutation test
+## Function to run DAPC niche divergence test with cross-validation and permutation test
 #' Run cross-validated DAPC with permutation testing
 #'
-#' Fit a DAPC-based niche divergence analysis and assess significance using
-#' permutation testing.
+#' Fit a DAPC-based niche divergence analysis for two groups and assess
+#' significance using permutation testing. The function preprocesses
+#' environmental predictors, selects the number of retained PCs by
+#' cross-validation (unless a fixed value is supplied), fits the final
+#' discriminant model, and evaluates whether observed group separation exceeds
+#' null expectations.
 #'
 #' @param data.input A matrix or `data.frame` containing environmental predictor
 #'   variables and the grouping column specified by `species.col`. Non-numeric
 #'   predictor columns are removed before analysis. Exactly two groups are
 #'   required.
-#' @param N.crossval.replicates A single positive integer giving the number of
-#'   cross-validation replicates.
-#' @param N.permutations A single positive integer giving the number of
-#'   permutation replicates.
-#' @param fixed.n.pcs Optional positive integer giving a fixed number of PCs to
-#'   retain. If `NULL`, the number is determined by cross-validation.
+#' @param N.crossval.replicates A single positive integer-like numeric value
+#'   giving the number of cross-validation replicates (recommended default: `100`).
+#' @param N.permutations A single positive integer-like numeric value giving the
+#'   number of permutation replicates (default: `1000`).
+#' @param fixed.n.pcs Optional positive integer-like numeric value giving a fixed
+#'   number of PCs to retain. If `NULL`, the number of PCs is determined by
+#'   cross-validation (default: `NULL`; recommended: `NULL` unless a fixed PC
+#'   number is justified by prior analyses or sensitivity tests).
 #' @param exclude.cols Optional character vector of columns to remove before
-#'   analysis.
-#' @param species.col A single character string giving the species/group column
-#'   name in `data.input`.
+#'   analysis (default: `NULL`).
+#' @param species.col A single character string giving the species or group
+#'   column name in `data.input` (default: `"Species"`).
 #' @param max.NA.prop A single numeric value between `0` and `1` giving the
-#'   maximum allowed proportion of missing values per row.
-#' @param impute.NA.median Logical; if `TRUE`, impute remaining missing values
-#'   using the median.
-#' @param save Logical; if `TRUE`, save the result object to disk.
-#' @param overwrite Logical; if `TRUE`, overwrite existing outputs.
-#' @param output.dir Output directory used when `save = TRUE`.
-#' @param output.filename File name used when `save = TRUE`.
+#'   maximum allowed proportion of missing values per row before that row is
+#'   removed (default: `0.2`; recommended: `0.2` to allow moderate missingness
+#'   while limiting imputation-driven bias).
+#' @param impute.NA.median Logical; if `TRUE`, remaining missing values are
+#'   imputed using the median of each variable. If `FALSE`, incomplete rows are
+#'   removed after applying `max.NA.prop` (default: `TRUE`).
+#' @param save Logical; if `TRUE`, save the result object to disk
+#'   (default: `FALSE`).
+#' @param overwrite Logical; if `TRUE`, overwrite an existing saved result file
+#'   when `save = TRUE` (default: `FALSE`).
+#' @param output.dir Character string giving the output directory used when
+#'   `save = TRUE`. Required only when `save = TRUE`.
+#' @param output.filename Character string giving the output file name used when
+#'   `save = TRUE`. Required only when `save = TRUE`.
 #' @param Sp1.background.data Optional `data.frame` of background environmental
-#'   values for species 1. Required when `background.permutation.test = TRUE`.
-#'   Numeric environmental columns must match those in `Sp2.background.data`.
+#'   values for species 1. Required when `background.permutation.test = TRUE`
+#'   (default: `NULL`).
 #' @param Sp2.background.data Optional `data.frame` of background environmental
-#'   values for species 2. Required when `background.permutation.test = TRUE`.
-#'   Numeric environmental columns must match those in `Sp1.background.data`.
+#'   values for species 2. Required when `background.permutation.test = TRUE`
+#'   (default: `NULL`).
 #' @param background.permutation.test Logical; if `TRUE`, run a background-based
 #'   permutation test in which one species' occurrences are replaced by random
-#'   samples from the other species' background, and vice versa.
+#'   samples from the other species' background, and vice versa
+#'   (default: `FALSE`).
 #' @param use.parallel Character string specifying whether and how to use
 #'   parallel computing. One of `"auto"`, `"Windows"`, `"Unix"`, or `"none"`.
-#'   `"auto"` uses `"Unix"` on Unix-like systems and `"Windows"` otherwise.
-#' @param N.cores A single positive integer giving the number of CPU cores.
-#' @param seed A single numeric value used to set the random seed.
-#' @param verbose Logical; if `TRUE`, print progress messages.
+#'   `"auto"` uses `"Unix"` on Unix-like systems and `"Windows"` otherwise
+#'   (recommended default: `"auto"`).
+#' @param N.cores A single positive integer-like numeric value giving the number
+#'   of CPU cores to use for supported parallel operations (recommended
+#'   default: `3`).
+#' @param seed A single numeric value used to set the random seed for
+#'   reproducibility (default: `1`).
+#' @param verbose Logical; if `TRUE`, progress messages are printed
+#'   (default: `TRUE`).
+#'
+#' @details
+#' Discriminant analysis of principal components (DAPC; Jombart et al., 2010)
+#' is used here to test for niche divergence between two a priori groups,
+#' such as species, lineages, or populations, using environmental predictors
+#' associated with occurrence records.
+#'
+#' The method first reduces the predictor space with principal component
+#' analysis (PCA) before fitting a discriminant model. This PCA step transforms
+#' correlated environmental variables into orthogonal axes and reduces
+#' multicollinearity and high-dimensionality problems that can make discriminant
+#' analysis unstable. Discriminant analysis is then used to identify axes that
+#' maximize between-group separation while minimizing within-group variability,
+#' providing a supervised measure of environmental differentiation between the
+#' two groups (Lachenbruch & Goldstein, 1979; Jombart et al., 2010).
+#'
+#' Choosing the number of retained principal components (PCs) is important because
+#' retaining too few PCs can discard biologically meaningful environmental signal,
+#' whereas retaining too many PCs can overfit noise and inflate apparent
+#' classification accuracy. Cross-validation is therefore used to identify a PC
+#' number that balances information retention and predictive stability.
+#' The selected number of PCs is interpreted as a compromise between underfitting
+#' and overfitting, where additional PCs no longer improve out-of-sample
+#' group assignment (Jombart, 2022).
+#'
+#' The final model is summarized using mean assignment accuracy and the adjusted
+#' Rand index. Mean assignment accuracy describes how often samples are assigned
+#' to their supplied groups, providing an intuitive measure of group
+#' distinctiveness in discriminant environmental space. The adjusted Rand index
+#' compares predicted and supplied groupings while accounting for agreement
+#' expected by chance, making it useful when evaluating whether discriminant
+#' assignments recover the original taxon labels.
+#'
+#' Permutation testing is used to evaluate whether the observed environmental
+#' separation between groups exceeds chance expectations. By randomly
+#' reassigning group labels while preserving sample sizes, the test constructs a
+#' null distribution representing a single shared niche with no fixed association
+#' between environmental predictors and group identity. Observed assignment
+#' accuracy is then compared with this null distribution to assess whether the
+#' fitted discrimination is stronger than expected under random group membership.
+#'
+#' The optional background permutation test provides a complementary assessment
+#' conditioned on the environments available to each species. Rather than
+#' permuting labels alone, one species' occurrences are replaced with random
+#' samples from the other species' background, and the reciprocal comparison is
+#' also performed. This follows the logic of background-based tests for assessing
+#' whether apparent niche similarity or divergence may be influenced by the
+#' environmental conditions available within each species' accessible area
+#' (Brown & Carnaval, 2019). In this framework, background-conditioned null
+#' comparisons help distinguish weak divergence from limited power caused by
+#' similar or constrained environmental availability.
+#'
+#' Missing values are handled before ordination and discrimination because these
+#' methods require complete numeric inputs. Rows with excessive missingness are
+#' removed, and remaining missing values can either be imputed by the median or
+#' handled by complete-case filtering. The default missingness threshold
+#' (`max.NA.prop = 0.2`) is intended as a practical compromise that permits
+#' moderate missingness while reducing the risk that ordination and
+#' discrimination are driven by imputation or incomplete records (Harrell, 2015;
+#' van Buuren, 2018).
 #'
 #' @return A named list containing:
 #'   \describe{
 #'     \item{crossval_run1}{First-stage cross-validation object, or `NULL` if
-#'       `fixed.n.pcs` was supplied.}
+#'       the first stage was skipped.}
 #'     \item{optimal_pcs_crossval_run1}{Optimal number of PCs from the first
-#'       cross-validation stage, or `NA` if `fixed.n.pcs` was supplied.}
+#'       cross-validation stage, or `NA` if unavailable.}
 #'     \item{crossval_run2}{Second-stage cross-validation object.}
 #'     \item{optimal_pcs_crossval_run2}{Final number of PCs retained for DAPC.}
-#'     \item{dapc_results}{Fitted DAPC object containing discriminant scores,
-#'       group assignments, posterior probabilities, and variable contributions.}
+#'     \item{dapc_results}{Fitted DAPC-like result object containing
+#'       discriminant assignments, group labels, retained PC count, discriminant
+#'       scores, variable contributions, variable loadings, group coordinates,
+#'       and discriminant scaling.}
 #'     \item{pca_object}{PCA object used to generate the retained PC scores.}
 #'     \item{var_explained}{Cumulative proportion of variance explained by the
 #'       retained PCs.}
@@ -1926,6 +2629,30 @@ trim.to.analogous.environments <- function(Sp1.occurrence.data, #occurrence data
 #'     \item{ARI}{Adjusted Rand index comparing DAPC-predicted groupings to the
 #'       supplied group labels.}
 #'   }
+#'
+#' @references
+#' Brown, J., & Carnaval, A. C. (2019). A tale of two niches: Methods, concepts,
+#'   and evolution. \emph{Frontiers of Biogeography}, 11(4).
+#'   https://doi.org/10.21425/F5FBG44158
+#'
+#' Harrell, F. E. (2015). \emph{Regression modeling strategies: With applications
+#'   to linear models, logistic and ordinal regression, and survival analysis}
+#'   (2nd ed.). Springer.
+#'
+#' Jombart, T. (2022). \emph{adegenet tutorials}.
+#'   https://github.com/thibautjombart/adegenet/wiki/Tutorials
+#'
+#' Jombart, T., Devillard, S., & Balloux, F. (2010). Discriminant analysis of
+#'   principal components: A new method for the analysis of genetically
+#'   structured populations. \emph{BMC Genetics}, 11, 94.
+#'   https://doi.org/10.1186/1471-2156-11-94
+#'
+#' Lachenbruch, P. A., & Goldstein, M. (1979). Discriminant analysis.
+#'   \emph{Biometrics}, 35(1), 69. https://doi.org/10.2307/2529937
+#'
+#' van Buuren, S. (2018). \emph{Flexible imputation of missing data}. Chapman &
+#'   Hall/CRC.
+#'
 #' @export
 run.DAPC.crossval.permutation <- function(data.input, #matrix or data.frame of predictors (rows = samples, cols = variables)
                                           N.crossval.replicates = 100, #cross-validation replicates
@@ -2617,36 +3344,108 @@ run.DAPC.crossval.permutation <- function(data.input, #matrix or data.frame of p
 
 #' Plot DAPC niche divergence results
 #'
-#' Plot LD1 density distributions for the two groups from a DAPC result.
+#' Plot smoothed LD1 density distributions for the two groups from DAPC result.
+#' The discriminant axis summarizes multivariate environmental separation in one
+#' dimension, allowing group overlap and divergence along the fitted DAPC axis to
+#' be visualized.
 #'
-#' @param dapc.results DAPC result object.
-#' @param alpha.density Transparency for density fill.
-#' @param group.colors Colors for groups.
-#' @param legend.label Legend title.
-#' @param legend.position Legend position.
-#' @param legend.title.font.size Legend title font size.
-#' @param legend.text.font.size Legend text font size.
-#' @param legend.text.italics Logical; italicize legend entries.
-#' @param legend.symbol.size Legend symbol size.
-#' @param axis.labels.font.size Axis title font size.
-#' @param axis.ticks.font.size Axis tick font size.
-#' @param add.axis.lines Logical; add rug lines for observations.
-#' @param axis.lines.alpha Transparency of rug lines.
-#' @param axis.lines.thickness Thickness of rug lines.
-#' @param add.title Logical; whether to add a title.
-#' @param title.text Plot title text.
-#' @param show.plot Logical; whether to print the plot.
-#' @param save Logical; whether to save the plot.
-#' @param overwrite Logical; whether to overwrite an existing file.
-#' @param filename Output filename without extension.
-#' @param output.dir Output directory for saved plots.
-#' @param type Output file type.
-#' @param width Plot width.
-#' @param height Plot height.
-#' @param resolution Plot resolution.
-#' @param verbose Logical; whether to print messages.
+#' @param dapc.results DAPC result object returned by
+#'   `run.DAPC.crossval.permutation()`, or a nested object containing
+#'   `$dapc_results`.
+#' @param alpha.density A single numeric value between `0` and `1` controlling
+#'   transparency of the density fill (default: `0.75`).
+#' @param group.colors Character vector of two colors used for the two groups.
+#'   Can be named with group levels to enforce a specific group-color mapping
+#'   (default: `c("#00005A", "darkgrey")`).
+#' @param legend.label A single character string giving the legend title
+#'   (default: `"Species"`).
+#' @param legend.position Legend position. Either one of `"right"`, `"left"`,
+#'   `"top"`, `"bottom"`, `"none"`, or a numeric vector `c(x, y)`
+#'   (default: `"right"`).
+#' @param legend.title.font.size A single positive numeric value giving the
+#'   legend title font size (default: `9.1`).
+#' @param legend.text.font.size A single positive numeric value giving the
+#'   legend text font size (default: `9.1`).
+#' @param legend.text.italics Logical; if `TRUE`, legend entries are italicized
+#'   (default: `FALSE`).
+#' @param legend.symbol.size A single positive numeric value giving the legend
+#'   key size in points (default: `15`).
+#' @param axis.labels.font.size A single positive numeric value giving the axis
+#'   title font size (default: `9.1`).
+#' @param axis.ticks.font.size A single positive numeric value giving the axis
+#'   tick-label font size (default: `7`).
+#' @param add.axis.lines Logical; if `TRUE`, rug lines showing individual LD1
+#'   scores are added below the density curves (default: `TRUE`).
+#' @param axis.lines.alpha A single numeric value between `0` and `1`
+#'   controlling transparency of rug lines (default: `0.75`).
+#' @param axis.lines.thickness A single positive numeric value controlling rug
+#'   line thickness (default: `0.4`).
+#' @param add.title Logical; if `TRUE`, a plot title is added (default: `TRUE`).
+#' @param title.text A single character string giving the plot title when
+#'   `add.title = TRUE` (default: `"Multivariate niche divergence based on
+#'   DAPC"`).
+#' @param show.plot Logical; if `TRUE`, the plot is returned visibly
+#'   (default: `TRUE`).
+#' @param save Logical; if `TRUE`, the plot is saved to disk
+#'   (default: `FALSE`).
+#' @param overwrite Logical; if `TRUE`, an existing file is overwritten when
+#'   `save = TRUE` (default: `FALSE`).
+#' @param filename A single character string giving the output filename without
+#'   extension when `save = TRUE` (default: `"DAPC_LD1_density"`).
+#' @param output.dir Optional character string giving the directory for saved
+#'   plots when `save = TRUE` (default: `NULL`; if `NULL`, the current working
+#'   directory is used).
+#' @param type A single character string giving the output file type. One of
+#'   `"png"`, `"svg"`, or `"jpg"` (default: `"svg"`).
+#' @param width A single positive numeric value giving plot width in centimeters
+#'   when `save = TRUE` (default: `20`).
+#' @param height A single positive numeric value giving plot height in
+#'   centimeters when `save = TRUE` (default: `15`).
+#' @param resolution A single positive numeric value giving plot resolution in
+#'   dpi when saving raster formats (default: `300`).
+#' @param verbose Logical; if `TRUE`, messages are printed when saving
+#'   (default: `TRUE`).
 #'
-#' @return A ggplot object.
+#' @details
+#' DAPC niche-divergence analysis reduces multivariate environmental
+#' differentiation to one or more discriminant axes that maximize separation
+#' between predefined groups after dimensionality reduction by PCA. For two-group
+#' niche-divergence analyses, the first discriminant axis provides a univariate
+#' summary of multivariate environmental separation, making it useful for
+#' visualizing whether groups occupy similar, partially overlapping, or strongly
+#' separated regions of discriminant environmental space (Lachenbruch & Goldstein,
+#' 1979; Jombart et al., 2010).
+#'
+#' Smoothed density curves along LD1 provide an interpretable visualization of
+#' multivariate niche divergence because they show both the location and spread of
+#' group scores along the discriminant axis. Shifts in density peaks indicate
+#' differences in central environmental tendency, differences in curve width
+#' indicate differences in multivariate breadth along the discriminant axis, and
+#' limited overlap indicates stronger environmental separation. Rug lines show
+#' the underlying sample distribution and help reveal whether density features are
+#' supported by many observations or by sparse tails.
+#'
+#' This plot is descriptive and should be interpreted alongside quantitative
+#' model outputs such as assignment accuracy, permutation p-values, adjusted Rand
+#' index, niche-overlap metrics, and variable contributions. Density overlap
+#' along LD1 summarizes separation in the fitted discriminant space but does not
+#' by itself identify independent effects of individual predictors. Variable
+#' contributions from DAPC should also be interpreted cautiously when predictors
+#' are correlated, because the discriminant axis reflects shared covariance
+#' structure rather than fully independent predictor effects.
+#'
+#' @return A `ggplot` object. If `show.plot = TRUE`, the plot is returned
+#'   visibly; otherwise it is returned invisibly.
+#'
+#' @references
+#' Jombart, T., Devillard, S., & Balloux, F. (2010). Discriminant analysis of
+#'   principal components: A new method for the analysis of genetically
+#'   structured populations. \emph{BMC Genetics}, 11, 94.
+#'   https://doi.org/10.1186/1471-2156-11-94
+#'
+#' Lachenbruch, P. A., & Goldstein, M. (1979). Discriminant analysis.
+#'   \emph{Biometrics}, 35(1), 69. https://doi.org/10.2307/2529937
+#'
 #' @rawNamespace export(plot.DAPC.niche.divergence)
 plot.DAPC.niche.divergence <- function(dapc.results, #DAPC result object
                                        alpha.density = 0.75, #transparency for density fill (0-1)
@@ -2825,29 +3624,77 @@ plot.DAPC.niche.divergence <- function(dapc.results, #DAPC result object
 
 #' Plot permutation histogram for DAPC assignment accuracy
 #'
-#' Plot the null distribution of permutation assignment accuracy together with
-#' the observed value.
+#' Plot null distribution of permutation assignment accuracy together with
+#' the observed assignment accuracy from DAPC niche-divergence analysis.
 #'
-#' @param dapc_result Result object returned by the DAPC permutation workflow.
-#' @param bar.color Histogram bar color.
-#' @param line.color Vertical line color for the observed value.
-#' @param axis.labels.font.size Axis title font size.
-#' @param axis.ticks.font.size Axis tick font size.
-#' @param N.bar.breaks Number of histogram bins.
-#' @param add.title Logical; whether to include a title.
-#' @param title.text Plot title text.
-#' @param show.plot Logical; whether to print the plot.
-#' @param save Logical; whether to save the plot.
-#' @param overwrite Logical; whether to overwrite an existing file.
-#' @param filename Output filename without extension.
-#' @param output.dir Output directory for saved plots.
-#' @param type Output file type.
-#' @param width Plot width.
-#' @param height Plot height.
-#' @param resolution Plot resolution.
-#' @param verbose Logical; whether to print messages.
+#' @param dapc_result Result object returned by
+#'   `run.DAPC.crossval.permutation()`. The object must contain
+#'   `observed_assign_prop` and a numeric vector of `permutation_assign_props`.
+#' @param bar.color A single character string giving the histogram bar fill color
+#'   (default: `"lightgrey"`).
+#' @param line.color A single character string giving the color of the observed
+#'   assignment-accuracy marker (default: `"firebrick"`).
+#' @param axis.labels.font.size A single positive numeric value giving the axis
+#'   title font size (default: `9.1`).
+#' @param axis.ticks.font.size A single positive numeric value giving the axis
+#'   tick-label font size (default: `7`).
+#' @param N.bar.breaks A single positive integer-like numeric value giving the
+#'   number of histogram bins (default: `20`).
+#' @param add.title Logical; if `TRUE`, a plot title is added (default: `TRUE`).
+#' @param title.text A single character string giving the plot title when
+#'   `add.title = TRUE` (default: `"Null distribution of DAPC mean assignment
+#'   accuracy"`).
+#' @param show.plot Logical; if `TRUE`, the plot is returned visibly
+#'   (default: `TRUE`).
+#' @param save Logical; if `TRUE`, the plot is saved to disk
+#'   (default: `FALSE`).
+#' @param overwrite Logical; if `TRUE`, an existing file is overwritten when
+#'   `save = TRUE` (default: `FALSE`).
+#' @param filename A single character string giving the output filename without
+#'   extension when `save = TRUE` (default: `"DAPC_permutation"`).
+#' @param output.dir Optional character string giving the directory for saved
+#'   plots when `save = TRUE` (default: `NULL`; if `NULL`, the current working
+#'   directory is used).
+#' @param type A single character string giving the output file type. One of
+#'   `"png"`, `"svg"`, or `"jpg"` (default: `"svg"`).
+#' @param width A single positive numeric value giving plot width in centimeters
+#'   when `save = TRUE` (default: `20`).
+#' @param height A single positive numeric value giving plot height in
+#'   centimeters when `save = TRUE` (default: `15`).
+#' @param resolution A single positive numeric value giving plot resolution in
+#'   dpi when saving raster formats (default: `300`).
+#' @param verbose Logical; if `TRUE`, messages are printed when saving
+#'   (default: `TRUE`).
 #'
-#' @return A ggplot object.
+#' @details
+#' The permutation histogram visualizes the null expectation for DAPC assignment
+#' accuracy under the hypothesis of a single shared niche (k = 1).
+#' In this null model, group identity is treated as exchangeable, so the
+#' distribution of permuted assignment accuracies represents the level of
+#' discrimination expected when environmental predictors are not consistently
+#' associated with the given group labels.
+#'
+#' The observed assignment accuracy is shown relative to this null distribution.
+#' If the observed value falls in the upper tail of the permutation distribution,
+#' this indicates that the fitted discriminant separation is stronger than
+#' expected under random group membership. The plot therefore provides a visual
+#' complement to the permutation p-value returned by
+#' `run.DAPC.crossval.permutation()`.
+#'
+#' This diagnostic is important because apparent group separation can arise by
+#' chance, especially in high-dimensional environmental datasets. Comparing the
+#' empirical assignment accuracy against a random-label null distribution helps
+#' distinguish niche divergence from discrimination caused by model flexibility,
+#' random label structure, or sampling imbalance.
+#'
+#' A significant permutation result indicates that observed group separation
+#' exceeds the random-label null expectation. The plot and p-value should be
+#' interpreted together with niche-overlap metrics because a significant p-value
+#' can be obtained even when overall niche divergence is low.
+#'
+#' @return A `ggplot` object. If `show.plot = TRUE`, the plot is returned
+#'   visibly; otherwise it is returned invisibly.
+#'
 #' @rawNamespace export(plot.DAPC.permutation)
 plot.DAPC.permutation <- function(dapc_result, #DAPC result object
                                   bar.color = "lightgrey", #histogram bar fill color
@@ -3026,23 +3873,73 @@ plot.DAPC.permutation <- function(dapc_result, #DAPC result object
 #' smoothed density distributions for two groups along the DAPC discriminant
 #' axis, optionally using background-based weighting.
 #'
-#' @param dapc_out A DAPC result object containing the discriminant scores used
-#'   to calculate overlap and niche divergence metrics.
+#' @param dapc_out A DAPC result object returned by
+#'   `run.DAPC.crossval.permutation()`. The object must contain `$dapc_results`
+#'   with LD scores and, when `weight.background = TRUE`, the PCA object and
+#'   discriminant scaling needed to project background data into LD1 space.
 #' @param group.assignment Factor or character vector giving group identity for
-#'   each row of the input data.
-#' @param density.grid.resolution A single positive integer giving the number of
-#'   grid points used to estimate smoothed density overlap.
-#' @param weight.background Logical; if `TRUE`, project both background datasets
-#'   into LD1 space and apply background-availability weighting, up-weighting
-#'   rare environments and down-weighting common environments along the
-#'   discriminant axis.
+#'   each row of the input data. Exactly two groups are required.
+#' @param density.grid.resolution A single positive integer-like numeric value
+#'   giving the number of grid points used to estimate smoothed density overlap
+#'   (default: `1024`).
+#' @param weight.background Logical; if `TRUE`, apply background-availability
+#'   weighting along the discriminant axis by up-weighting rare available
+#'   environments and down-weighting common available environments
+#'   (default: `FALSE`).
 #' @param Sp1.background.data Optional `data.frame` of background environmental
 #'   values for species 1. Required when `weight.background = TRUE`; columns must
-#'   overlap the environmental variables used to fit the DAPC/PCA object.
+#'   overlap the environmental variables used to fit the DAPC/PCA object
+#'   (default: `NULL`).
 #' @param Sp2.background.data Optional `data.frame` of background environmental
 #'   values for species 2. Required when `weight.background = TRUE`; columns must
-#'   overlap the environmental variables used to fit the DAPC/PCA object.
-#' @param verbose Logical; if `TRUE`, print progress messages and metric values.
+#'   overlap the environmental variables used to fit the DAPC/PCA object
+#'   (default: `NULL`).
+#' @param verbose Logical; if `TRUE`, progress messages and metric values are
+#'   printed (default: `TRUE`).
+#'
+#' @details
+#' DAPC (discriminant analysis of principal components; Jombart et al., 2010)
+#' summarizes pairwise multivariate niche separation along a single discriminant
+#' axis for two-group comparisons. Calculating niche metrics from density
+#' distributions along this axis allows multivariate environmental
+#' differentiation to be interpreted in terms of overlap, dissimilarity,
+#' exclusivity, and overall divergence magnitude. This links the discriminant
+#' separation returned by DAPC to niche-divergence quantities that are easier to
+#' compare across species pairs or analyses.
+#'
+#' Schoener's D is used as an overlap metric measuring the proportion of shared
+#' density between two distributions and ranges from zero for no overlap to one
+#' for complete overlap (Schoener, 1968; Warren et al., 2008). Schoener's D is
+#' calculated along the DAPC discriminant axis, so it summarizes overlap in the
+#' multivariate environmental space most associated with group separation.
+#'
+#' The additional niche-divergence metrics extend the niche divergence plane of
+#' Ascanio et al. (2024) from single environmental variables to the multivariate
+#' DAPC discriminant axis. Niche dissimilarity (NDS) quantifies density separation
+#' along the axis, whereas niche breadth exclusivity (NE) quantifies how much of
+#' the occupied discriminant-axis range is not shared between groups. Together,
+#' these metrics distinguish divergence driven mainly by density differences
+#' within shared environmental space from divergence driven mainly by exclusive
+#' environmental ranges.
+#'
+#' Niche divergence magnitude (ND) combines density dissimilarity and breadth
+#' exclusivity into a single composite measure of divergence strength. The niche
+#' divergence angle (theta) describes the relative contribution of dissimilarity
+#' versus exclusivity: angles near zero indicate divergence dominated by exclusive
+#' range differences, angles near ninety degrees indicate divergence dominated by
+#' density differences within shared range, and intermediate values indicate mixed
+#' contributions. These quantities help classify divergence into interpretable
+#' forms such as weighted, soft, nested, or hard divergence (Ascanio et al.,
+#' 2024).
+#'
+#' When `weight.background = TRUE`, density estimates are adjusted for unequal
+#' environmental availability along the discriminant axis. This follows the logic
+#' of background corrections that reduce bias caused by common environments
+#' dominating density estimates and rare available environments being
+#' underrepresented. Such weighting can be useful when species differ in
+#' accessible background environments and when niche overlap should be
+#' interpreted relative to the environmental conditions available to both
+#' species (Brown & Carnaval, 2019).
 #'
 #' @return A named list containing:
 #'   \describe{
@@ -3059,6 +3956,30 @@ plot.DAPC.permutation <- function(dapc_result, #DAPC result object
 #'     \item{niche_limits}{A nested list with lower and upper LD1 limits for
 #'       `group1` and `group2`.}
 #'   }
+#'
+#' @references
+#' Ascanio, A. K., Owens, H. L., Sousa, M. C., & Peterson, A. T. (2024).
+#'   Quantifying niche shifts in one-dimensional environmental space.
+#'   \emph{Ecography}, 2024(5), e07127. https://doi.org/10.1111/ecog.07127
+#'
+#' Brown, J., & Carnaval, A. C. (2019). A tale of two niches: Methods, concepts,
+#'   and evolution. \emph{Frontiers of Biogeography}, 11(4).
+#'   https://doi.org/10.21425/F5FBG44158
+#'
+#' Jombart, T., Devillard, S., & Balloux, F. (2010). Discriminant analysis of
+#'   principal components: A new method for the analysis of genetically
+#'   structured populations. \emph{BMC Genetics}, 11, 94.
+#'   https://doi.org/10.1186/1471-2156-11-94
+#'
+#' Schoener, T. W. (1968). The anolis lizards of Bimini: Resource partitioning
+#'   in a complex fauna. \emph{Ecology}, 49(4), 704-726.
+#'   https://doi.org/10.2307/1935534
+#'
+#' Warren, D. L., Glor, R. E., & Turelli, M. (2008). Environmental niche
+#'   equivalency versus conservatism: Quantitative approaches to niche evolution.
+#'   \emph{Evolution}, 62(11), 2868-2883.
+#'   https://doi.org/10.1111/j.1558-5646.2008.00482.x
+#'
 #' @export
 calc.niche.divergence.metrics <- function(dapc_out, #DAPC results object
                                           group.assignment, #factor/character with labels for two groups
@@ -3289,41 +4210,96 @@ calc.niche.divergence.metrics <- function(dapc_out, #DAPC results object
 #' Plot DAPC variable contributions
 #'
 #' Plot the relative contributions of environmental variables to the DAPC
-#' discriminant axis.
+#' discriminant axis and indicate group associated with higher values for
+#' each variable.
 #'
-#' @param dapc.results DAPC result object containing variable contribution
-#'   information.
-#' @param group.colors Character vector of colors used for the plotted groups or
-#'   contribution directions.
-#' @param min.contribution.threshold A single non-negative numeric value giving
-#'   the minimum contribution required for a variable to be plotted.
-#' @param top.N Optional positive integer limiting the plot to the top
-#'   contributing variables.
-#' @param axis.labels.font.size Numeric font size for axis titles.
-#' @param axis.ticks.font.size Numeric font size for axis tick labels.
-#' @param title.font.size Numeric font size for the plot title.
-#' @param legend.title.font.size Numeric font size for the legend title.
-#' @param legend.text.font.size Numeric font size for legend entries.
-#' @param legend.text.italics Logical; if `TRUE`, italicize legend text.
-#' @param legend.symbol.size Numeric size of legend symbols.
-#' @param legend.position Legend position.
-#' @param add.title Logical; if `TRUE`, add a plot title.
-#' @param title.text Plot title text.
-#' @param show.plot Logical; if `TRUE`, print/return the plot.
-#' @param save Logical; if `TRUE`, save the plot to disk.
-#' @param overwrite Logical; if `TRUE`, allow overwriting an existing file.
-#' @param filename File name used when `save = TRUE`, without extension.
-#' @param output.dir Output directory used when `save = TRUE`.
-#' @param type Output file type when saving.
-#' @param width Plot width when saving.
-#' @param height Plot height when saving.
-#' @param resolution Plot resolution in dpi when saving.
-#' @param verbose Logical; if `TRUE`, print progress messages.
+#' @param dapc.results DAPC result object returned by
+#'   `run.DAPC.crossval.permutation()`, or a nested object containing
+#'   `$dapc_results`. The object must contain variable contributions, variable
+#'   loadings, and group coordinates.
+#' @param group.colors Character vector of two colors used for the plotted groups
+#'   or contribution directions. Can be named with group levels to enforce a
+#'   specific group-color mapping (default: `c("#00005A", "darkgrey")`).
+#' @param min.contribution.threshold Optional single non-negative numeric value
+#'   giving the minimum contribution required for a variable to be plotted
+#'   (default: `NULL`).
+#' @param top.N Optional single positive integer-like numeric value limiting the
+#'   plot to the top contributing variables after ordering by contribution
+#'   (default: `NULL`).
+#' @param axis.labels.font.size A single positive numeric value giving the axis
+#'   title font size (default: `9.1`).
+#' @param axis.ticks.font.size A single positive numeric value giving the axis
+#'   tick-label font size (default: `7`).
+#' @param title.font.size A single positive numeric value giving the plot title
+#'   font size (default: `9.1`).
+#' @param legend.title.font.size A single positive numeric value giving the
+#'   legend title font size (default: `9.1`).
+#' @param legend.text.font.size A single positive numeric value giving the legend
+#'   text font size (default: `9.1`).
+#' @param legend.text.italics Logical; if `TRUE`, legend entries are italicized
+#'   (default: `FALSE`).
+#' @param legend.symbol.size A single positive numeric value giving the legend
+#'   key size in points (default: `15`).
+#' @param legend.position Legend position. Either one of `"right"`, `"left"`,
+#'   `"top"`, `"bottom"`, `"none"`, or a numeric vector `c(x, y)`
+#'   (default: `"right"`).
+#' @param add.title Logical; if `TRUE`, a plot title is added (default: `TRUE`).
+#' @param title.text A single character string giving the plot title when
+#'   `add.title = TRUE` (default: `"Variable contributions to niche
+#'   divergence"`).
+#' @param show.plot Logical; if `TRUE`, the plot is displayed
+#'   (default: `TRUE`).
+#' @param save Logical; if `TRUE`, the plot is saved to disk
+#'   (default: `FALSE`).
+#' @param overwrite Logical; if `TRUE`, an existing file is overwritten when
+#'   `save = TRUE` (default: `FALSE`).
+#' @param filename A single character string giving the output filename without
+#'   extension when `save = TRUE` (default: `"DAPC_var_contributions"`).
+#' @param output.dir Optional character string giving the directory for saved
+#'   plots when `save = TRUE` (default: `NULL`; if `NULL`, the current working
+#'   directory is used).
+#' @param type A single character string giving the output file type. One of
+#'   `"png"`, `"svg"`, or `"jpg"` (default: `"svg"`).
+#' @param width A single positive numeric value giving plot width in centimeters
+#'   when `save = TRUE` (default: `20`).
+#' @param height A single positive numeric value giving plot height in
+#'   centimeters when `save = TRUE` (default: `15`).
+#' @param resolution A single positive numeric value giving plot resolution in
+#'   dpi when saving raster formats (default: `300`).
+#' @param verbose Logical; if `TRUE`, progress messages are printed
+#'   (default: `TRUE`).
 #'
-#' @return A `data.frame` containing the plotted variable contributions. When
-#'   `show.plot = TRUE`, the function also displays the ggplot as a side effect.
-#'   When `save = TRUE`, the ggplot is also saved to disk using `filename`,
-#'   `output.dir`, and `type`.
+#' @details
+#' Variable contributions identify environmental predictors that contribute most
+#' strongly to separation along the DAPC discriminant axis. The discriminant axis
+#' is a linear combination of retained principal components, which are themselves
+#' linear combinations of the original predictors. Back-transforming the
+#' discriminant axis to the original predictor space gives each variable a
+#' loading that reflects its weight in the fitted discrimination.
+#'
+#' Contributions are calculated from squared loadings normalized to sum to one,
+#' so each value represents the relative proportion of discrimination associated
+#' with a predictor. Larger values indicate stronger contribution to separation
+#' along the discriminant axis, whereas values near zero indicate little
+#' contribution to the fitted group separation.
+#'
+#' The direction of effect is determined from the sign of each variable loading
+#' relative to the group centroids on the discriminant axis. This indicates which
+#' group is associated with higher values of each predictor along the fitted
+#' discriminant direction. The direction should be interpreted as an axis-based
+#' association, not as evidence of an independent causal effect.
+#'
+#' Variable contributions should be interpreted cautiously when predictors are
+#' strongly correlated. PCA reduces collinearity for model fitting, but the
+#' back-transformed contributions still reflect shared covariance structure among
+#' the original predictors. Therefore, high contributions indicate variables or
+#' correlated variable sets associated with niche divergence, rather than fully
+#' independent effects of individual predictors.
+#'
+#' @return A `data.frame` containing the plotted variable contributions,
+#'   loadings, and inferred contribution directions. If `show.plot = TRUE`, the
+#'   plot is displayed as a side effect. If `save = TRUE`, the plot is also saved
+#'   to disk using `filename`, `output.dir`, and `type`.
 #'
 #' @rawNamespace export(plot.DAPC.var.contributions)
 plot.DAPC.var.contributions <- function(dapc.results, #DAPC object
@@ -3507,45 +4483,85 @@ plot.DAPC.var.contributions <- function(dapc.results, #DAPC object
 #' Plot top DAPC predictors
 #'
 #' Plot density distributions of the top environmental predictors contributing to
-#' DAPC separation, faceted across the highest-contributing variables.
+#' DAPC separation.
 #'
-#' @param dapc.results DAPC result object or wrapper list containing variable
-#'   contribution information.
-#' @param group.colors Character vector of colors used for the plotted groups.
-#' @param predictor.data A `data.frame` containing the raw predictor values to
-#'   plot for the top contributing variables.
+#' @param dapc.results DAPC result object returned by
+#'   `run.DAPC.crossval.permutation()`, or a nested object containing
+#'   `$dapc_results`. The object must contain variable contribution information.
+#' @param group.colors Character vector of two colors used for the plotted groups.
+#'   Can be named with group levels to enforce a specific group-color mapping
+#'   (default: `c("#00005A", "darkgrey")`).
+#' @param predictor.data A `data.frame` or matrix containing the raw predictor
+#'   values to plot for the top contributing variables.
 #' @param species.labels Factor or character vector giving group identity for
-#'   rows in `predictor.data`.
-#' @param N.top.variables A single positive integer giving the number of top
-#'   contributing variables to plot.
-#' @param alpha.density Numeric transparency for density fills.
-#' @param axis.ticks.font.size Numeric font size for axis tick labels.
-#' @param axis.labels.font.size Numeric font size for axis titles.
-#' @param variable.font.size Numeric font size for facet labels or variable
-#'   labels.
-#' @param legend.label Legend title.
-#' @param legend.position Legend position.
-#' @param legend.title.font.size Numeric font size for the legend title.
-#' @param legend.text.font.size Numeric font size for legend entries.
-#' @param legend.text.italics Logical; if `TRUE`, italicize legend text.
-#' @param legend.symbol.size Numeric size of legend symbols.
-#' @param add.title Logical; if `TRUE`, add a plot title.
-#' @param title.font.size Numeric font size for the plot title.
-#' @param title.text Plot title text.
-#' @param plot.nrow Number of rows in the faceted plot layout.
-#' @param plot.ncol Number of columns in the faceted plot layout.
-#' @param show.plot Logical; if `TRUE`, print/return the plot.
-#' @param save Logical; if `TRUE`, save the plot to disk.
-#' @param overwrite Logical; if `TRUE`, allow overwriting an existing file.
-#' @param filename File name used when `save = TRUE`, without extension.
-#' @param output.dir Output directory used when `save = TRUE`.
-#' @param type Output file type when saving.
-#' @param width Plot width when saving.
-#' @param height Plot height when saving.
-#' @param resolution Plot resolution in dpi when saving.
-#' @param verbose Logical; if `TRUE`, print progress messages.
+#'   rows in `predictor.data`. Exactly two groups are required.
+#' @param N.top.variables A single positive integer-like numeric value giving the
+#'   number of top contributing variables to plot (default: `6`).
+#' @param alpha.density A single numeric value between `0` and `1` controlling
+#'   transparency of density fills (default: `0.75`).
+#' @param axis.ticks.font.size A single positive numeric value giving the axis
+#'   tick-label font size (default: `7`).
+#' @param axis.labels.font.size A single positive numeric value giving the axis
+#'   title font size (default: `9.1`).
+#' @param variable.font.size A single positive numeric value giving the facet
+#'   label font size for variable names (default: `9.1`).
+#' @param legend.label A single character string giving the legend title
+#'   (default: `"Species"`).
+#' @param legend.position Legend position. Either one of `"right"`, `"left"`,
+#'   `"top"`, `"bottom"`, `"none"`, or a numeric vector `c(x, y)`
+#'   (default: `"right"`).
+#' @param legend.title.font.size A single positive numeric value giving the
+#'   legend title font size (default: `9.1`).
+#' @param legend.text.font.size A single positive numeric value giving the legend
+#'   text font size (default: `9.1`).
+#' @param legend.text.italics Logical; if `TRUE`, legend entries are italicized
+#'   (default: `FALSE`).
+#' @param legend.symbol.size A single positive numeric value giving the legend
+#'   key size in points (default: `15`).
+#' @param add.title Logical; if `TRUE`, a plot title is added (default: `TRUE`).
+#' @param title.font.size A single positive numeric value giving the plot title
+#'   font size (default: `9.1`).
+#' @param title.text Optional character string giving the plot title when
+#'   `add.title = TRUE`. If `NULL`, a title is generated automatically
+#'   (default: `NULL`).
+#' @param plot.nrow Optional single positive integer-like numeric value giving
+#'   the number of rows in the faceted plot layout. If `NULL`, this is determined
+#'   automatically (default: `NULL`).
+#' @param plot.ncol Optional single positive integer-like numeric value giving
+#'   the number of columns in the faceted plot layout. If `NULL`, this is
+#'   determined automatically (default: `NULL`).
+#' @param show.plot Logical; if `TRUE`, the plot is returned visibly
+#'   (default: `TRUE`).
+#' @param save Logical; if `TRUE`, the plot is saved to disk
+#'   (default: `FALSE`).
+#' @param overwrite Logical; if `TRUE`, an existing file is overwritten when
+#'   `save = TRUE` (default: `FALSE`).
+#' @param filename A single character string giving the output filename without
+#'   extension when `save = TRUE` (default: `"top_DAPC_predictors"`).
+#' @param output.dir Optional character string giving the directory for saved
+#'   plots when `save = TRUE` (default: `NULL`; if `NULL`, the current working
+#'   directory is used).
+#' @param type A single character string giving the output file type. One of
+#'   `"png"`, `"svg"`, or `"jpg"` (default: `"svg"`).
+#' @param width A single positive numeric value giving plot width in centimeters
+#'   when `save = TRUE` (default: `16`).
+#' @param height A single positive numeric value giving plot height in
+#'   centimeters when `save = TRUE` (default: `10`).
+#' @param resolution A single positive numeric value giving plot resolution in
+#'   dpi when saving raster formats (default: `300`).
+#' @param verbose Logical; if `TRUE`, progress messages are printed
+#'   (default: `TRUE`).
 #'
-#' @return A ggplot object.
+#' @details
+#' This plot links the multivariate DAPC discriminant axis back to the original
+#' environmental predictors by showing the distributions of the variables with
+#' the highest contributions to group separation. These top-predictor density
+#' plots show how the most influential original variables differ between groups.
+#' Variables are ranked by their DAPC contribution values.
+#'
+#' @return A `ggplot` object. If `show.plot = TRUE`, the plot is returned
+#'   visibly; otherwise it is returned invisibly.
+#'
 #' @rawNamespace export(plot.top.DAPC.predictors)
 plot.top.DAPC.predictors <- function(dapc.results, #DAPC result object
                                      group.colors = c("#00005A", "darkgrey"), #two colors for groups
@@ -3746,72 +4762,133 @@ plot.top.DAPC.predictors <- function(dapc.results, #DAPC result object
 ## Function to plot occurrences on a map
 #' Plot occurrence records on a map
 #'
-#' Plot occurrence coordinates, optionally with background points and map
-#' annotations.
+#' Plot occurrence coordinates on a base map, optionally with background points
+#' and map annotations.
 #'
-#' @param coordinates A `data.frame` or matrix containing occurrence
-#'   coordinates to plot.
-#' @param latitude.col A single character string giving the latitude column
-#'   name.
+#' @param coordinates A `data.frame` or matrix containing occurrence coordinates
+#'   to plot.
+#' @param latitude.col A single character string giving the latitude column name
+#'   in `coordinates` and, when supplied, `background.coords`
+#'   (default: `"Latitude"`).
 #' @param longitude.col A single character string giving the longitude column
-#'   name.
-#' @param latitude.buffer.range Numeric buffer added to the plotted latitude
-#'   extent.
-#' @param longitude.buffer.range Numeric buffer added to the plotted longitude
-#'   extent.
-#' @param group.colors Character vector of colors used for the plotted groups.
+#'   name in `coordinates` and, when supplied, `background.coords`
+#'   (default: `"Longitude"`).
+#' @param latitude.buffer.range A single non-negative numeric value giving the
+#'   buffer added to the plotted latitude extent (default: `2`).
+#' @param longitude.buffer.range A single non-negative numeric value giving the
+#'   buffer added to the plotted longitude extent (default: `2`).
+#' @param group.colors Character vector of two colors used for the occurrence
+#'   groups. Can be named with group levels to enforce a specific group-color
+#'   mapping (default: `c("#00005A", "darkgrey")`).
 #' @param group.labels Factor or character vector giving group membership for
-#'   occurrence points.
-#' @param CRS Coordinate reference system used for plotting.
-#' @param point.size Numeric point size for occurrence records.
-#' @param point.alpha Numeric transparency for occurrence points.
-#' @param point.border.color Border color for occurrence points.
-#' @param plot.background.points Logical; if `TRUE`, plot background points.
-#' @param background.coords Optional `data.frame` or matrix of background point
-#'   coordinates.
-#' @param background.group.labels Optional factor or character vector of group
-#'   labels for background points.
-#' @param background.point.size Numeric point size for background points.
-#' @param background.point.col Color for background points.
-#' @param background.point.alpha Numeric transparency for background points.
-#' @param axis.numbers.size Numeric font size for axis tick labels.
-#' @param add.USA.states Logical; if `TRUE`, add USA state borders.
-#' @param add.USA.counties Logical; if `TRUE`, add USA county borders.
-#' @param country.lwd Numeric line width for country borders.
-#' @param USA.state.lwd Numeric line width for USA state borders.
-#' @param USA.county.lwd Numeric line width for USA county borders.
-#' @param map.background Fill color used for the map background.
-#' @param north.arrow.position Numeric vector of length 2 giving the relative
-#'   x/y position of the north arrow.
-#' @param north.arrow.length Numeric arrow length for the north arrow.
-#' @param north.arrow.lwd Numeric line width for the north arrow.
-#' @param north.arrow.font.size Numeric font size for the north-arrow label.
-#' @param north.arrow.N.position Numeric vertical offset for the `"N"` label.
-#' @param scale.position Numeric vector of length 2 giving the relative x/y
-#'   position of the scale bar.
-#' @param scale.size Numeric width scaling for the scale bar.
-#' @param scale.font.size Numeric font size for the scale bar text.
-#' @param legend.position Position of the legend.
-#' @param legend.font.size Numeric font size of legend text.
-#' @param legend.group.names Optional character vector of legend labels for the
-#'   groups.
-#' @param legend.box Logical; if `TRUE`, draw a legend box.
-#' @param legend.text.italics Logical; if `TRUE`, italicize legend text.
-#' @param legend.symbol.size Numeric size of legend symbols.
-#' @param show.plot Logical; if `TRUE`, draw the plot.
-#' @param save Logical; if `TRUE`, save the plot to disk.
-#' @param overwrite Logical; if `TRUE`, allow overwriting an existing file.
-#' @param filename File name used when `save = TRUE`, without extension.
-#' @param output.dir Output directory used when `save = TRUE`.
-#' @param type Output file type when saving.
-#' @param width Plot width when saving.
-#' @param height Plot height when saving.
-#' @param resolution Plot resolution in dpi when saving.
-#' @param verbose Logical; if `TRUE`, print messages during saving.
+#'   occurrence points. Exactly two groups are required.
+#' @param CRS A single character string giving the coordinate reference system
+#'   used for plotting (default: `"EPSG:4326"`).
+#' @param point.size A single positive numeric value giving the occurrence point
+#'   size (default: `1.22`).
+#' @param point.alpha A single numeric value between `0` and `1` controlling
+#'   occurrence point transparency (default: `0.9`).
+#' @param point.border.color A single character string giving the occurrence
+#'   point border color (default: `"black"`).
+#' @param plot.background.points Logical; if `TRUE`, background points are drawn
+#'   on the map (default: `TRUE`).
+#' @param background.coords Optional `data.frame` or matrix containing background
+#'   point coordinates. Required when `plot.background.points = TRUE`
+#'   (default: `NULL`).
+#' @param background.group.labels Optional factor or character vector giving
+#'   group membership for background points. If supplied, its levels must match
+#'   `group.labels` (default: `NULL`).
+#' @param background.point.size A single positive numeric value giving the
+#'   background point size (default: `0.22`).
+#' @param background.point.col A single character string giving the background
+#'   point color when `background.group.labels = NULL` (default: `"grey60"`).
+#' @param background.point.alpha A single numeric value between `0` and `1`
+#'   controlling background point transparency (default: `0.9`).
+#' @param axis.numbers.size A single positive numeric value giving the coordinate
+#'   tick-label font size (default: `9.1`).
+#' @param add.USA.states Logical; if `TRUE`, USA state borders are added
+#'   (default: `TRUE`).
+#' @param add.USA.counties Logical; if `TRUE`, USA county borders are added
+#'   (default: `FALSE`).
+#' @param country.lwd A single non-negative numeric value giving the country
+#'   border line width (default: `1`).
+#' @param USA.state.lwd A single non-negative numeric value giving the USA state
+#'   border line width (default: `1`).
+#' @param USA.county.lwd A single non-negative numeric value giving the USA
+#'   county border line width (default: `0.3`).
+#' @param map.background A single character string giving the fill color used for
+#'   the map background (default: `"lightgrey"`).
+#' @param north.arrow.position Numeric vector of length two giving the relative
+#'   x/y position of the north arrow within the plotted extent
+#'   (default: `c(0.03, 0.88)`).
+#' @param north.arrow.length A single positive numeric value giving the north
+#'   arrow length in map units (default: `0.7`).
+#' @param north.arrow.lwd A single non-negative numeric value giving the north
+#'   arrow line width (default: `2`).
+#' @param north.arrow.font.size A single positive numeric value giving the font
+#'   size of the north-arrow label (default: `9.1`).
+#' @param north.arrow.N.position A single numeric value giving the vertical offset
+#'   of the `"N"` label above the arrow tip (default: `0.3`).
+#' @param scale.position Numeric vector of length two giving the relative x/y
+#'   position of the scale bar within the plotted extent
+#'   (default: `c(0.03, 0.05)`).
+#' @param scale.size A single positive numeric value controlling the scale-bar
+#'   width (default: `0.16`).
+#' @param scale.font.size A single positive numeric value giving the scale-bar
+#'   text font size (default: `7`).
+#' @param legend.position A single character string giving the legend position
+#'   used by base R graphics (default: `"topright"`).
+#' @param legend.font.size A single positive numeric value giving the legend text
+#'   font size (default: `9.1`).
+#' @param legend.group.names Optional character vector giving legend labels for
+#'   the two occurrence groups. If `NULL`, levels of `group.labels` are used
+#'   (default: `NULL`).
+#' @param legend.box Logical; if `TRUE`, a legend box is drawn
+#'   (default: `TRUE`).
+#' @param legend.text.italics Logical; if `TRUE`, legend text is italicized
+#'   (default: `FALSE`).
+#' @param legend.symbol.size A single positive numeric value giving the legend
+#'   symbol size (default: `1.5`).
+#' @param show.plot Logical; if `TRUE`, the map is drawn on the active graphics
+#'   device (default: `TRUE`).
+#' @param save Logical; if `TRUE`, the map is saved to disk
+#'   (default: `FALSE`).
+#' @param overwrite Logical; if `TRUE`, an existing output file is overwritten
+#'   when `save = TRUE` (default: `TRUE`).
+#' @param filename A single character string giving the output filename without
+#'   extension when `save = TRUE` (default: `"occurrence_map"`).
+#' @param output.dir Optional character string giving the directory for saved
+#'   plots when `save = TRUE` (default: `NULL`; if `NULL`, the current working
+#'   directory is used).
+#' @param type A single character string giving the output file type. One of
+#'   `"png"`, `"svg"`, or `"jpg"` (default: `"svg"`).
+#' @param width A single positive numeric value giving plot width in centimeters
+#'   when `save = TRUE` (default: `15`).
+#' @param height A single positive numeric value giving plot height in
+#'   centimeters when `save = TRUE` (default: `20`).
+#' @param resolution A single positive numeric value giving plot resolution in
+#'   dpi when saving raster formats (default: `300`).
+#' @param verbose Logical; if `TRUE`, messages are printed when saving
+#'   (default: `TRUE`).
 #'
-#' @return No return value. The function is called for its side
-#'   effects: drawing a base R map and, when `save = TRUE`, writing the plot to
-#'   disk.
+#' @details
+#' Occurrence maps provide the geographic context for niche-divergence analyses
+#' by showing where occurrence records and, optionally, accessible background
+#' points are located in geographic space. This is useful because environmental
+#' niche divergence is tested in environmental space, but the interpretation of
+#' sampling, accessible areas, spatial clustering, and background availability
+#' depends on the geographic distribution of the data.
+#'
+#' The function is designed for occurrence and background coordinates in decimal
+#' degrees. Map extents are expanded by the latitude and longitude buffer
+#' arguments so that plotted points are not placed directly on the map boundary.
+#' Optional state and county overlays can be used when the study area falls within
+#' the United States. The plot may require repeated adjustment of mapping
+#' parameters to produce an appropriate layout, including legend placement, north
+#' arrow position, scale-bar position, point sizes, and map extent.
+#'
+#' @return No return value. The function is called for its side effects: drawing
+#'   a base R map and, when `save = TRUE`, writing the plot to disk.
 #'
 #' @rawNamespace export(plot.occurrences.map)
 plot.occurrences.map <- function(coordinates, #data.frame/matrix with coordinates
@@ -4086,15 +5163,39 @@ plot.occurrences.map <- function(coordinates, #data.frame/matrix with coordinate
 ## Function to map variable names to descriptive names
 #' Map environmental variable names to readable labels
 #'
-#' Map environmental variable names to readable labels.
+#' Replace internal abbreviated environmental variable names with readable
+#' full or shortened labels. The function can map column names of a `data.frame`,
+#' names of a named vector, or row names of a matrix.
 #'
-#' @param input.data A data.frame or named vector.
-#' @param name.length Either `"full"` or `"short"`.
-#' @param recognize.transformations Logical; preserve transformation suffixes in labels.
+#' @param input.data A `data.frame`, named vector, or matrix with row names. For
+#'   a `data.frame`, column names are mapped. For a named vector, vector names are
+#'   mapped. For a matrix, row names are mapped.
+#' @param name.length Character string specifying the label length to use. One of
+#'   `"full"` for descriptive labels with units where available, or `"short"` for
+#'   abbreviated labels (default: `"full"`).
+#' @param recognize.transformations Logical; if `TRUE`, transformation suffixes
+#'   such as `"_log"`, `"_sqrt"`, or `"_arcsine_sqrt"` are detected and preserved
+#'   in the mapped label (default: `TRUE`).
+#'
+#' @details
+#' This utility is used to convert compact environmental variable names into
+#' labels that are easier to interpret in tables and plots. Full labels are
+#' intended for descriptive output where units and temporal information are
+#' useful, whereas short labels are intended for compact visualizations or
+#' summaries where space is limited.
+#'
+#' When `recognize.transformations = TRUE`, the function first identifies known
+#' transformation suffixes and maps the base environmental variable name. The
+#' transformation suffix is then appended to the readable label, allowing
+#' transformed variables to remain identifiable while still using descriptive
+#' environmental names. Variable names that are not found in the mapping table are
+#' returned unchanged.
 #'
 #' @return The same object type as `input.data`. For a `data.frame`, column names
 #'   are replaced by mapped environmental variable labels. For a named vector,
-#'   vector names are replaced. Data values and row order are unchanged.
+#'   vector names are replaced. For a matrix, row names are replaced. Data values,
+#'   row order, and column order are unchanged.
+#'
 #' @export
 map.env.variable.names <- function(input.data, #data frame or named numeric/vector to map variable names
                                    name.length = c("full", "short"), #use "full" for long descriptive names or "short" for abbreviated versions
@@ -4895,63 +5996,465 @@ map.env.variable.names <- function(input.data, #data frame or named numeric/vect
 #' Extract environmental variables and optional background data
 #'
 #' Extract environmental variables for occurrence records, optionally generate
-#' background points within an accessible area, and write output tables to disk.
+#' random background points within an accessible area, and write occurrence and
+#' background environmental tables to disk.
 #'
 #' @param occurrence.data A `data.frame` containing occurrence records with
 #'   unique row names used as record identifiers, and coordinate columns named by
 #'   `longitude.col` and `latitude.col`.
 #' @param longitude.col A single character string giving the longitude column
-#'   name in `occurrence.data`.
-#' @param latitude.col A single character string giving the latitude column
-#'   name in `occurrence.data`.
-#' @param generate.background.data Logical; if `TRUE`, generate background
-#'   points.
+#'   name in `occurrence.data` (default: `"Longitude"`).
+#' @param latitude.col A single character string giving the latitude column name
+#'   in `occurrence.data` (default: `"Latitude"`).
+#' @param generate.background.data Logical; if `TRUE`, random background points
+#'   are generated within the accessible area (default: `FALSE`).
 #' @param N.background.points A single positive numeric value giving the number
-#'   of background points to generate.
-#' @param remove.hydrolakes.background Logical; if `TRUE`, exclude HydroLAKES
-#'   water bodies from background sampling.
-#' @param buffer.km A single positive numeric value giving the buffer distance
-#'   in kilometres.
-#' @param landmask.largest.N.pieces A single positive integer giving the number
-#'   of largest landmask polygon pieces to retain.
-#' @param csv.occurrence.out.file File name for the occurrence output CSV.
-#' @param csv.background.out.file File name for the background output CSV.
-#' @param output.dir Output directory for final CSV files.
-#' @param intermediate.files.dir Directory used for intermediate files.
-#' @param env.datasets Character vector naming the built-in environmental
-#'   datasets to extract. Valid entries are `"elevation"`, `"ClimateNA"`, `"EVI"`,
-#'   `"terrain"`, `"ENVIREM"`, `"footprint"`, `"landcover"`, `"soil"`,
-#'   `"forest_height"`, `"atmosphere"`, `"nightlight"`, `"burned_area"`,
-#'   `"snow_water_equivalent"`, `"daylength"`, and `"soil_moisture"`.
-#'   `"ClimateNA"` and `"terrain"` require `"elevation"`.
-#'   `"ClimateNA"`, `"daylength"`, and `"snow_water_equivalent"` are only
-#'   available for North America.
-#' @param CRS.occurrences Coordinate reference system string for the occurrence
-#'   coordinates.
-#' @param overwrite Logical; if `TRUE`, overwrite existing outputs.
-#' @param delete.intermediate.files.folders Logical; if `TRUE`, delete
-#'   intermediate files after processing.
-#' @param redownload.rasters Logical; if `TRUE`, force redownload of raster
-#'   inputs.
+#'   of background points to generate when `generate.background.data = TRUE`
+#'   (default: `100000`).
+#' @param remove.hydrolakes.background Logical; if `TRUE`, HydroLAKES water
+#'   bodies are excluded from background sampling (default: `FALSE`).
+#' @param buffer.km A single positive numeric value giving the buffer distance,
+#'   in kilometers, used to expand the occurrence-based accessible area.
+#' @param landmask.largest.N.pieces A single positive integer-like numeric value
+#'   giving the number of largest landmask polygon pieces to retain
+#'   (recommended default: `5`).
+#' @param csv.occurrence.out.file A single character string giving the output CSV
+#'   file name for the occurrence environmental table.
+#' @param csv.background.out.file Optional character string giving the output CSV
+#'   file name for the background environmental table. Required when
+#'   `generate.background.data = TRUE` (default: `NULL`).
+#' @param output.dir A single character string giving the output directory for
+#'   final CSV files and intermediate folders.
+#' @param intermediate.files.dir A single character string giving the subfolder
+#'   used for cached intermediate files (default: `"Intermediate_files"`).
+#' @param env.datasets Optional character vector naming the built-in
+#'   environmental datasets to extract. Valid entries are `"elevation"`,
+#'   `"ClimateNA"`, `"EVI"`, `"terrain"`, `"ENVIREM"`, `"footprint"`,
+#'   `"landcover"`, `"soil"`, `"forest_height"`, `"atmosphere"`,
+#'   `"nightlight"`, `"burned_area"`, `"snow_water_equivalent"`,
+#'   `"daylength"`, and `"soil_moisture"` (default: `NULL`). `"ClimateNA"` and
+#'   `"terrain"` require `"elevation"`. `"ClimateNA"`, `"daylength"`, and
+#'   `"snow_water_equivalent"` are only available for North America.
+#' @param CRS.occurrences A single character string giving the coordinate
+#'   reference system of the occurrence coordinates (default: `"EPSG:4326"`).
+#' @param overwrite Logical; if `TRUE`, existing outputs and cached intermediate
+#'   files are overwritten where applicable (default: `FALSE`).
+#' @param delete.intermediate.files.folders Logical; if `TRUE`, intermediate
+#'   raster and auxiliary folders are deleted after processing
+#'   (default: `FALSE`).
+#' @param redownload.rasters Logical; if `TRUE`, raster and auxiliary input files
+#'   are downloaded again even when cached files are present (default: `FALSE`).
 #' @param custom.env.rasters Optional character vector of custom raster sources.
-#'   Each entry can be a local `.tif`/`.tiff`, a directory containing GeoTIFFs,
+#'   Each entry can be a local `.tif` or `.tiff`, a directory containing GeoTIFFs,
 #'   a `.zip` archive containing GeoTIFFs, or an HTTP/HTTPS URL to a `.tif`,
-#'   `.tiff`, or `.zip` file.
+#'   `.tiff`, or `.zip` file (default: `NULL`).
 #' @param custom.env.rasters.names Optional character vector naming each custom
-#'   raster dataset.
+#'   raster dataset. If supplied, it must have the same length as
+#'   `custom.env.rasters` (default: `NULL`).
 #' @param custom.env.rasters.variable.names Optional character vector or list of
-#'   variable names assigned to layers in custom rasters.
-#' @param custom.env.rasters.crs Optional character vector of CRS definitions
-#'   for custom rasters.
-#' @param custom.raster.min.size.mb Minimum file size in MB required for custom
-#'   raster downloads to be considered valid.
-#' @param seed A single numeric value used to set the random seed.
-#' @param verbose Logical; if `TRUE`, print progress messages.
+#'   character vectors giving variable names assigned to custom raster layers
+#'   (default: `NULL`).
+#' @param custom.env.rasters.crs Optional character vector of CRS definitions for
+#'   custom rasters. This is used only when a custom raster lacks embedded CRS
+#'   metadata (default: `NULL`).
+#' @param custom.raster.min.size.mb A single positive numeric value giving the
+#'   minimum file size, in megabytes, required for downloaded custom raster files
+#'   to be considered valid (default: `5`).
+#' @param seed A single numeric value used to set the random seed for
+#'   reproducible background sampling (default: `1`).
+#' @param verbose Logical; if `TRUE`, progress messages are printed
+#'   (default: `TRUE`).
+#'
+#' @details
+#' This function is designed to create occurrence and optional background
+#' environmental tables for downstream DAPC niche-divergence analyses.
+#'
+#' Background points represent the environmental conditions available within an
+#' estimated accessible area. Background sampling can optionally exclude major
+#' lakes using HydroLAKES. This is useful for terrestrial taxa because aquatic
+#' surfaces may represent inaccessible or biologically irrelevant environments,
+#' and including them can distort the environmental background used in downstream
+#' comparisons. For aquatic or semi-aquatic organisms, or for very large
+#' geographic extents where lake masking is computationally costly, retaining
+#' water bodies may be more appropriate.
+#'
+#' The function supports a broad suite of abiotic and biotic predictors because
+#' ecological niches are multidimensional and often shaped by climate,
+#' topography, hydrology, vegetation, soils, disturbance, land use, and biotic
+#' context rather than climate alone (Guisan & Zimmermann, 2000; Soberón, 2007;
+#' Elith & Leathwick, 2009; Kearney & Porter, 2009; Dormann et al., 2013; Title
+#' & Bemmels, 2018). Seasonal and monthly predictors are included because annual
+#' summaries can obscure phenological constraints, short-term physiological
+#' stress, and seasonal resource availability (Hufkens et al., 2018; Zimmermann
+#' et al., 2009; Prajzlerová et al., 2025).
+#'
+#' Elevation (`env.datasets = "elevation"`; 1 variable) is based on the
+#' Copernicus Global Digital Elevation Model GLO-90 v.1.1
+#' (https://doi.org/10.5069/G9028PQB), aggregated to approximately 250 m
+#' resolution. Elevation can be useful for deriving climatic and topographic
+#' predictors, but should usually be interpreted cautiously as a direct
+#' ecological predictor because it often acts as a proxy for temperature,
+#' moisture, oxygen availability, vegetation, and other mechanistic drivers
+#' (Guisan & Zimmermann, 2000; Dormann et al., 2013; Title & Bemmels, 2018).
+#'
+#' Terrain variables (`env.datasets = "terrain"`; requires
+#' `env.datasets = "elevation"`; 5 variables; approximately 250 m resolution) are
+#' calculated to summarize local landscape structure, topographic exposure, and
+#' hydrological position. The terrain ruggedness index (TRI) measures the mean
+#' absolute difference between the elevation of a focal cell and its surrounding
+#' cells, capturing local terrain heterogeneity. The topographic position index
+#' (TPI) measures whether a focal cell is higher or lower than its local
+#' neighborhood, distinguishing ridges, slopes, flats, and depressions. Surface
+#' roughness measures the local elevation range and captures abrupt changes in
+#' relief. Together, TRI, TPI, and roughness describe complementary aspects of
+#' fine-scale topographic complexity and habitat heterogeneity (Wilson et al.,
+#' 2007; Hengl & Evans, 2009; Conrad et al., 2015). The heat load index (HLI)
+#' summarizes potential thermal exposure as a function of slope, aspect, and
+#' latitude, providing a topographic proxy for solar radiation, heat balance, and
+#' microclimatic exposure (McCune & Keon, 2002; Bennie et al., 2008; Dobrowski,
+#' 2011). The topographic wetness index (TWI) represents soil-moisture potential
+#' based on upslope contributing area and slope, linking topography to drainage,
+#' hydrological accumulation, and local moisture availability (Beven & Kirkby,
+#' 1979; Sørensen et al., 2006). Together, these five terrain variables capture
+#' microclimatic buffering, exposure, drainage, and habitat heterogeneity relevant
+#' to species distributions (Bennie et al., 2008; Dobrowski, 2011).
+#'
+#' ClimateNA (Wang et al., 2016) (`env.datasets = "ClimateNA"`; requires
+#' `env.datasets = "elevation"`; scale-free; 205 variables) provides 25 annual
+#' and 180 monthly North American climate estimates adjusted for local topography
+#' and elevation. These variables represent temperature, precipitation, frost,
+#' snow, humidity, evaporative demand, degree days, and heat-moisture indices,
+#' capturing both long-term climatic gradients and seasonal climatic constraints
+#' based on multi-year mean values for 2011-2020. ClimateNA can provide finer
+#' ecological resolution than coarser gridded climatic products in mountainous or
+#' otherwise environmentally heterogeneous landscapes because it combines
+#' interpolation with local elevation adjustment (Wang et al., 2016; MacDonald et
+#' al., 2025).
+#'
+#' ENVIREM (Environmental Rasters for Ecological Modeling; Title & Bemmels, 2018)
+#' (`env.datasets = "ENVIREM"`; 16 variables; 30-arcsecond resolution) variables
+#' provide ecologically derived climatic and moisture indices, including
+#' potential evapotranspiration, aridity, climatic moisture, continentality,
+#' growing degree days, thermicity, and seasonal PET summaries. These variables
+#' are designed to represent ecophysiologically relevant climate gradients and
+#' can improve ecological niche modeling relative to relying only on standard
+#' bioclimatic variables (Title & Bemmels, 2018).
+#'
+#' Atmospheric variables (`env.datasets = "atmosphere"`; 3 variables with 9
+#' estimates each; 30-arcsecond resolution) are based on WorldClim v.2.1 climate
+#' layers (Hijmans et al., 2005; Fick & Hijmans, 2017) and include solar
+#' radiation (srad), wind speed (wind), and vapor pressure (vapr). For each
+#' variable, six bimonthly layers are extracted, and the median, minimum, and
+#' maximum values across bimonthly layers are calculated, resulting in 27
+#' atmospheric variables. Solar radiation captures atmospheric energy input, wind
+#' speed reflects mechanical mixing and desiccation potential, and vapor pressure
+#' represents atmospheric moisture conditions influencing evapotranspiration and
+#' physiological water stress (Allen et al., 1998; Novick et al., 2016).
+#'
+#' Daylength (`env.datasets = "daylength"`; available only for North America; 1
+#' variable with 12 monthly estimates; 30-arcsecond resolution) is based on
+#' Daymet v.4 monthly surfaces (daymet.ornl.gov) and captures 12 monthly
+#' photoperiod conditions. Photoperiod is a fundamental seasonal cue affecting
+#' phenology, diapause, development, reproduction, and other circannual
+#' biological processes, making it especially relevant for taxa with strong
+#' seasonal life cycles (Hufkens et al., 2018).
+#'
+#' Snow water equivalent (`env.datasets = "snow_water_equivalent"`; available
+#' only for North America; 1 variable with 12 monthly estimates; 30-arcsecond
+#' resolution) is based on Daymet v.4 monthly surfaces (daymet.ornl.gov)
+#' and represents monthly snowpack water content. This layer captures winter snow
+#' accumulation and cryospheric constraints that can affect overwintering
+#' conditions, surface moisture, phenology, and seasonal habitat accessibility.
+#'
+#' The Enhanced Vegetation Index (EVI; `env.datasets = "EVI"`; 9 variables;
+#' 250 m resolution) captures vegetation productivity, canopy greenness, and
+#' phenological dynamics while reducing saturation in high-biomass areas relative
+#' to NDVI, making it useful for species whose distributions are linked to plant
+#' productivity, host-plant availability, or seasonal vegetation structure (Huete
+#' et al., 2002). EVI variables are based on OpenLandMap bimonthly vegetation
+#' composites derived from MODIS MOD13Q1 products and provide six bimonthly
+#' vegetation-greenness layers (Jan-Feb, Mar-Apr, May-Jun, Jul-Aug, Sep-Oct,
+#' and Nov-Dec), plus median, minimum, and maximum annual summaries.
+#'
+#' Land-cover variables (`env.datasets = "landcover"`; 11 variables; 10 m source
+#' resolution) are based on the European Space Agency WorldCover 2020 product
+#' (esa-worldcover.org) and summarize proportional coverage of 11 major
+#' land-cover classes: tree cover, grassland, shrubland, cropland, built-up land,
+#' bare ground, snow and ice, water, wetlands, mangroves, and moss or lichen.
+#' These variables capture habitat composition and broad structural differences
+#' in land use and vegetation cover, which can affect resource availability,
+#' dispersal, exposure, and habitat suitability.
+#'
+#' Forest height (`env.datasets = "forest_height"`; 1 variable; approximately
+#' 250 m resolution for regional and continental products, 500 m for the global
+#' product) is based on the ETH Global Canopy Height 2020 product (Lang et al.,
+#' 2023) and provides one canopy-height variable representing forest structural
+#' complexity. The data are derived from the original product, namely a global
+#' 10 m canopy top height model estimated from Sentinel-2 imagery with NASA
+#' Global Ecosystem Dynamics Investigation waveform Light Detection and Ranging
+#' supervision (Lang et al., 2023). Canopy height can indicate vertical habitat
+#' complexity, shading, forest maturity, and vegetation structure, all of which
+#' may affect microclimate, host resources, and habitat availability (Potapov et
+#' al., 2021; Lang et al., 2023).
+#'
+#' Soil variables (`env.datasets = "soil"`; 9 variables; 30-arcsecond
+#' resolution) are based on SoilGrids 2.0 (Poggio et al., 2021; Turek et al.,
+#' 2023) and provide nine topsoil properties: bulk density (`Bulk_density`),
+#' coarse fragments volume (`Coarse_fragments_volume`), clay fraction
+#' (`Clay_fraction`), sand fraction (`Sand_fraction`), silt fraction
+#' (`Silt_fraction`), total nitrogen content (`Nitrogen_content`), soil pH in
+#' water (`pH_H2O`), soil organic carbon (`Soil_organic_carb`), and organic carbon
+#' density (`Organic_carb_density`). These variables represent substrate texture,
+#' chemistry, nutrient availability, and water-holding capacity, which can
+#' influence vegetation composition, host-plant distributions, and habitat
+#' suitability (Hillel, 1998; Jackson et al., 1996; Weil & Brady, 2016).
+#'
+#' Soil moisture (`env.datasets = "soil_moisture"`; 1 variable with 6 bimonthly
+#' estimates; 900-arcsecond resolution) is based on the ESA CCI Soil Moisture
+#' product and provides six bimonthly volumetric soil-water availability layers
+#' (Dorigo et al., 2017; Gruber et al., 2019; Preimesberger et al., 2021). Soil
+#' moisture integrates climatic water balance, surface hydrology, and
+#' vegetation-water interactions, and can be important for species limited by
+#' drought stress, larval host-plant condition, or moisture-dependent habitat
+#' structure.
+#'
+#' Human footprint (`env.datasets = "footprint"`; 1 variable; 30-arcsecond
+#' resolution) is based on the Human Footprint Index and provides one variable
+#' (`Footprint`) representing cumulative human modification of terrestrial
+#' environments (Venter et al., 2016). It integrates built environments,
+#' population density, electrical infrastructure, croplands, pasturelands, roads,
+#' railways, and navigable waterways, providing a broad proxy for anthropogenic
+#' disturbance and habitat alteration.
+#'
+#' Nighttime light (`env.datasets = "nightlight"`; 1 variable; 30-arcsecond
+#' resolution) is based on the DMSP-OLS stable lights product and provides one
+#' variable (`Nighttime_light`) representing persistent artificial light at night
+#' (Elvidge et al., 1997; Baugh et al., 2010). Nighttime lights can capture
+#' infrastructure, urban intensity, and human activity patterns that may not be
+#' fully represented by land-cover classifications or human-footprint indices.
+#'
+#' Burned area (`env.datasets = "burned_area"`; 1 variable with 12 monthly
+#' estimates; 900-arcsecond resolution) is based on the ESA Fire Disturbance
+#' Climate Change Initiative burned-area product and provides 12 monthly
+#' fire-disturbance variables (`Burned_area_01` to `Burned_area_12`). Fire regimes
+#' can shape habitat structure, vegetation turnover, resource availability, and
+#' landscape heterogeneity, making burned area useful for taxa whose distributions
+#' are influenced by disturbance history or post-fire vegetation dynamics (Andela
+#' et al., 2017; Chuvieco et al., 2016).
+#'
+#' Custom rasters (`custom.env.rasters`) allow users to extend the environmental
+#' dataset with study-specific predictors. This is useful when biologically
+#' important variables are not represented by the built-in datasets, when local
+#' products have better spatial or temporal resolution, or when the analysis
+#' requires predictors tailored to a specific taxon, region, or hypothesis.
 #'
 #' @return `NULL`. The function is called for its side effects: writing the
-#'   occurrence environmental table to a CSV file: `csv.occurrence.out.file` and, when
-#'   `generate.background.data = TRUE`, writing the background environmental
-#'   table to a CSV file too: `csv.background.out.file`.
+#'   occurrence environmental table to `csv.occurrence.out.file` in `output.dir`
+#'   and, when `generate.background.data = TRUE`, writing the background
+#'   environmental table to `csv.background.out.file`.
+#'
+#' @references
+#' Allen, R. G., Pereira, L. S., Raes, D., & Smith, M. (1998).
+#'   \emph{Crop evapotranspiration: Guidelines for computing crop water
+#'   requirements}. FAO Irrigation and Drainage Paper 56.
+#'
+#' Andela, N., Morton, D. C., Giglio, L., Chen, Y., van der Werf, G. R.,
+#'   Kasibhatla, P. S., DeFries, R. S., Collatz, G. J., Hantson, S.,
+#'   Kloster, S., Bachelet, D., Forrest, M., Lasslop, G., Li, F., Mangeon, S.,
+#'   Melton, J. R., Yue, C., & Randerson, J. T. (2017). A human-driven decline in
+#'   global burned area. \emph{Science}, 356(6345), 1356-1362.
+#'   https://doi.org/10.1126/science.aal4108
+#'
+#' Baugh, K., Hsu, F.-C., Elvidge, C. D., & Zhizhin, M. (2010). Global
+#'   inventory modeling and mapping studies. \emph{Proceedings of the Asia-Pacific
+#'   Advanced Network}, 30, 78-88.
+#'
+#' Bennie, J., Huntley, B., Wiltshire, A., Hill, M. O., & Baxter, R. (2008).
+#'   Slope, aspect and climate: Spatially explicit and implicit models of
+#'   topographic microclimate in chalk grassland. \emph{Ecological Modelling},
+#'   216(1), 47-59. https://doi.org/10.1016/j.ecolmodel.2008.04.010
+#'
+#' Beven, K. J., & Kirkby, M. J. (1979). A physically based, variable
+#'   contributing area model of basin hydrology. \emph{Hydrological Sciences
+#'   Bulletin}, 24(1), 43-69. https://doi.org/10.1080/02626667909491834
+#'
+#' Chuvieco, E., Pettinari, M. L., Lizundia-Loiola, J., Storm, T., & Padilla
+#'   Parellada, M. (2016). ESA Fire Climate Change Initiative (Fire_cci):
+#'   MODIS Fire_cci burned area pixel product, version 5.1.
+#'
+#' Conrad, O., Bechtel, B., Bock, M., Dietrich, H., Fischer, E., Gerlitz, L.,
+#'   Wehberg, J., Wichmann, V., & Böhner, J. (2015). System for Automated
+#'   Geoscientific Analyses (SAGA) v. 2.1.4. \emph{Geoscientific Model
+#'   Development}, 8, 1991-2007. https://doi.org/10.5194/gmd-8-1991-2015
+#'
+#' Dobrowski, S. Z. (2011). A climatic basis for microrefugia: The influence of
+#'   terrain on climate. \emph{Global Change Biology}, 17(2), 1022-1035.
+#'   https://doi.org/10.1111/j.1365-2486.2010.02263.x
+#'
+#' Dorigo, W. A., Gruber, A., de Jeu, R. A. M., Wagner, W., Stacke, T.,
+#'   Loew, A., Albergel, C., Brocca, L., Chung, D., Parinussa, R. M., &
+#'   Kidd, R. (2017). ESA CCI Soil Moisture for improved Earth system
+#'   understanding: State-of-the art and future directions. \emph{Remote Sensing
+#'   of Environment}, 203, 185-215. https://doi.org/10.1016/j.rse.2017.07.001
+#'
+#' Dormann, C. F., Elith, J., Bacher, S., Buchmann, C., Carl, G., Carré, G.,
+#'   Marquéz, J. R. G., Gruber, B., Lafourcade, B., Leitão, P. J.,
+#'   Münkemüller, T., McClean, C., Osborne, P. E., Reineking, B., Schröder, B.,
+#'   Skidmore, A. K., Zurell, D., & Lautenbach, S. (2013). Collinearity: A
+#'   review of methods to deal with it and a simulation study evaluating their
+#'   performance. \emph{Ecography}, 36(1), 27-46.
+#'   https://doi.org/10.1111/j.1600-0587.2012.07348.x
+#'
+#' Elith, J., & Leathwick, J. R. (2009). Species distribution models: Ecological
+#'   explanation and prediction across space and time. \emph{Annual Review of
+#'   Ecology, Evolution, and Systematics}, 40, 677-697.
+#'   https://doi.org/10.1146/annurev.ecolsys.110308.120159
+#'
+#' Elvidge, C. D., Baugh, K. E., Kihn, E. A., Kroehl, H. W., Davis, E. R., &
+#'   Davis, C. W. (1997). Relation between satellite observed visible-near
+#'   infrared emissions, population, economic activity and electric power
+#'   consumption. \emph{International Journal of Remote Sensing}, 18(6),
+#'   1373-1379. https://doi.org/10.1080/014311697218485
+#'
+#' Fick, S. E., & Hijmans, R. J. (2017). WorldClim 2: New 1-km spatial
+#'   resolution climate surfaces for global land areas. \emph{International
+#'   Journal of Climatology}, 37(12), 4302-4315.
+#'   https://doi.org/10.1002/joc.5086
+#'
+#' Gruber, A., Scanlon, T., van der Schalie, R., Wagner, W., & Dorigo, W.
+#'   (2019). Evolution of the ESA CCI Soil Moisture climate data records and
+#'   their underlying merging methodology. \emph{Earth System Science Data}, 11,
+#'   717-739. https://doi.org/10.5194/essd-11-717-2019
+#'
+#' Guisan, A., & Zimmermann, N. E. (2000). Predictive habitat distribution
+#'   models in ecology. \emph{Ecological Modelling}, 135(2-3), 147-186.
+#'   https://doi.org/10.1016/S0304-3800(00)00354-9
+#'
+#' Hengl, T., & Evans, I. S. (2009). Mathematical and digital models of the land
+#'   surface. In T. Hengl & H. I. Reuter (Eds.), \emph{Geomorphometry: Concepts,
+#'   software, applications} (pp. 31-63). Elsevier.
+#'   https://doi.org/10.1016/S0166-2481(08)00002-0
+#'
+#' Hijmans, R. J., Cameron, S. E., Parra, J. L., Jones, P. G., & Jarvis, A.
+#'   (2005). Very high resolution interpolated climate surfaces for global land
+#'   areas. \emph{International Journal of Climatology}, 25(15), 1965-1978.
+#'   https://doi.org/10.1002/joc.1276
+#'
+#' Hillel, D. (1998). \emph{Environmental soil physics}. Academic Press.
+#'
+#' Hufkens, K., Basler, D., Milliman, T., Melaas, E. K., & Richardson, A. D.
+#'   (2018). An integrated phenology modelling framework in R. \emph{Methods in
+#'   Ecology and Evolution}, 9(5), 1276-1285.
+#'   https://doi.org/10.1111/2041-210X.12970
+#'
+#' Huete, A., Didan, K., Miura, T., Rodriguez, E. P., Gao, X., & Ferreira, L. G.
+#'   (2002). Overview of the radiometric and biophysical performance of the MODIS
+#'   vegetation indices. \emph{Remote Sensing of Environment}, 83(1-2), 195-213.
+#'   https://doi.org/10.1016/S0034-4257(02)00096-2
+#'
+#' Jackson, R. B., Canadell, J., Ehleringer, J. R., Mooney, H. A., Sala, O. E.,
+#'   & Schulze, E. D. (1996). A global analysis of root distributions for
+#'   terrestrial biomes. \emph{Oecologia}, 108, 389-411.
+#'   https://doi.org/10.1007/BF00333714
+#'
+#' Kearney, M., & Porter, W. (2009). Mechanistic niche modelling: Combining
+#'   physiological and spatial data to predict species' ranges. \emph{Ecology
+#'   Letters}, 12(4), 334-350.
+#'   https://doi.org/10.1111/j.1461-0248.2008.01277.x
+#'
+#' Lang, N., Jetz, W., Schindler, K., & Wegner, J. D. (2023). A high-resolution
+#'   canopy height model of the Earth. \emph{Nature Ecology & Evolution}, 7,
+#'   1778-1789. https://doi.org/10.1038/s41559-023-02206-6
+#'
+#' MacDonald, Z. G., Beninde, J., Matsunaga, K., Zhou, B., Gillespie, T. W., &
+#'   Shaffer, H. B. (2025). Species distribution modeling for conservation
+#'   science: New predictor layers, reproducible code, and an evaluation of
+#'   California protected areas. \emph{bioRxiv}.
+#'   https://doi.org/10.1101/2025.01.23.634559
+#'
+#' McCune, B., & Keon, D. (2002). Equations for potential annual direct incident
+#'   radiation and heat load. \emph{Journal of Vegetation Science}, 13(4),
+#'   603-606. https://doi.org/10.1111/j.1654-1103.2002.tb02087.x
+#'
+#' Novick, K. A., Ficklin, D. L., Stoy, P. C., Williams, C. A., Bohrer, G.,
+#'   Oishi, A. C., Papuga, S. A., Blanken, P. D., Noormets, A., Sulman, B. N.,
+#'   Scott, R. L., Wang, L., & Phillips, R. P. (2016). The increasing importance
+#'   of atmospheric demand for ecosystem water and carbon fluxes. \emph{Nature
+#'   Climate Change}, 6, 1023-1027. https://doi.org/10.1038/nclimate3114
+#'
+#' Poggio, L., de Sousa, L. M., Batjes, N. H., Heuvelink, G. B. M., Kempen, B.,
+#'   Ribeiro, E., & Rossiter, D. (2021). SoilGrids 2.0: Producing soil
+#'   information for the globe with quantified spatial uncertainty.
+#'   \emph{SOIL}, 7(1), 217-240. https://doi.org/10.5194/soil-7-217-2021
+#'
+#' Potapov, P., Li, X., Hernandez-Serna, A., Tyukavina, A., Hansen, M. C.,
+#'   Kommareddy, A., Pickens, A., Turubanova, S., Tang, H., Silva, C. E.,
+#'   Armston, J., Dubayah, R., Blair, J. B., & Hofton, M. (2021). Mapping global
+#'   forest canopy height through integration of GEDI and Landsat data.
+#'   \emph{Remote Sensing of Environment}, 253, 112165.
+#'   https://doi.org/10.1016/j.rse.2020.112165
+#'
+#' Prajzlerová, D., Barták, V., Balej, P., & Šímová, P. (2025). The time of
+#'   acquisition of multispectral predictors matters: The role of seasonality in
+#'   bird species distribution models. \emph{Ecography}, 2025, e07935.
+#'   https://doi.org/10.1002/ecog.07935
+#'
+#' Preimesberger, W., Scanlon, T., Su, C.-H., Gruber, A., & Dorigo, W. (2021).
+#'   Homogenization of structural breaks in the global ESA CCI soil moisture
+#'   multisatellite climate data record. \emph{IEEE Transactions on Geoscience
+#'   and Remote Sensing}, 59(4), 2845-2862.
+#'   https://doi.org/10.1109/TGRS.2020.3012896
+#'
+#' Soberón, J. (2007). Grinnellian and Eltonian niches and geographic
+#'   distributions of species. \emph{Ecology Letters}, 10(12), 1115-1123.
+#'   https://doi.org/10.1111/j.1461-0248.2007.01107.x
+#'
+#' Soberón, J., & Peterson, A. T. (2005). Interpretation of models of fundamental
+#'   ecological niches and species' distributional areas. \emph{Biodiversity
+#'   Informatics}, 2. https://doi.org/10.17161/bi.v2i0.4
+#'
+#' Sørensen, R., Zinko, U., & Seibert, J. (2006). On the calculation of the
+#'   topographic wetness index: Evaluation of different methods based on field
+#'   observations. \emph{Hydrology and Earth System Sciences}, 10, 101-112.
+#'   https://doi.org/10.5194/hess-10-101-2006
+#'
+#' Title, P. O., & Bemmels, J. B. (2018). ENVIREM: An expanded set of bioclimatic
+#'   and topographic variables increases flexibility and improves performance of
+#'   ecological niche modeling. \emph{Ecography}, 41(2), 291-307.
+#'   https://doi.org/10.1111/ecog.02880
+#'
+#' Turek, M. E., Poggio, L., Batjes, N. H., Armindo, R. A.,
+#'   de Jong van Lier, Q., de Sousa, L. M., & Heuvelink, G. B. M. (2023).
+#'   Global mapping of volumetric water retention at 100, 330 and 15 000 cm
+#'   suction using the WoSIS database. \emph{International Soil and Water
+#'   Conservation Research}, 11(2), 225-239.
+#'   https://doi.org/10.1016/j.iswcr.2022.08.001
+#'
+#' Venter, O., Sanderson, E. W., Magrach, A., Allan, J. R., Beher, J.,
+#'   Jones, K. R., Possingham, H. P., Laurance, W. F., Wood, P., Fekete, B. M.,
+#'   Levy, M. A., & Watson, J. E. M. (2016). Sixteen years of change in the
+#'   global terrestrial human footprint and implications for biodiversity
+#'   conservation. \emph{Nature Communications}, 7, 12558.
+#'   https://doi.org/10.1038/ncomms12558
+#'
+#' Wang, T., Hamann, A., Spittlehouse, D., & Carroll, C. (2016). Locally
+#'   downscaled and spatially customizable climate data for historical and future
+#'   periods for North America. \emph{PLOS ONE}, 11(6), e0156720.
+#'   https://doi.org/10.1371/journal.pone.0156720
+#'
+#' Weil, R. R., & Brady, N. C. (2016). \emph{The nature and properties of soils}
+#'   (15th ed.). Pearson.
+#'
+#' Wilson, M. F. J., O'Connell, B., Brown, C., Guinan, J. C., & Grehan, A. J.
+#'   (2007). Multiscale terrain analysis of multibeam bathymetry data for habitat
+#'   mapping on the continental slope. \emph{Marine Geodesy}, 30(1-2), 3-35.
+#'   https://doi.org/10.1080/01490410701295962
+#'
+#' Zimmermann, N. E., Yoccoz, N. G., Edwards, T. C., Meier, E. S.,
+#'   Thuiller, W., Guisan, A., Schmatz, D. R., & Pearman, P. B. (2009).
+#'   Climatic extremes improve predictions of spatial patterns of tree species.
+#'   \emph{Proceedings of the National Academy of Sciences}, 106(Supplement 2),
+#'   19723-19728. https://doi.org/10.1073/pnas.0901643106
 #'
 #' @export
 extract.env.and.background <- function(occurrence.data, #input data.frame with coords (rownames need to be unique IDs)

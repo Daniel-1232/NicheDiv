@@ -37,82 +37,484 @@ unique row names used as record identifiers, and coordinate columns named by
 \code{longitude.col} and \code{latitude.col}.}
 
 \item{longitude.col}{A single character string giving the longitude column
-name in \code{occurrence.data}.}
+name in \code{occurrence.data} (default: \code{"Longitude"}).}
 
-\item{latitude.col}{A single character string giving the latitude column
-name in \code{occurrence.data}.}
+\item{latitude.col}{A single character string giving the latitude column name
+in \code{occurrence.data} (default: \code{"Latitude"}).}
 
-\item{generate.background.data}{Logical; if \code{TRUE}, generate background
-points.}
+\item{generate.background.data}{Logical; if \code{TRUE}, random background points
+are generated within the accessible area (default: \code{FALSE}).}
 
 \item{N.background.points}{A single positive numeric value giving the number
-of background points to generate.}
+of background points to generate when \code{generate.background.data = TRUE}
+(default: \code{100000}).}
 
-\item{remove.hydrolakes.background}{Logical; if \code{TRUE}, exclude HydroLAKES
-water bodies from background sampling.}
+\item{remove.hydrolakes.background}{Logical; if \code{TRUE}, HydroLAKES water
+bodies are excluded from background sampling (default: \code{FALSE}).}
 
-\item{buffer.km}{A single positive numeric value giving the buffer distance
-in kilometres.}
+\item{buffer.km}{A single positive numeric value giving the buffer distance,
+in kilometers, used to expand the occurrence-based accessible area.}
 
-\item{landmask.largest.N.pieces}{A single positive integer giving the number
-of largest landmask polygon pieces to retain.}
+\item{landmask.largest.N.pieces}{A single positive integer-like numeric value
+giving the number of largest landmask polygon pieces to retain
+(recommended default: \code{5}).}
 
-\item{csv.occurrence.out.file}{File name for the occurrence output CSV.}
+\item{csv.occurrence.out.file}{A single character string giving the output CSV
+file name for the occurrence environmental table.}
 
-\item{csv.background.out.file}{File name for the background output CSV.}
+\item{csv.background.out.file}{Optional character string giving the output CSV
+file name for the background environmental table. Required when
+\code{generate.background.data = TRUE} (default: \code{NULL}).}
 
-\item{output.dir}{Output directory for final CSV files.}
+\item{output.dir}{A single character string giving the output directory for
+final CSV files and intermediate folders.}
 
-\item{intermediate.files.dir}{Directory used for intermediate files.}
+\item{intermediate.files.dir}{A single character string giving the subfolder
+used for cached intermediate files (default: \code{"Intermediate_files"}).}
 
-\item{env.datasets}{Character vector naming the built-in environmental
-datasets to extract. Valid entries are \code{"elevation"}, \code{"ClimateNA"}, \code{"EVI"},
-\code{"terrain"}, \code{"ENVIREM"}, \code{"footprint"}, \code{"landcover"}, \code{"soil"},
-\code{"forest_height"}, \code{"atmosphere"}, \code{"nightlight"}, \code{"burned_area"},
-\code{"snow_water_equivalent"}, \code{"daylength"}, and \code{"soil_moisture"}.
-\code{"ClimateNA"} and \code{"terrain"} require \code{"elevation"}.
-\code{"ClimateNA"}, \code{"daylength"}, and \code{"snow_water_equivalent"} are only
-available for North America.}
+\item{env.datasets}{Optional character vector naming the built-in
+environmental datasets to extract. Valid entries are \code{"elevation"},
+\code{"ClimateNA"}, \code{"EVI"}, \code{"terrain"}, \code{"ENVIREM"}, \code{"footprint"},
+\code{"landcover"}, \code{"soil"}, \code{"forest_height"}, \code{"atmosphere"},
+\code{"nightlight"}, \code{"burned_area"}, \code{"snow_water_equivalent"},
+\code{"daylength"}, and \code{"soil_moisture"} (default: \code{NULL}). \code{"ClimateNA"} and
+\code{"terrain"} require \code{"elevation"}. \code{"ClimateNA"}, \code{"daylength"}, and
+\code{"snow_water_equivalent"} are only available for North America.}
 
-\item{CRS.occurrences}{Coordinate reference system string for the occurrence
-coordinates.}
+\item{CRS.occurrences}{A single character string giving the coordinate
+reference system of the occurrence coordinates (default: \code{"EPSG:4326"}).}
 
-\item{overwrite}{Logical; if \code{TRUE}, overwrite existing outputs.}
+\item{overwrite}{Logical; if \code{TRUE}, existing outputs and cached intermediate
+files are overwritten where applicable (default: \code{FALSE}).}
 
-\item{delete.intermediate.files.folders}{Logical; if \code{TRUE}, delete
-intermediate files after processing.}
+\item{delete.intermediate.files.folders}{Logical; if \code{TRUE}, intermediate
+raster and auxiliary folders are deleted after processing
+(default: \code{FALSE}).}
 
-\item{redownload.rasters}{Logical; if \code{TRUE}, force redownload of raster
-inputs.}
+\item{redownload.rasters}{Logical; if \code{TRUE}, raster and auxiliary input files
+are downloaded again even when cached files are present (default: \code{FALSE}).}
 
 \item{custom.env.rasters}{Optional character vector of custom raster sources.
-Each entry can be a local \code{.tif}/\code{.tiff}, a directory containing GeoTIFFs,
+Each entry can be a local \code{.tif} or \code{.tiff}, a directory containing GeoTIFFs,
 a \code{.zip} archive containing GeoTIFFs, or an HTTP/HTTPS URL to a \code{.tif},
-\code{.tiff}, or \code{.zip} file.}
+\code{.tiff}, or \code{.zip} file (default: \code{NULL}).}
 
 \item{custom.env.rasters.names}{Optional character vector naming each custom
-raster dataset.}
+raster dataset. If supplied, it must have the same length as
+\code{custom.env.rasters} (default: \code{NULL}).}
 
 \item{custom.env.rasters.variable.names}{Optional character vector or list of
-variable names assigned to layers in custom rasters.}
+character vectors giving variable names assigned to custom raster layers
+(default: \code{NULL}).}
 
-\item{custom.env.rasters.crs}{Optional character vector of CRS definitions
-for custom rasters.}
+\item{custom.env.rasters.crs}{Optional character vector of CRS definitions for
+custom rasters. This is used only when a custom raster lacks embedded CRS
+metadata (default: \code{NULL}).}
 
-\item{custom.raster.min.size.mb}{Minimum file size in MB required for custom
-raster downloads to be considered valid.}
+\item{custom.raster.min.size.mb}{A single positive numeric value giving the
+minimum file size, in megabytes, required for downloaded custom raster files
+to be considered valid (default: \code{5}).}
 
-\item{seed}{A single numeric value used to set the random seed.}
+\item{seed}{A single numeric value used to set the random seed for
+reproducible background sampling (default: \code{1}).}
 
-\item{verbose}{Logical; if \code{TRUE}, print progress messages.}
+\item{verbose}{Logical; if \code{TRUE}, progress messages are printed
+(default: \code{TRUE}).}
 }
 \value{
 \code{NULL}. The function is called for its side effects: writing the
-occurrence environmental table to a CSV file: \code{csv.occurrence.out.file} and, when
-\code{generate.background.data = TRUE}, writing the background environmental
-table to a CSV file too: \code{csv.background.out.file}.
+occurrence environmental table to \code{csv.occurrence.out.file} in \code{output.dir}
+and, when \code{generate.background.data = TRUE}, writing the background
+environmental table to \code{csv.background.out.file}.
 }
 \description{
 Extract environmental variables for occurrence records, optionally generate
-background points within an accessible area, and write output tables to disk.
+random background points within an accessible area, and write occurrence and
+background environmental tables to disk.
+}
+\details{
+This function is designed to create occurrence and optional background
+environmental tables for downstream DAPC niche-divergence analyses.
+
+Background points represent the environmental conditions available within an
+estimated accessible area. Background sampling can optionally exclude major
+lakes using HydroLAKES. This is useful for terrestrial taxa because aquatic
+surfaces may represent inaccessible or biologically irrelevant environments,
+and including them can distort the environmental background used in downstream
+comparisons. For aquatic or semi-aquatic organisms, or for very large
+geographic extents where lake masking is computationally costly, retaining
+water bodies may be more appropriate.
+
+The function supports a broad suite of abiotic and biotic predictors because
+ecological niches are multidimensional and often shaped by climate,
+topography, hydrology, vegetation, soils, disturbance, land use, and biotic
+context rather than climate alone (Guisan & Zimmermann, 2000; Soberón, 2007;
+Elith & Leathwick, 2009; Kearney & Porter, 2009; Dormann et al., 2013; Title
+& Bemmels, 2018). Seasonal and monthly predictors are included because annual
+summaries can obscure phenological constraints, short-term physiological
+stress, and seasonal resource availability (Hufkens et al., 2018; Zimmermann
+et al., 2009; Prajzlerová et al., 2025).
+
+Elevation (\code{env.datasets = "elevation"}; 1 variable) is based on the
+Copernicus Global Digital Elevation Model GLO-90 v.1.1
+(https://doi.org/10.5069/G9028PQB), aggregated to approximately 250 m
+resolution. Elevation can be useful for deriving climatic and topographic
+predictors, but should usually be interpreted cautiously as a direct
+ecological predictor because it often acts as a proxy for temperature,
+moisture, oxygen availability, vegetation, and other mechanistic drivers
+(Guisan & Zimmermann, 2000; Dormann et al., 2013; Title & Bemmels, 2018).
+
+Terrain variables (\code{env.datasets = "terrain"}; requires
+\code{env.datasets = "elevation"}; 5 variables; approximately 250 m resolution) are
+calculated to summarize local landscape structure, topographic exposure, and
+hydrological position. The terrain ruggedness index (TRI) measures the mean
+absolute difference between the elevation of a focal cell and its surrounding
+cells, capturing local terrain heterogeneity. The topographic position index
+(TPI) measures whether a focal cell is higher or lower than its local
+neighborhood, distinguishing ridges, slopes, flats, and depressions. Surface
+roughness measures the local elevation range and captures abrupt changes in
+relief. Together, TRI, TPI, and roughness describe complementary aspects of
+fine-scale topographic complexity and habitat heterogeneity (Wilson et al.,
+2007; Hengl & Evans, 2009; Conrad et al., 2015). The heat load index (HLI)
+summarizes potential thermal exposure as a function of slope, aspect, and
+latitude, providing a topographic proxy for solar radiation, heat balance, and
+microclimatic exposure (McCune & Keon, 2002; Bennie et al., 2008; Dobrowski,
+2011). The topographic wetness index (TWI) represents soil-moisture potential
+based on upslope contributing area and slope, linking topography to drainage,
+hydrological accumulation, and local moisture availability (Beven & Kirkby,
+1979; Sørensen et al., 2006). Together, these five terrain variables capture
+microclimatic buffering, exposure, drainage, and habitat heterogeneity relevant
+to species distributions (Bennie et al., 2008; Dobrowski, 2011).
+
+ClimateNA (Wang et al., 2016) (\code{env.datasets = "ClimateNA"}; requires
+\code{env.datasets = "elevation"}; scale-free; 205 variables) provides 25 annual
+and 180 monthly North American climate estimates adjusted for local topography
+and elevation. These variables represent temperature, precipitation, frost,
+snow, humidity, evaporative demand, degree days, and heat-moisture indices,
+capturing both long-term climatic gradients and seasonal climatic constraints
+based on multi-year mean values for 2011-2020. ClimateNA can provide finer
+ecological resolution than coarser gridded climatic products in mountainous or
+otherwise environmentally heterogeneous landscapes because it combines
+interpolation with local elevation adjustment (Wang et al., 2016; MacDonald et
+al., 2025).
+
+ENVIREM (Environmental Rasters for Ecological Modeling; Title & Bemmels, 2018)
+(\code{env.datasets = "ENVIREM"}; 16 variables; 30-arcsecond resolution) variables
+provide ecologically derived climatic and moisture indices, including
+potential evapotranspiration, aridity, climatic moisture, continentality,
+growing degree days, thermicity, and seasonal PET summaries. These variables
+are designed to represent ecophysiologically relevant climate gradients and
+can improve ecological niche modeling relative to relying only on standard
+bioclimatic variables (Title & Bemmels, 2018).
+
+Atmospheric variables (\code{env.datasets = "atmosphere"}; 3 variables with 9
+estimates each; 30-arcsecond resolution) are based on WorldClim v.2.1 climate
+layers (Hijmans et al., 2005; Fick & Hijmans, 2017) and include solar
+radiation (srad), wind speed (wind), and vapor pressure (vapr). For each
+variable, six bimonthly layers are extracted, and the median, minimum, and
+maximum values across bimonthly layers are calculated, resulting in 27
+atmospheric variables. Solar radiation captures atmospheric energy input, wind
+speed reflects mechanical mixing and desiccation potential, and vapor pressure
+represents atmospheric moisture conditions influencing evapotranspiration and
+physiological water stress (Allen et al., 1998; Novick et al., 2016).
+
+Daylength (\code{env.datasets = "daylength"}; available only for North America; 1
+variable with 12 monthly estimates; 30-arcsecond resolution) is based on
+Daymet v.4 monthly surfaces (daymet.ornl.gov) and captures 12 monthly
+photoperiod conditions. Photoperiod is a fundamental seasonal cue affecting
+phenology, diapause, development, reproduction, and other circannual
+biological processes, making it especially relevant for taxa with strong
+seasonal life cycles (Hufkens et al., 2018).
+
+Snow water equivalent (\code{env.datasets = "snow_water_equivalent"}; available
+only for North America; 1 variable with 12 monthly estimates; 30-arcsecond
+resolution) is based on Daymet v.4 monthly surfaces (daymet.ornl.gov)
+and represents monthly snowpack water content. This layer captures winter snow
+accumulation and cryospheric constraints that can affect overwintering
+conditions, surface moisture, phenology, and seasonal habitat accessibility.
+
+The Enhanced Vegetation Index (EVI; \code{env.datasets = "EVI"}; 9 variables;
+250 m resolution) captures vegetation productivity, canopy greenness, and
+phenological dynamics while reducing saturation in high-biomass areas relative
+to NDVI, making it useful for species whose distributions are linked to plant
+productivity, host-plant availability, or seasonal vegetation structure (Huete
+et al., 2002). EVI variables are based on OpenLandMap bimonthly vegetation
+composites derived from MODIS MOD13Q1 products and provide six bimonthly
+vegetation-greenness layers (Jan-Feb, Mar-Apr, May-Jun, Jul-Aug, Sep-Oct,
+and Nov-Dec), plus median, minimum, and maximum annual summaries.
+
+Land-cover variables (\code{env.datasets = "landcover"}; 11 variables; 10 m source
+resolution) are based on the European Space Agency WorldCover 2020 product
+(esa-worldcover.org) and summarize proportional coverage of 11 major
+land-cover classes: tree cover, grassland, shrubland, cropland, built-up land,
+bare ground, snow and ice, water, wetlands, mangroves, and moss or lichen.
+These variables capture habitat composition and broad structural differences
+in land use and vegetation cover, which can affect resource availability,
+dispersal, exposure, and habitat suitability.
+
+Forest height (\code{env.datasets = "forest_height"}; 1 variable; approximately
+250 m resolution for regional and continental products, 500 m for the global
+product) is based on the ETH Global Canopy Height 2020 product (Lang et al.,
+2023) and provides one canopy-height variable representing forest structural
+complexity. The data are derived from the original product, namely a global
+10 m canopy top height model estimated from Sentinel-2 imagery with NASA
+Global Ecosystem Dynamics Investigation waveform Light Detection and Ranging
+supervision (Lang et al., 2023). Canopy height can indicate vertical habitat
+complexity, shading, forest maturity, and vegetation structure, all of which
+may affect microclimate, host resources, and habitat availability (Potapov et
+al., 2021; Lang et al., 2023).
+
+Soil variables (\code{env.datasets = "soil"}; 9 variables; 30-arcsecond
+resolution) are based on SoilGrids 2.0 (Poggio et al., 2021; Turek et al.,
+2023) and provide nine topsoil properties: bulk density (\code{Bulk_density}),
+coarse fragments volume (\code{Coarse_fragments_volume}), clay fraction
+(\code{Clay_fraction}), sand fraction (\code{Sand_fraction}), silt fraction
+(\code{Silt_fraction}), total nitrogen content (\code{Nitrogen_content}), soil pH in
+water (\code{pH_H2O}), soil organic carbon (\code{Soil_organic_carb}), and organic carbon
+density (\code{Organic_carb_density}). These variables represent substrate texture,
+chemistry, nutrient availability, and water-holding capacity, which can
+influence vegetation composition, host-plant distributions, and habitat
+suitability (Hillel, 1998; Jackson et al., 1996; Weil & Brady, 2016).
+
+Soil moisture (\code{env.datasets = "soil_moisture"}; 1 variable with 6 bimonthly
+estimates; 900-arcsecond resolution) is based on the ESA CCI Soil Moisture
+product and provides six bimonthly volumetric soil-water availability layers
+(Dorigo et al., 2017; Gruber et al., 2019; Preimesberger et al., 2021). Soil
+moisture integrates climatic water balance, surface hydrology, and
+vegetation-water interactions, and can be important for species limited by
+drought stress, larval host-plant condition, or moisture-dependent habitat
+structure.
+
+Human footprint (\code{env.datasets = "footprint"}; 1 variable; 30-arcsecond
+resolution) is based on the Human Footprint Index and provides one variable
+(\code{Footprint}) representing cumulative human modification of terrestrial
+environments (Venter et al., 2016). It integrates built environments,
+population density, electrical infrastructure, croplands, pasturelands, roads,
+railways, and navigable waterways, providing a broad proxy for anthropogenic
+disturbance and habitat alteration.
+
+Nighttime light (\code{env.datasets = "nightlight"}; 1 variable; 30-arcsecond
+resolution) is based on the DMSP-OLS stable lights product and provides one
+variable (\code{Nighttime_light}) representing persistent artificial light at night
+(Elvidge et al., 1997; Baugh et al., 2010). Nighttime lights can capture
+infrastructure, urban intensity, and human activity patterns that may not be
+fully represented by land-cover classifications or human-footprint indices.
+
+Burned area (\code{env.datasets = "burned_area"}; 1 variable with 12 monthly
+estimates; 900-arcsecond resolution) is based on the ESA Fire Disturbance
+Climate Change Initiative burned-area product and provides 12 monthly
+fire-disturbance variables (\code{Burned_area_01} to \code{Burned_area_12}). Fire regimes
+can shape habitat structure, vegetation turnover, resource availability, and
+landscape heterogeneity, making burned area useful for taxa whose distributions
+are influenced by disturbance history or post-fire vegetation dynamics (Andela
+et al., 2017; Chuvieco et al., 2016).
+
+Custom rasters (\code{custom.env.rasters}) allow users to extend the environmental
+dataset with study-specific predictors. This is useful when biologically
+important variables are not represented by the built-in datasets, when local
+products have better spatial or temporal resolution, or when the analysis
+requires predictors tailored to a specific taxon, region, or hypothesis.
+}
+\references{
+Allen, R. G., Pereira, L. S., Raes, D., & Smith, M. (1998).
+\emph{Crop evapotranspiration: Guidelines for computing crop water
+requirements}. FAO Irrigation and Drainage Paper 56.
+
+Andela, N., Morton, D. C., Giglio, L., Chen, Y., van der Werf, G. R.,
+Kasibhatla, P. S., DeFries, R. S., Collatz, G. J., Hantson, S.,
+Kloster, S., Bachelet, D., Forrest, M., Lasslop, G., Li, F., Mangeon, S.,
+Melton, J. R., Yue, C., & Randerson, J. T. (2017). A human-driven decline in
+global burned area. \emph{Science}, 356(6345), 1356-1362.
+https://doi.org/10.1126/science.aal4108
+
+Baugh, K., Hsu, F.-C., Elvidge, C. D., & Zhizhin, M. (2010). Global
+inventory modeling and mapping studies. \emph{Proceedings of the Asia-Pacific
+Advanced Network}, 30, 78-88.
+
+Bennie, J., Huntley, B., Wiltshire, A., Hill, M. O., & Baxter, R. (2008).
+Slope, aspect and climate: Spatially explicit and implicit models of
+topographic microclimate in chalk grassland. \emph{Ecological Modelling},
+216(1), 47-59. https://doi.org/10.1016/j.ecolmodel.2008.04.010
+
+Beven, K. J., & Kirkby, M. J. (1979). A physically based, variable
+contributing area model of basin hydrology. \emph{Hydrological Sciences
+Bulletin}, 24(1), 43-69. https://doi.org/10.1080/02626667909491834
+
+Chuvieco, E., Pettinari, M. L., Lizundia-Loiola, J., Storm, T., & Padilla
+Parellada, M. (2016). ESA Fire Climate Change Initiative (Fire_cci):
+MODIS Fire_cci burned area pixel product, version 5.1.
+
+Conrad, O., Bechtel, B., Bock, M., Dietrich, H., Fischer, E., Gerlitz, L.,
+Wehberg, J., Wichmann, V., & Böhner, J. (2015). System for Automated
+Geoscientific Analyses (SAGA) v. 2.1.4. \emph{Geoscientific Model
+Development}, 8, 1991-2007. https://doi.org/10.5194/gmd-8-1991-2015
+
+Dobrowski, S. Z. (2011). A climatic basis for microrefugia: The influence of
+terrain on climate. \emph{Global Change Biology}, 17(2), 1022-1035.
+https://doi.org/10.1111/j.1365-2486.2010.02263.x
+
+Dorigo, W. A., Gruber, A., de Jeu, R. A. M., Wagner, W., Stacke, T.,
+Loew, A., Albergel, C., Brocca, L., Chung, D., Parinussa, R. M., &
+Kidd, R. (2017). ESA CCI Soil Moisture for improved Earth system
+understanding: State-of-the art and future directions. \emph{Remote Sensing
+of Environment}, 203, 185-215. https://doi.org/10.1016/j.rse.2017.07.001
+
+Dormann, C. F., Elith, J., Bacher, S., Buchmann, C., Carl, G., Carré, G.,
+Marquéz, J. R. G., Gruber, B., Lafourcade, B., Leitão, P. J.,
+Münkemüller, T., McClean, C., Osborne, P. E., Reineking, B., Schröder, B.,
+Skidmore, A. K., Zurell, D., & Lautenbach, S. (2013). Collinearity: A
+review of methods to deal with it and a simulation study evaluating their
+performance. \emph{Ecography}, 36(1), 27-46.
+https://doi.org/10.1111/j.1600-0587.2012.07348.x
+
+Elith, J., & Leathwick, J. R. (2009). Species distribution models: Ecological
+explanation and prediction across space and time. \emph{Annual Review of
+Ecology, Evolution, and Systematics}, 40, 677-697.
+https://doi.org/10.1146/annurev.ecolsys.110308.120159
+
+Elvidge, C. D., Baugh, K. E., Kihn, E. A., Kroehl, H. W., Davis, E. R., &
+Davis, C. W. (1997). Relation between satellite observed visible-near
+infrared emissions, population, economic activity and electric power
+consumption. \emph{International Journal of Remote Sensing}, 18(6),
+1373-1379. https://doi.org/10.1080/014311697218485
+
+Fick, S. E., & Hijmans, R. J. (2017). WorldClim 2: New 1-km spatial
+resolution climate surfaces for global land areas. \emph{International
+Journal of Climatology}, 37(12), 4302-4315.
+https://doi.org/10.1002/joc.5086
+
+Gruber, A., Scanlon, T., van der Schalie, R., Wagner, W., & Dorigo, W.
+(2019). Evolution of the ESA CCI Soil Moisture climate data records and
+their underlying merging methodology. \emph{Earth System Science Data}, 11,
+717-739. https://doi.org/10.5194/essd-11-717-2019
+
+Guisan, A., & Zimmermann, N. E. (2000). Predictive habitat distribution
+models in ecology. \emph{Ecological Modelling}, 135(2-3), 147-186.
+https://doi.org/10.1016/S0304-3800(00)00354-9
+
+Hengl, T., & Evans, I. S. (2009). Mathematical and digital models of the land
+surface. In T. Hengl & H. I. Reuter (Eds.), \emph{Geomorphometry: Concepts,
+software, applications} (pp. 31-63). Elsevier.
+https://doi.org/10.1016/S0166-2481(08)00002-0
+
+Hijmans, R. J., Cameron, S. E., Parra, J. L., Jones, P. G., & Jarvis, A.
+(2005). Very high resolution interpolated climate surfaces for global land
+areas. \emph{International Journal of Climatology}, 25(15), 1965-1978.
+https://doi.org/10.1002/joc.1276
+
+Hillel, D. (1998). \emph{Environmental soil physics}. Academic Press.
+
+Hufkens, K., Basler, D., Milliman, T., Melaas, E. K., & Richardson, A. D.
+(2018). An integrated phenology modelling framework in R. \emph{Methods in
+Ecology and Evolution}, 9(5), 1276-1285.
+https://doi.org/10.1111/2041-210X.12970
+
+Huete, A., Didan, K., Miura, T., Rodriguez, E. P., Gao, X., & Ferreira, L. G.
+(2002). Overview of the radiometric and biophysical performance of the MODIS
+vegetation indices. \emph{Remote Sensing of Environment}, 83(1-2), 195-213.
+https://doi.org/10.1016/S0034-4257(02)00096-2
+
+Jackson, R. B., Canadell, J., Ehleringer, J. R., Mooney, H. A., Sala, O. E.,
+& Schulze, E. D. (1996). A global analysis of root distributions for
+terrestrial biomes. \emph{Oecologia}, 108, 389-411.
+https://doi.org/10.1007/BF00333714
+
+Kearney, M., & Porter, W. (2009). Mechanistic niche modelling: Combining
+physiological and spatial data to predict species' ranges. \emph{Ecology
+Letters}, 12(4), 334-350.
+https://doi.org/10.1111/j.1461-0248.2008.01277.x
+
+Lang, N., Jetz, W., Schindler, K., & Wegner, J. D. (2023). A high-resolution
+canopy height model of the Earth. \emph{Nature Ecology & Evolution}, 7,
+1778-1789. https://doi.org/10.1038/s41559-023-02206-6
+
+MacDonald, Z. G., Beninde, J., Matsunaga, K., Zhou, B., Gillespie, T. W., &
+Shaffer, H. B. (2025). Species distribution modeling for conservation
+science: New predictor layers, reproducible code, and an evaluation of
+California protected areas. \emph{bioRxiv}.
+https://doi.org/10.1101/2025.01.23.634559
+
+McCune, B., & Keon, D. (2002). Equations for potential annual direct incident
+radiation and heat load. \emph{Journal of Vegetation Science}, 13(4),
+603-606. https://doi.org/10.1111/j.1654-1103.2002.tb02087.x
+
+Novick, K. A., Ficklin, D. L., Stoy, P. C., Williams, C. A., Bohrer, G.,
+Oishi, A. C., Papuga, S. A., Blanken, P. D., Noormets, A., Sulman, B. N.,
+Scott, R. L., Wang, L., & Phillips, R. P. (2016). The increasing importance
+of atmospheric demand for ecosystem water and carbon fluxes. \emph{Nature
+Climate Change}, 6, 1023-1027. https://doi.org/10.1038/nclimate3114
+
+Poggio, L., de Sousa, L. M., Batjes, N. H., Heuvelink, G. B. M., Kempen, B.,
+Ribeiro, E., & Rossiter, D. (2021). SoilGrids 2.0: Producing soil
+information for the globe with quantified spatial uncertainty.
+\emph{SOIL}, 7(1), 217-240. https://doi.org/10.5194/soil-7-217-2021
+
+Potapov, P., Li, X., Hernandez-Serna, A., Tyukavina, A., Hansen, M. C.,
+Kommareddy, A., Pickens, A., Turubanova, S., Tang, H., Silva, C. E.,
+Armston, J., Dubayah, R., Blair, J. B., & Hofton, M. (2021). Mapping global
+forest canopy height through integration of GEDI and Landsat data.
+\emph{Remote Sensing of Environment}, 253, 112165.
+https://doi.org/10.1016/j.rse.2020.112165
+
+Prajzlerová, D., Barták, V., Balej, P., & Šímová, P. (2025). The time of
+acquisition of multispectral predictors matters: The role of seasonality in
+bird species distribution models. \emph{Ecography}, 2025, e07935.
+https://doi.org/10.1002/ecog.07935
+
+Preimesberger, W., Scanlon, T., Su, C.-H., Gruber, A., & Dorigo, W. (2021).
+Homogenization of structural breaks in the global ESA CCI soil moisture
+multisatellite climate data record. \emph{IEEE Transactions on Geoscience
+and Remote Sensing}, 59(4), 2845-2862.
+https://doi.org/10.1109/TGRS.2020.3012896
+
+Soberón, J. (2007). Grinnellian and Eltonian niches and geographic
+distributions of species. \emph{Ecology Letters}, 10(12), 1115-1123.
+https://doi.org/10.1111/j.1461-0248.2007.01107.x
+
+Soberón, J., & Peterson, A. T. (2005). Interpretation of models of fundamental
+ecological niches and species' distributional areas. \emph{Biodiversity
+Informatics}, 2. https://doi.org/10.17161/bi.v2i0.4
+
+Sørensen, R., Zinko, U., & Seibert, J. (2006). On the calculation of the
+topographic wetness index: Evaluation of different methods based on field
+observations. \emph{Hydrology and Earth System Sciences}, 10, 101-112.
+https://doi.org/10.5194/hess-10-101-2006
+
+Title, P. O., & Bemmels, J. B. (2018). ENVIREM: An expanded set of bioclimatic
+and topographic variables increases flexibility and improves performance of
+ecological niche modeling. \emph{Ecography}, 41(2), 291-307.
+https://doi.org/10.1111/ecog.02880
+
+Turek, M. E., Poggio, L., Batjes, N. H., Armindo, R. A.,
+de Jong van Lier, Q., de Sousa, L. M., & Heuvelink, G. B. M. (2023).
+Global mapping of volumetric water retention at 100, 330 and 15 000 cm
+suction using the WoSIS database. \emph{International Soil and Water
+Conservation Research}, 11(2), 225-239.
+https://doi.org/10.1016/j.iswcr.2022.08.001
+
+Venter, O., Sanderson, E. W., Magrach, A., Allan, J. R., Beher, J.,
+Jones, K. R., Possingham, H. P., Laurance, W. F., Wood, P., Fekete, B. M.,
+Levy, M. A., & Watson, J. E. M. (2016). Sixteen years of change in the
+global terrestrial human footprint and implications for biodiversity
+conservation. \emph{Nature Communications}, 7, 12558.
+https://doi.org/10.1038/ncomms12558
+
+Wang, T., Hamann, A., Spittlehouse, D., & Carroll, C. (2016). Locally
+downscaled and spatially customizable climate data for historical and future
+periods for North America. \emph{PLOS ONE}, 11(6), e0156720.
+https://doi.org/10.1371/journal.pone.0156720
+
+Weil, R. R., & Brady, N. C. (2016). \emph{The nature and properties of soils}
+(15th ed.). Pearson.
+
+Wilson, M. F. J., O'Connell, B., Brown, C., Guinan, J. C., & Grehan, A. J.
+(2007). Multiscale terrain analysis of multibeam bathymetry data for habitat
+mapping on the continental slope. \emph{Marine Geodesy}, 30(1-2), 3-35.
+https://doi.org/10.1080/01490410701295962
+
+Zimmermann, N. E., Yoccoz, N. G., Edwards, T. C., Meier, E. S.,
+Thuiller, W., Guisan, A., Schmatz, D. R., & Pearman, P. B. (2009).
+Climatic extremes improve predictions of spatial patterns of tree species.
+\emph{Proceedings of the National Academy of Sciences}, 106(Supplement 2),
+19723-19728. https://doi.org/10.1073/pnas.0901643106
 }

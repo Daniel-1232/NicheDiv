@@ -32,68 +32,85 @@ variables and the grouping column specified by \code{species.col}. Non-numeric
 predictor columns are removed before analysis. Exactly two groups are
 required.}
 
-\item{N.crossval.replicates}{A single positive integer giving the number of
-cross-validation replicates.}
+\item{N.crossval.replicates}{A single positive integer-like numeric value
+giving the number of cross-validation replicates (recommended default: \code{100}).}
 
-\item{N.permutations}{A single positive integer giving the number of
-permutation replicates.}
+\item{N.permutations}{A single positive integer-like numeric value giving the
+number of permutation replicates (default: \code{1000}).}
 
-\item{fixed.n.pcs}{Optional positive integer giving a fixed number of PCs to
-retain. If \code{NULL}, the number is determined by cross-validation.}
+\item{fixed.n.pcs}{Optional positive integer-like numeric value giving a fixed
+number of PCs to retain. If \code{NULL}, the number of PCs is determined by
+cross-validation (default: \code{NULL}; recommended: \code{NULL} unless a fixed PC
+number is justified by prior analyses or sensitivity tests).}
 
 \item{exclude.cols}{Optional character vector of columns to remove before
-analysis.}
+analysis (default: \code{NULL}).}
 
-\item{species.col}{A single character string giving the species/group column
-name in \code{data.input}.}
+\item{species.col}{A single character string giving the species or group
+column name in \code{data.input} (default: \code{"Species"}).}
 
 \item{max.NA.prop}{A single numeric value between \code{0} and \code{1} giving the
-maximum allowed proportion of missing values per row.}
+maximum allowed proportion of missing values per row before that row is
+removed (default: \code{0.2}; recommended: \code{0.2} to allow moderate missingness
+while limiting imputation-driven bias).}
 
-\item{impute.NA.median}{Logical; if \code{TRUE}, impute remaining missing values
-using the median.}
+\item{impute.NA.median}{Logical; if \code{TRUE}, remaining missing values are
+imputed using the median of each variable. If \code{FALSE}, incomplete rows are
+removed after applying \code{max.NA.prop} (default: \code{TRUE}).}
 
-\item{save}{Logical; if \code{TRUE}, save the result object to disk.}
+\item{save}{Logical; if \code{TRUE}, save the result object to disk
+(default: \code{FALSE}).}
 
-\item{overwrite}{Logical; if \code{TRUE}, overwrite existing outputs.}
+\item{overwrite}{Logical; if \code{TRUE}, overwrite an existing saved result file
+when \code{save = TRUE} (default: \code{FALSE}).}
 
-\item{output.dir}{Output directory used when \code{save = TRUE}.}
+\item{output.dir}{Character string giving the output directory used when
+\code{save = TRUE}. Required only when \code{save = TRUE}.}
 
-\item{output.filename}{File name used when \code{save = TRUE}.}
+\item{output.filename}{Character string giving the output file name used when
+\code{save = TRUE}. Required only when \code{save = TRUE}.}
 
 \item{Sp1.background.data}{Optional \code{data.frame} of background environmental
-values for species 1. Required when \code{background.permutation.test = TRUE}.
-Numeric environmental columns must match those in \code{Sp2.background.data}.}
+values for species 1. Required when \code{background.permutation.test = TRUE}
+(default: \code{NULL}).}
 
 \item{Sp2.background.data}{Optional \code{data.frame} of background environmental
-values for species 2. Required when \code{background.permutation.test = TRUE}.
-Numeric environmental columns must match those in \code{Sp1.background.data}.}
+values for species 2. Required when \code{background.permutation.test = TRUE}
+(default: \code{NULL}).}
 
 \item{background.permutation.test}{Logical; if \code{TRUE}, run a background-based
 permutation test in which one species' occurrences are replaced by random
-samples from the other species' background, and vice versa.}
+samples from the other species' background, and vice versa
+(default: \code{FALSE}).}
 
 \item{use.parallel}{Character string specifying whether and how to use
 parallel computing. One of \code{"auto"}, \code{"Windows"}, \code{"Unix"}, or \code{"none"}.
-\code{"auto"} uses \code{"Unix"} on Unix-like systems and \code{"Windows"} otherwise.}
+\code{"auto"} uses \code{"Unix"} on Unix-like systems and \code{"Windows"} otherwise
+(recommended default: \code{"auto"}).}
 
-\item{N.cores}{A single positive integer giving the number of CPU cores.}
+\item{N.cores}{A single positive integer-like numeric value giving the number
+of CPU cores to use for supported parallel operations (recommended
+default: \code{3}).}
 
-\item{seed}{A single numeric value used to set the random seed.}
+\item{seed}{A single numeric value used to set the random seed for
+reproducibility (default: \code{1}).}
 
-\item{verbose}{Logical; if \code{TRUE}, print progress messages.}
+\item{verbose}{Logical; if \code{TRUE}, progress messages are printed
+(default: \code{TRUE}).}
 }
 \value{
 A named list containing:
 \describe{
 \item{crossval_run1}{First-stage cross-validation object, or \code{NULL} if
-\code{fixed.n.pcs} was supplied.}
+the first stage was skipped.}
 \item{optimal_pcs_crossval_run1}{Optimal number of PCs from the first
-cross-validation stage, or \code{NA} if \code{fixed.n.pcs} was supplied.}
+cross-validation stage, or \code{NA} if unavailable.}
 \item{crossval_run2}{Second-stage cross-validation object.}
 \item{optimal_pcs_crossval_run2}{Final number of PCs retained for DAPC.}
-\item{dapc_results}{Fitted DAPC object containing discriminant scores,
-group assignments, posterior probabilities, and variable contributions.}
+\item{dapc_results}{Fitted DAPC-like result object containing
+discriminant assignments, group labels, retained PC count, discriminant
+scores, variable contributions, variable loadings, group coordinates,
+and discriminant scaling.}
 \item{pca_object}{PCA object used to generate the retained PC scores.}
 \item{var_explained}{Cumulative proportion of variance explained by the
 retained PCs.}
@@ -109,6 +126,93 @@ supplied group labels.}
 }
 }
 \description{
-Fit a DAPC-based niche divergence analysis and assess significance using
-permutation testing.
+Fit a DAPC-based niche divergence analysis for two groups and assess
+significance using permutation testing. The function preprocesses
+environmental predictors, selects the number of retained PCs by
+cross-validation (unless a fixed value is supplied), fits the final
+discriminant model, and evaluates whether observed group separation exceeds
+null expectations.
+}
+\details{
+Discriminant analysis of principal components (DAPC; Jombart et al., 2010)
+is used here to test for niche divergence between two a priori groups,
+such as species, lineages, or populations, using environmental predictors
+associated with occurrence records.
+
+The method first reduces the predictor space with principal component
+analysis (PCA) before fitting a discriminant model. This PCA step transforms
+correlated environmental variables into orthogonal axes and reduces
+multicollinearity and high-dimensionality problems that can make discriminant
+analysis unstable. Discriminant analysis is then used to identify axes that
+maximize between-group separation while minimizing within-group variability,
+providing a supervised measure of environmental differentiation between the
+two groups (Lachenbruch & Goldstein, 1979; Jombart et al., 2010).
+
+Choosing the number of retained principal components (PCs) is important because
+retaining too few PCs can discard biologically meaningful environmental signal,
+whereas retaining too many PCs can overfit noise and inflate apparent
+classification accuracy. Cross-validation is therefore used to identify a PC
+number that balances information retention and predictive stability.
+The selected number of PCs is interpreted as a compromise between underfitting
+and overfitting, where additional PCs no longer improve out-of-sample
+group assignment (Jombart, 2022).
+
+The final model is summarized using mean assignment accuracy and the adjusted
+Rand index. Mean assignment accuracy describes how often samples are assigned
+to their supplied groups, providing an intuitive measure of group
+distinctiveness in discriminant environmental space. The adjusted Rand index
+compares predicted and supplied groupings while accounting for agreement
+expected by chance, making it useful when evaluating whether discriminant
+assignments recover the original taxon labels.
+
+Permutation testing is used to evaluate whether the observed environmental
+separation between groups exceeds chance expectations. By randomly
+reassigning group labels while preserving sample sizes, the test constructs a
+null distribution representing a single shared niche with no fixed association
+between environmental predictors and group identity. Observed assignment
+accuracy is then compared with this null distribution to assess whether the
+fitted discrimination is stronger than expected under random group membership.
+
+The optional background permutation test provides a complementary assessment
+conditioned on the environments available to each species. Rather than
+permuting labels alone, one species' occurrences are replaced with random
+samples from the other species' background, and the reciprocal comparison is
+also performed. This follows the logic of background-based tests for assessing
+whether apparent niche similarity or divergence may be influenced by the
+environmental conditions available within each species' accessible area
+(Brown & Carnaval, 2019). In this framework, background-conditioned null
+comparisons help distinguish weak divergence from limited power caused by
+similar or constrained environmental availability.
+
+Missing values are handled before ordination and discrimination because these
+methods require complete numeric inputs. Rows with excessive missingness are
+removed, and remaining missing values can either be imputed by the median or
+handled by complete-case filtering. The default missingness threshold
+(\code{max.NA.prop = 0.2}) is intended as a practical compromise that permits
+moderate missingness while reducing the risk that ordination and
+discrimination are driven by imputation or incomplete records (Harrell, 2015;
+van Buuren, 2018).
+}
+\references{
+Brown, J., & Carnaval, A. C. (2019). A tale of two niches: Methods, concepts,
+and evolution. \emph{Frontiers of Biogeography}, 11(4).
+https://doi.org/10.21425/F5FBG44158
+
+Harrell, F. E. (2015). \emph{Regression modeling strategies: With applications
+to linear models, logistic and ordinal regression, and survival analysis}
+(2nd ed.). Springer.
+
+Jombart, T. (2022). \emph{adegenet tutorials}.
+https://github.com/thibautjombart/adegenet/wiki/Tutorials
+
+Jombart, T., Devillard, S., & Balloux, F. (2010). Discriminant analysis of
+principal components: A new method for the analysis of genetically
+structured populations. \emph{BMC Genetics}, 11, 94.
+https://doi.org/10.1186/1471-2156-11-94
+
+Lachenbruch, P. A., & Goldstein, M. (1979). Discriminant analysis.
+\emph{Biometrics}, 35(1), 69. https://doi.org/10.2307/2529937
+
+van Buuren, S. (2018). \emph{Flexible imputation of missing data}. Chapman &
+Hall/CRC.
 }

@@ -26,10 +26,10 @@ background points to be clipped to the buffered extent. It must contain the
 same coordinate columns as \code{occurrence.data}.}
 
 \item{latitude.col}{A single character string giving the latitude column name
-in both input tables. Default is \code{"Latitude"}.}
+in both input tables. Default: \code{"Latitude"}.}
 
 \item{longitude.col}{A single character string giving the longitude column
-name in both input tables. Default is \code{"Longitude"}.}
+name in both input tables. Default: \code{"Longitude"}.}
 
 \item{CRS}{Coordinate reference system of the input coordinates, supplied as
 an EPSG string (for example \code{"EPSG:4326"}) or an \code{sf} CRS object. If the
@@ -64,4 +64,110 @@ occurrence coordinates. The function converts occurrence and background
 coordinates to \code{sf}, chooses or validates a metric CRS for buffering, builds a
 clipping geometry around the occurrences, and returns only background rows
 that intersect that buffered region.
+}
+\details{
+The convex hull (\code{buffer.method = "hull"}) is the default geometry because it
+provides a robust, simple, and biologically meaningful approximation of the
+accessible area (\code{M}; Soberón & Peterson, 2005; Barve et al., 2011; Owens et
+al., 2013). The convex hull traces the outer extent of occurrence records and
+can approximate the area that has likely been accessible to the species,
+especially when expanded by an ecologically informed dispersal buffer. Compared
+with bounding boxes, convex hulls usually avoid strongly overinflated areas,
+and compared with concave hulls, they avoid dependence on an additional shape
+parameter.
+
+Three alternative geometries are also available. Concave hulls
+(\code{buffer.method = "alpha"}) can follow the detailed shape of occurrence
+distributions and may better approximate complex ranges, but they are
+sensitive to the concavity parameter (\code{alpha}; Edelsbrunner & Mücke, 1994;
+Pateiro-López & Rodríguez-Casal, 2010; Fourcade, 2016). Lower \code{alpha} values
+produce more concave outlines that fit the points more closely but may create
+holes, fragmentation, or unstable geometries. Higher \code{alpha} values produce
+smoother outlines that increasingly resemble the convex hull. The default
+\code{alpha = 3} is intended as a robust compromise that captures some range
+complexity while reducing over-fragmentation (Fourcade, 2016;
+Pateiro-López & Rodríguez-Casal, 2010).
+
+Per-point buffers (\code{buffer.method = "points"}) generate local circular buffers
+around each occurrence record and unite those buffers into a single clipping
+geometry. This can be useful for fragmented or disjunct distributions because
+it does not force distant occurrence clusters into one continuous polygon
+(Anderson & Raza, 2010; Fourcade et al., 2014). However, per-point buffers can
+also produce patchy outlines and are most useful when background sampling is
+dense enough to retain sufficient points within the buffered areas.
+
+Bounding boxes (\code{buffer.method = "bbox"}) provide the most inclusive geometry
+by enclosing all occurrence records within a rectangle defined by the minimum
+and maximum coordinate values. Bounding boxes are simple and can retain larger
+background sample sizes, but they are usually the least realistic approximation
+of the accessible area and can substantially overestimate the environmental
+conditions available to a species (Phillips et al., 2006; Peterson et al.,
+2007, 2011; VanDerWal et al., 2009). They should generally be avoided unless
+occurrence sample sizes or very small species distributions make the other
+methods too restrictive.
+}
+\references{
+Anderson, R. P., & Raza, A. (2010). The effect of the extent of the study
+region on GIS models of species geographic distributions and estimates of
+niche evolution: preliminary tests with montane rodents (genus Nephelomys)
+in Venezuela. \emph{Journal of Biogeography}, 37(7), 1378-1393.
+https://doi.org/10.1111/j.1365-2699.2010.02290.x
+
+Barve, N., Barve, V., Jiménez-Valverde, A., Lira-Noriega, A., Maher, S. P.,
+Peterson, A. T., Soberón, J., & Villalobos, F. (2011). The crucial role of
+the accessible area in ecological niche modeling and species distribution
+modeling. \emph{Ecological Modelling}, 222(11), 1810-1819.
+https://doi.org/10.1016/j.ecolmodel.2011.02.011
+
+Edelsbrunner, H., & Mücke, E. P. (1994). Three-dimensional alpha shapes.
+\emph{ACM Transactions on Graphics}, 13(1), 43-72.
+https://doi.org/10.1145/174462.156635
+
+Fourcade, Y. (2016). Comparing species distributions modelled from occurrence
+data and from expert-based range maps. Implication for predicting range
+shifts with climate change. \emph{Ecological Informatics}, 36, 8-14.
+https://doi.org/10.1016/j.ecoinf.2016.09.002
+
+Fourcade, Y., Engler, J. O., Rödder, D., & Secondi, J. (2014). Mapping species
+distributions with MAXENT using a geographically biased sample of presence
+data: A performance assessment of methods for correcting sampling bias.
+\emph{PLOS ONE}, 9(5), e97122.
+https://doi.org/10.1371/journal.pone.0097122
+
+Owens, H. L., Campbell, L. P., Dornak, L. L., Saupe, E. E., Barve, N.,
+Soberón, J., Ingenloff, K., Lira-Noriega, A., Hensz, C. M., Myers, C. E.,
+& Peterson, A. T. (2013). Constraints on interpretation of ecological niche
+models by limited environmental ranges on calibration areas.
+\emph{Ecological Modelling}, 263, 10-18.
+https://doi.org/10.1016/j.ecolmodel.2013.04.011
+
+Pateiro-López, B., & Rodríguez-Casal, A. (2010). Generalizing the convex hull
+of a sample: The R package alphahull. \emph{Journal of Statistical
+Software}, 34(5).
+https://doi.org/10.18637/jss.v034.i05
+
+Peterson, A. T., Papeş, T., & Eaton, M. (2007). Transferability and model
+evaluation in ecological niche modeling: A comparison of GARP and Maxent.
+\emph{Ecography}, 30(4), 550-560.
+https://doi.org/10.1111/j.0906-7590.2007.05102.x
+
+Peterson, A. T., Soberón, J., Pearson, R. G., Anderson, R. P.,
+Martínez-Meyer, E., Nakamura, M., & Araújo, M. B. (2011). \emph{Ecological
+niches and geographic distributions}. Princeton University Press.
+https://doi.org/10.1515/9781400840670
+
+Phillips, S. J., Anderson, R. P., & Schapire, R. E. (2006). Maximum entropy
+modeling of species geographic distributions. \emph{Ecological Modelling},
+190(3-4), 231-259.
+https://doi.org/10.1016/j.ecolmodel.2005.03.026
+
+Soberón, J., & Peterson, A. T. (2005). Interpretation of models of fundamental
+ecological niches and species' distributional areas. \emph{Biodiversity
+Informatics}, 2(0).
+https://doi.org/10.17161/bi.v2i0.4
+
+VanDerWal, J., Shoo, L. P., Graham, C., & Williams, S. E. (2009). Selecting
+pseudo-absence data for presence-only distribution modeling: How far should
+you stray from what you know? \emph{Ecological Modelling}, 220(4), 589-594.
+https://doi.org/10.1016/j.ecolmodel.2008.11.010
 }

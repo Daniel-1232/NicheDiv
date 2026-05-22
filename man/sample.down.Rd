@@ -15,7 +15,7 @@ sample.down(
 \arguments{
 \item{dataframe}{A \code{data.frame}, tibble, or \code{sf} object to sample from.}
 
-\item{N.rows}{A single positive integer giving the number of rows to retain.
+\item{N.rows}{A positive integer giving the number of rows to retain.
 If \code{N.rows} is greater than or equal to the number of available rows, the
 original object is returned unchanged.}
 
@@ -25,10 +25,10 @@ weights. If \code{FALSE}, rows are sampled uniformly without replacement.}
 
 \item{poisson.lambda}{Optional positive numeric value controlling the
 steepness of the Poisson-tail weighting applied to row-wise NA counts. If
-\code{NULL}, the median row-wise NA count is used.}
+\code{NULL} (default), the median row-wise NA count is used.}
 
 \item{seed}{A single numeric value used to set the random seed for
-reproducible sampling.}
+reproducible sampling (default: 1).}
 }
 \value{
 An object containing the sampled rows. The returned object has the

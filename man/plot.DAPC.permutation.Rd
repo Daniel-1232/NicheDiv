@@ -26,46 +26,92 @@
 )
 }
 \arguments{
-\item{dapc_result}{Result object returned by the DAPC permutation workflow.}
+\item{dapc_result}{Result object returned by
+\code{run.DAPC.crossval.permutation()}. The object must contain
+\code{observed_assign_prop} and a numeric vector of \code{permutation_assign_props}.}
 
-\item{bar.color}{Histogram bar color.}
+\item{bar.color}{A single character string giving the histogram bar fill color
+(default: \code{"lightgrey"}).}
 
-\item{line.color}{Vertical line color for the observed value.}
+\item{line.color}{A single character string giving the color of the observed
+assignment-accuracy marker (default: \code{"firebrick"}).}
 
-\item{axis.labels.font.size}{Axis title font size.}
+\item{axis.labels.font.size}{A single positive numeric value giving the axis
+title font size (default: \code{9.1}).}
 
-\item{axis.ticks.font.size}{Axis tick font size.}
+\item{axis.ticks.font.size}{A single positive numeric value giving the axis
+tick-label font size (default: \code{7}).}
 
-\item{N.bar.breaks}{Number of histogram bins.}
+\item{N.bar.breaks}{A single positive integer-like numeric value giving the
+number of histogram bins (default: \code{20}).}
 
-\item{add.title}{Logical; whether to include a title.}
+\item{add.title}{Logical; if \code{TRUE}, a plot title is added (default: \code{TRUE}).}
 
-\item{title.text}{Plot title text.}
+\item{title.text}{A single character string giving the plot title when
+\code{add.title = TRUE} (default: \code{"Null distribution of DAPC mean assignment accuracy"}).}
 
-\item{show.plot}{Logical; whether to print the plot.}
+\item{show.plot}{Logical; if \code{TRUE}, the plot is returned visibly
+(default: \code{TRUE}).}
 
-\item{save}{Logical; whether to save the plot.}
+\item{save}{Logical; if \code{TRUE}, the plot is saved to disk
+(default: \code{FALSE}).}
 
-\item{overwrite}{Logical; whether to overwrite an existing file.}
+\item{overwrite}{Logical; if \code{TRUE}, an existing file is overwritten when
+\code{save = TRUE} (default: \code{FALSE}).}
 
-\item{filename}{Output filename without extension.}
+\item{filename}{A single character string giving the output filename without
+extension when \code{save = TRUE} (default: \code{"DAPC_permutation"}).}
 
-\item{output.dir}{Output directory for saved plots.}
+\item{output.dir}{Optional character string giving the directory for saved
+plots when \code{save = TRUE} (default: \code{NULL}; if \code{NULL}, the current working
+directory is used).}
 
-\item{type}{Output file type.}
+\item{type}{A single character string giving the output file type. One of
+\code{"png"}, \code{"svg"}, or \code{"jpg"} (default: \code{"svg"}).}
 
-\item{width}{Plot width.}
+\item{width}{A single positive numeric value giving plot width in centimeters
+when \code{save = TRUE} (default: \code{20}).}
 
-\item{height}{Plot height.}
+\item{height}{A single positive numeric value giving plot height in
+centimeters when \code{save = TRUE} (default: \code{15}).}
 
-\item{resolution}{Plot resolution.}
+\item{resolution}{A single positive numeric value giving plot resolution in
+dpi when saving raster formats (default: \code{300}).}
 
-\item{verbose}{Logical; whether to print messages.}
+\item{verbose}{Logical; if \code{TRUE}, messages are printed when saving
+(default: \code{TRUE}).}
 }
 \value{
-A ggplot object.
+A \code{ggplot} object. If \code{show.plot = TRUE}, the plot is returned
+visibly; otherwise it is returned invisibly.
 }
 \description{
-Plot the null distribution of permutation assignment accuracy together with
-the observed value.
+Plot null distribution of permutation assignment accuracy together with
+the observed assignment accuracy from DAPC niche-divergence analysis.
+}
+\details{
+The permutation histogram visualizes the null expectation for DAPC assignment
+accuracy under the hypothesis of a single shared niche (k = 1).
+In this null model, group identity is treated as exchangeable, so the
+distribution of permuted assignment accuracies represents the level of
+discrimination expected when environmental predictors are not consistently
+associated with the given group labels.
+
+The observed assignment accuracy is shown relative to this null distribution.
+If the observed value falls in the upper tail of the permutation distribution,
+this indicates that the fitted discriminant separation is stronger than
+expected under random group membership. The plot therefore provides a visual
+complement to the permutation p-value returned by
+\code{run.DAPC.crossval.permutation()}.
+
+This diagnostic is important because apparent group separation can arise by
+chance, especially in high-dimensional environmental datasets. Comparing the
+empirical assignment accuracy against a random-label null distribution helps
+distinguish niche divergence from discrimination caused by model flexibility,
+random label structure, or sampling imbalance.
+
+A significant permutation result indicates that observed group separation
+exceeds the random-label null expectation. The plot and p-value should be
+interpreted together with niche-overlap metrics because a significant p-value
+can be obtained even when overall niche divergence is low.
 }

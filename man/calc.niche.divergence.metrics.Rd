@@ -15,29 +15,35 @@ calc.niche.divergence.metrics(
 )
 }
 \arguments{
-\item{dapc_out}{A DAPC result object containing the discriminant scores used
-to calculate overlap and niche divergence metrics.}
+\item{dapc_out}{A DAPC result object returned by
+\code{run.DAPC.crossval.permutation()}. The object must contain \verb{$dapc_results}
+with LD scores and, when \code{weight.background = TRUE}, the PCA object and
+discriminant scaling needed to project background data into LD1 space.}
 
 \item{group.assignment}{Factor or character vector giving group identity for
-each row of the input data.}
+each row of the input data. Exactly two groups are required.}
 
-\item{density.grid.resolution}{A single positive integer giving the number of
-grid points used to estimate smoothed density overlap.}
+\item{density.grid.resolution}{A single positive integer-like numeric value
+giving the number of grid points used to estimate smoothed density overlap
+(default: \code{1024}).}
 
-\item{weight.background}{Logical; if \code{TRUE}, project both background datasets
-into LD1 space and apply background-availability weighting, up-weighting
-rare environments and down-weighting common environments along the
-discriminant axis.}
+\item{weight.background}{Logical; if \code{TRUE}, apply background-availability
+weighting along the discriminant axis by up-weighting rare available
+environments and down-weighting common available environments
+(default: \code{FALSE}).}
 
 \item{Sp1.background.data}{Optional \code{data.frame} of background environmental
 values for species 1. Required when \code{weight.background = TRUE}; columns must
-overlap the environmental variables used to fit the DAPC/PCA object.}
+overlap the environmental variables used to fit the DAPC/PCA object
+(default: \code{NULL}).}
 
 \item{Sp2.background.data}{Optional \code{data.frame} of background environmental
 values for species 2. Required when \code{weight.background = TRUE}; columns must
-overlap the environmental variables used to fit the DAPC/PCA object.}
+overlap the environmental variables used to fit the DAPC/PCA object
+(default: \code{NULL}).}
 
-\item{verbose}{Logical; if \code{TRUE}, print progress messages and metric values.}
+\item{verbose}{Logical; if \code{TRUE}, progress messages and metric values are
+printed (default: \code{TRUE}).}
 }
 \value{
 A named list containing:
@@ -60,4 +66,71 @@ breadth exclusivity.}
 Calculate Schoener's D overlap and derived niche divergence metrics from
 smoothed density distributions for two groups along the DAPC discriminant
 axis, optionally using background-based weighting.
+}
+\details{
+DAPC (discriminant analysis of principal components; Jombart et al., 2010)
+summarizes pairwise multivariate niche separation along a single discriminant
+axis for two-group comparisons. Calculating niche metrics from density
+distributions along this axis allows multivariate environmental
+differentiation to be interpreted in terms of overlap, dissimilarity,
+exclusivity, and overall divergence magnitude. This links the discriminant
+separation returned by DAPC to niche-divergence quantities that are easier to
+compare across species pairs or analyses.
+
+Schoener's D is used as an overlap metric measuring the proportion of shared
+density between two distributions and ranges from zero for no overlap to one
+for complete overlap (Schoener, 1968; Warren et al., 2008). Schoener's D is
+calculated along the DAPC discriminant axis, so it summarizes overlap in the
+multivariate environmental space most associated with group separation.
+
+The additional niche-divergence metrics extend the niche divergence plane of
+Ascanio et al. (2024) from single environmental variables to the multivariate
+DAPC discriminant axis. Niche dissimilarity (NDS) quantifies density separation
+along the axis, whereas niche breadth exclusivity (NE) quantifies how much of
+the occupied discriminant-axis range is not shared between groups. Together,
+these metrics distinguish divergence driven mainly by density differences
+within shared environmental space from divergence driven mainly by exclusive
+environmental ranges.
+
+Niche divergence magnitude (ND) combines density dissimilarity and breadth
+exclusivity into a single composite measure of divergence strength. The niche
+divergence angle (theta) describes the relative contribution of dissimilarity
+versus exclusivity: angles near zero indicate divergence dominated by exclusive
+range differences, angles near ninety degrees indicate divergence dominated by
+density differences within shared range, and intermediate values indicate mixed
+contributions. These quantities help classify divergence into interpretable
+forms such as weighted, soft, nested, or hard divergence (Ascanio et al.,
+2024).
+
+When \code{weight.background = TRUE}, density estimates are adjusted for unequal
+environmental availability along the discriminant axis. This follows the logic
+of background corrections that reduce bias caused by common environments
+dominating density estimates and rare available environments being
+underrepresented. Such weighting can be useful when species differ in
+accessible background environments and when niche overlap should be
+interpreted relative to the environmental conditions available to both
+species (Brown & Carnaval, 2019).
+}
+\references{
+Ascanio, A. K., Owens, H. L., Sousa, M. C., & Peterson, A. T. (2024).
+Quantifying niche shifts in one-dimensional environmental space.
+\emph{Ecography}, 2024(5), e07127. https://doi.org/10.1111/ecog.07127
+
+Brown, J., & Carnaval, A. C. (2019). A tale of two niches: Methods, concepts,
+and evolution. \emph{Frontiers of Biogeography}, 11(4).
+https://doi.org/10.21425/F5FBG44158
+
+Jombart, T., Devillard, S., & Balloux, F. (2010). Discriminant analysis of
+principal components: A new method for the analysis of genetically
+structured populations. \emph{BMC Genetics}, 11, 94.
+https://doi.org/10.1186/1471-2156-11-94
+
+Schoener, T. W. (1968). The anolis lizards of Bimini: Resource partitioning
+in a complex fauna. \emph{Ecology}, 49(4), 704-726.
+https://doi.org/10.2307/1935534
+
+Warren, D. L., Glor, R. E., & Turelli, M. (2008). Environmental niche
+equivalency versus conservatism: Quantitative approaches to niche evolution.
+\emph{Evolution}, 62(11), 2868-2883.
+https://doi.org/10.1111/j.1558-5646.2008.00482.x
 }

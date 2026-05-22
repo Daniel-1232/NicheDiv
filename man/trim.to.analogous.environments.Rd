@@ -20,52 +20,154 @@ trim.to.analogous.environments(
 )
 }
 \arguments{
-\item{Sp1.occurrence.data}{A \code{data.frame} or \code{sf} object containing
-occurrence records for species 1.}
+\item{Sp1.occurrence.data}{A \code{data.frame} or \code{sf} object containing occurrence
+records for species 1.}
 
-\item{Sp2.occurrence.data}{A \code{data.frame} or \code{sf} object containing
-occurrence records for species 2.}
+\item{Sp2.occurrence.data}{A \code{data.frame} or \code{sf} object containing occurrence
+records for species 2.}
 
-\item{Sp1.background.data}{A \code{data.frame} or \code{sf} object containing
-background environmental data for species 1.}
+\item{Sp1.background.data}{A \code{data.frame} or \code{sf} object containing background
+environmental data for species 1.}
 
-\item{Sp2.background.data}{A \code{data.frame} or \code{sf} object containing
-background environmental data for species 2.}
+\item{Sp2.background.data}{A \code{data.frame} or \code{sf} object containing background
+environmental data for species 2.}
 
 \item{exclude.cols}{Optional character vector of column names to exclude from
-analogous-space estimation.}
+analogous-space estimation (default: \code{NULL}).}
 
 \item{keep.occurrence.cols}{Optional character vector of occurrence-data
-columns that should always be retained in the output.}
+columns that should always be retained and placed first in the output
+(default: \code{NULL}).}
 
-\item{analogous.window.size}{Numeric value controlling the width of the
-analogous-environment retention window in environmental space.}
+\item{analogous.window.size}{A single non-negative numeric value controlling
+the width of the analogous-environment retention window in environmental
+PCA space (default: \code{5}).}
 
-\item{grid.resolution}{Integer giving the number of grid cells per PCA axis
-used to estimate shared environmental space.}
+\item{grid.resolution}{A single integer-like numeric value giving the number
+of grid divisions per PCA axis used to estimate shared environmental space
+(default: \code{50}).}
 
-\item{max.NA.prop}{Maximum proportion of missing values allowed per row
-before that row is removed from the environmental-space analysis.}
+\item{max.NA.prop}{A single numeric value between 0 and 1 giving the maximum
+allowed proportion of missing values per background row before that row is
+removed from analogous-space estimation (default: \code{0.2}).}
 
 \item{impute.NA.median}{Logical; if \code{TRUE}, eligible missing values are
-imputed using the median before estimating analogous space.}
+imputed using the variable median before estimating analogous environmental
+space. If \code{FALSE}, incomplete rows are removed instead (default: \code{TRUE}).}
 
 \item{downsample.equal.sizes}{Logical; if \code{TRUE}, the two trimmed occurrence
-datasets are downsampled to equal sample sizes after trimming.}
+datasets are downsampled to equal sample sizes after trimming
+(default: \code{TRUE}).}
 
-\item{verbose}{Logical; if \code{TRUE}, print progress messages and summary
-information during trimming.}
+\item{verbose}{Logical; if \code{TRUE}, progress messages and summary information
+are printed during trimming (default: \code{TRUE}).}
 }
 \value{
-A \code{data.frame} combining the retained occurrence rows for both
-species after Humboldt-style trimming to analogous environmental space.
+A \code{data.frame} combining the retained occurrence rows for both species
+after Humboldt-style trimming to analogous environmental space. If
+\code{downsample.equal.sizes = TRUE}, the returned species subsets are
+downsampled to equal sample sizes.
 }
 \description{
 Restrict species occurrence and background datasets to the portion of
 environmental space shared between both species, following the logic of
-analogous-environment trimming described by Brown and Carnaval (2019) and
-the g2e workflow implemented in Humboldt. The function compares the
-environmental backgrounds of two species, identifies the shared analogous
-portion of environmental space, and retains only occurrence and background
-records falling within that shared space.
+analogous-environment trimming described by Brown and Carnaval (2019) and the
+g2e workflow implemented in the Humboldt R package. The function compares
+the environmental backgrounds of two species, identifies the shared analogous
+portion of environmental space, and retains only occurrence records falling
+within that shared space.
+}
+\details{
+Humboldt-style analogous trimming is used as a complementary correction to
+predictor-based environmental analogy screening. Whereas variable filtering
+removes environmental predictors that are poorly comparable between species,
+occurrence trimming removes occurrence records that fall outside the
+environmentally shared region of the two species' accessible background
+spaces. This helps reduce bias caused by non-analogous environments, which can
+inflate apparent niche divergence and make comparisons depend on extrapolated
+portions of environmental space rather than on conditions available to both
+species (Brown & Carnaval, 2019; Guisan et al., 2014; Peterson et al., 2011).
+
+The method summarizes the combined environmental backgrounds of both species
+in a shared principal component space. Using a common ordination space ensures
+that both species are compared along the same environmental axes rather than
+in separate species-specific coordinate systems. Principal component analysis
+is appropriate here because it provides a reduced environmental space that
+captures dominant gradients of covariation among predictors while allowing
+occurrence and background points to be evaluated on the same scale (Chessel et
+al., 2004; Dray & Dufour, 2007; Bougeard & Dray, 2018; Thioulouse et al.,
+2018).
+
+Prior to trimming, low-information predictors and rows with excessive
+missingness are removed because near-constant variables and heavily incomplete
+observations can distort environmental-space estimates. The missingness
+threshold (\code{max.NA.prop = 0.2}) is intended as a practical default that
+permits moderate missingness while reducing the risk that the shared
+environmental space is driven by imputation or incomplete background records
+(Harrell, 2015; van Buuren, 2018).
+
+The analogous trimming window controls how strictly environmental space is
+shared between species. Smaller windows impose stricter analogy requirements
+and remove more records, whereas larger windows retain more records but may
+allow a broader range of marginally comparable environments. The default
+window size (\code{analogous.window.size = 5}) is intended as a moderate compromise
+that reduces extrapolation into non-analogous environmental regions while
+retaining enough occurrence records for downstream analyses.
+
+Reciprocal trimming is used so that neither species defines the analogous
+space unilaterally. By restricting each species relative to the environmental
+space occupied by the other, the retained region represents a shared subset of
+background environmental space rather than the environmental availability of
+only one species. This is important for niche-divergence analyses because
+asymmetric trimming can bias comparisons toward the species with the broader
+or more densely sampled background environment (Brown & Carnaval, 2019).
+
+After the shared analogous region is identified, occurrence records are
+retained only when they fall inside that shared environmental space. This
+produces occurrence datasets restricted to comparable environmental
+conditions, reducing the influence of extrapolated or non-analogous
+occurrences that could otherwise bias downstream comparisons of niche
+divergence, niche overlap, or discriminant environmental separation.
+
+Equalizing sample sizes after trimming is useful when downstream
+methods are sensitive to unequal occurrence counts. Downsampling to matched
+sample sizes can reduce imbalance between species and make subsequent
+comparisons less dependent on differences in retained occurrence density.
+}
+\references{
+Bougeard, S., & Dray, S. (2018). Supervised multiblock analysis in R with the
+ade4 package. \emph{Journal of Statistical Software}, 86(1).
+https://doi.org/10.18637/jss.v086.i01
+
+Brown, J., & Carnaval, A. C. (2019). A tale of two niches: Methods, concepts,
+and evolution. \emph{Frontiers of Biogeography}, 11(4).
+https://doi.org/10.21425/F5FBG44158
+
+Chessel, D., Dufour, A., & Thioulouse, J. (2004). The ade4 Package - I:
+One-table methods. \emph{R News}, 4(1), 5-10.
+
+Dray, S., & Dufour, A.-B. (2007). The ade4 package: Implementing the duality
+diagram for ecologists. \emph{Journal of Statistical Software}, 22(4).
+https://doi.org/10.18637/jss.v022.i04
+
+Guisan, A., Petitpierre, B., Broennimann, O., Daehler, C., & Kueffer, C.
+(2014). Unifying niche shift studies. Insights from biological invasions.
+\emph{Trends in Ecology & Evolution}, 29(5), 260-269.
+https://doi.org/10.1016/j.tree.2014.02.009
+
+Harrell, F. E. (2015). \emph{Regression modeling strategies: With applications
+to linear models, logistic and ordinal regression, and survival analysis}
+(2nd ed.). Springer.
+
+Peterson, A. T., Soberón, J., Pearson, R. G., Anderson, R. P.,
+Martínez-Meyer, E., Nakamura, M., & Araújo, M. B. (2011). \emph{Ecological
+niches and geographic distributions}. Princeton University Press.
+https://doi.org/10.1515/9781400840670
+
+Thioulouse, J., Dray, S., Dufour, A.-B., Siberchicot, A., Jombart, T., &
+Pavoine, S. (2018). \emph{Multivariate analysis of ecological data with
+ade4}. Springer New York. https://doi.org/10.1007/978-1-4939-8850-1
+
+van Buuren, S. (2018). \emph{Flexible imputation of missing data}. Chapman &
+Hall/CRC.
 }

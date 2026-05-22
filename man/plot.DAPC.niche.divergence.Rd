@@ -34,61 +34,131 @@
 )
 }
 \arguments{
-\item{dapc.results}{DAPC result object.}
+\item{dapc.results}{DAPC result object returned by
+\code{run.DAPC.crossval.permutation()}, or a nested object containing
+\verb{$dapc_results}.}
 
-\item{alpha.density}{Transparency for density fill.}
+\item{alpha.density}{A single numeric value between \code{0} and \code{1} controlling
+transparency of the density fill (default: \code{0.75}).}
 
-\item{group.colors}{Colors for groups.}
+\item{group.colors}{Character vector of two colors used for the two groups.
+Can be named with group levels to enforce a specific group-color mapping
+(default: \code{c("#00005A", "darkgrey")}).}
 
-\item{legend.label}{Legend title.}
+\item{legend.label}{A single character string giving the legend title
+(default: \code{"Species"}).}
 
-\item{legend.position}{Legend position.}
+\item{legend.position}{Legend position. Either one of \code{"right"}, \code{"left"},
+\code{"top"}, \code{"bottom"}, \code{"none"}, or a numeric vector \code{c(x, y)}
+(default: \code{"right"}).}
 
-\item{legend.title.font.size}{Legend title font size.}
+\item{legend.title.font.size}{A single positive numeric value giving the
+legend title font size (default: \code{9.1}).}
 
-\item{legend.text.font.size}{Legend text font size.}
+\item{legend.text.font.size}{A single positive numeric value giving the
+legend text font size (default: \code{9.1}).}
 
-\item{legend.text.italics}{Logical; italicize legend entries.}
+\item{legend.text.italics}{Logical; if \code{TRUE}, legend entries are italicized
+(default: \code{FALSE}).}
 
-\item{legend.symbol.size}{Legend symbol size.}
+\item{legend.symbol.size}{A single positive numeric value giving the legend
+key size in points (default: \code{15}).}
 
-\item{axis.labels.font.size}{Axis title font size.}
+\item{axis.labels.font.size}{A single positive numeric value giving the axis
+title font size (default: \code{9.1}).}
 
-\item{axis.ticks.font.size}{Axis tick font size.}
+\item{axis.ticks.font.size}{A single positive numeric value giving the axis
+tick-label font size (default: \code{7}).}
 
-\item{add.axis.lines}{Logical; add rug lines for observations.}
+\item{add.axis.lines}{Logical; if \code{TRUE}, rug lines showing individual LD1
+scores are added below the density curves (default: \code{TRUE}).}
 
-\item{axis.lines.alpha}{Transparency of rug lines.}
+\item{axis.lines.alpha}{A single numeric value between \code{0} and \code{1}
+controlling transparency of rug lines (default: \code{0.75}).}
 
-\item{axis.lines.thickness}{Thickness of rug lines.}
+\item{axis.lines.thickness}{A single positive numeric value controlling rug
+line thickness (default: \code{0.4}).}
 
-\item{add.title}{Logical; whether to add a title.}
+\item{add.title}{Logical; if \code{TRUE}, a plot title is added (default: \code{TRUE}).}
 
-\item{title.text}{Plot title text.}
+\item{title.text}{A single character string giving the plot title when
+\code{add.title = TRUE} (default: \code{"Multivariate niche divergence based on DAPC"}).}
 
-\item{show.plot}{Logical; whether to print the plot.}
+\item{show.plot}{Logical; if \code{TRUE}, the plot is returned visibly
+(default: \code{TRUE}).}
 
-\item{save}{Logical; whether to save the plot.}
+\item{save}{Logical; if \code{TRUE}, the plot is saved to disk
+(default: \code{FALSE}).}
 
-\item{overwrite}{Logical; whether to overwrite an existing file.}
+\item{overwrite}{Logical; if \code{TRUE}, an existing file is overwritten when
+\code{save = TRUE} (default: \code{FALSE}).}
 
-\item{filename}{Output filename without extension.}
+\item{filename}{A single character string giving the output filename without
+extension when \code{save = TRUE} (default: \code{"DAPC_LD1_density"}).}
 
-\item{output.dir}{Output directory for saved plots.}
+\item{output.dir}{Optional character string giving the directory for saved
+plots when \code{save = TRUE} (default: \code{NULL}; if \code{NULL}, the current working
+directory is used).}
 
-\item{type}{Output file type.}
+\item{type}{A single character string giving the output file type. One of
+\code{"png"}, \code{"svg"}, or \code{"jpg"} (default: \code{"svg"}).}
 
-\item{width}{Plot width.}
+\item{width}{A single positive numeric value giving plot width in centimeters
+when \code{save = TRUE} (default: \code{20}).}
 
-\item{height}{Plot height.}
+\item{height}{A single positive numeric value giving plot height in
+centimeters when \code{save = TRUE} (default: \code{15}).}
 
-\item{resolution}{Plot resolution.}
+\item{resolution}{A single positive numeric value giving plot resolution in
+dpi when saving raster formats (default: \code{300}).}
 
-\item{verbose}{Logical; whether to print messages.}
+\item{verbose}{Logical; if \code{TRUE}, messages are printed when saving
+(default: \code{TRUE}).}
 }
 \value{
-A ggplot object.
+A \code{ggplot} object. If \code{show.plot = TRUE}, the plot is returned
+visibly; otherwise it is returned invisibly.
 }
 \description{
-Plot LD1 density distributions for the two groups from a DAPC result.
+Plot smoothed LD1 density distributions for the two groups from DAPC result.
+The discriminant axis summarizes multivariate environmental separation in one
+dimension, allowing group overlap and divergence along the fitted DAPC axis to
+be visualized.
+}
+\details{
+DAPC niche-divergence analysis reduces multivariate environmental
+differentiation to one or more discriminant axes that maximize separation
+between predefined groups after dimensionality reduction by PCA. For two-group
+niche-divergence analyses, the first discriminant axis provides a univariate
+summary of multivariate environmental separation, making it useful for
+visualizing whether groups occupy similar, partially overlapping, or strongly
+separated regions of discriminant environmental space (Lachenbruch & Goldstein,
+1979; Jombart et al., 2010).
+
+Smoothed density curves along LD1 provide an interpretable visualization of
+multivariate niche divergence because they show both the location and spread of
+group scores along the discriminant axis. Shifts in density peaks indicate
+differences in central environmental tendency, differences in curve width
+indicate differences in multivariate breadth along the discriminant axis, and
+limited overlap indicates stronger environmental separation. Rug lines show
+the underlying sample distribution and help reveal whether density features are
+supported by many observations or by sparse tails.
+
+This plot is descriptive and should be interpreted alongside quantitative
+model outputs such as assignment accuracy, permutation p-values, adjusted Rand
+index, niche-overlap metrics, and variable contributions. Density overlap
+along LD1 summarizes separation in the fitted discriminant space but does not
+by itself identify independent effects of individual predictors. Variable
+contributions from DAPC should also be interpreted cautiously when predictors
+are correlated, because the discriminant axis reflects shared covariance
+structure rather than fully independent predictor effects.
+}
+\references{
+Jombart, T., Devillard, S., & Balloux, F. (2010). Discriminant analysis of
+principal components: A new method for the analysis of genetically
+structured populations. \emph{BMC Genetics}, 11, 94.
+https://doi.org/10.1186/1471-2156-11-94
+
+Lachenbruch, P. A., & Goldstein, M. (1979). Discriminant analysis.
+\emph{Biometrics}, 35(1), 69. https://doi.org/10.2307/2529937
 }

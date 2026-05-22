@@ -56,119 +56,180 @@
 )
 }
 \arguments{
-\item{coordinates}{A \code{data.frame} or matrix containing occurrence
-coordinates to plot.}
+\item{coordinates}{A \code{data.frame} or matrix containing occurrence coordinates
+to plot.}
 
-\item{latitude.col}{A single character string giving the latitude column
-name.}
+\item{latitude.col}{A single character string giving the latitude column name
+in \code{coordinates} and, when supplied, \code{background.coords}
+(default: \code{"Latitude"}).}
 
 \item{longitude.col}{A single character string giving the longitude column
-name.}
+name in \code{coordinates} and, when supplied, \code{background.coords}
+(default: \code{"Longitude"}).}
 
-\item{latitude.buffer.range}{Numeric buffer added to the plotted latitude
-extent.}
+\item{latitude.buffer.range}{A single non-negative numeric value giving the
+buffer added to the plotted latitude extent (default: \code{2}).}
 
-\item{longitude.buffer.range}{Numeric buffer added to the plotted longitude
-extent.}
+\item{longitude.buffer.range}{A single non-negative numeric value giving the
+buffer added to the plotted longitude extent (default: \code{2}).}
 
-\item{group.colors}{Character vector of colors used for the plotted groups.}
+\item{group.colors}{Character vector of two colors used for the occurrence
+groups. Can be named with group levels to enforce a specific group-color
+mapping (default: \code{c("#00005A", "darkgrey")}).}
 
 \item{group.labels}{Factor or character vector giving group membership for
-occurrence points.}
+occurrence points. Exactly two groups are required.}
 
-\item{CRS}{Coordinate reference system used for plotting.}
+\item{CRS}{A single character string giving the coordinate reference system
+used for plotting (default: \code{"EPSG:4326"}).}
 
-\item{point.size}{Numeric point size for occurrence records.}
+\item{point.size}{A single positive numeric value giving the occurrence point
+size (default: \code{1.22}).}
 
-\item{point.alpha}{Numeric transparency for occurrence points.}
+\item{point.alpha}{A single numeric value between \code{0} and \code{1} controlling
+occurrence point transparency (default: \code{0.9}).}
 
-\item{point.border.color}{Border color for occurrence points.}
+\item{point.border.color}{A single character string giving the occurrence
+point border color (default: \code{"black"}).}
 
-\item{plot.background.points}{Logical; if \code{TRUE}, plot background points.}
+\item{plot.background.points}{Logical; if \code{TRUE}, background points are drawn
+on the map (default: \code{TRUE}).}
 
-\item{background.coords}{Optional \code{data.frame} or matrix of background point
-coordinates.}
+\item{background.coords}{Optional \code{data.frame} or matrix containing background
+point coordinates. Required when \code{plot.background.points = TRUE}
+(default: \code{NULL}).}
 
-\item{background.group.labels}{Optional factor or character vector of group
-labels for background points.}
+\item{background.group.labels}{Optional factor or character vector giving
+group membership for background points. If supplied, its levels must match
+\code{group.labels} (default: \code{NULL}).}
 
-\item{background.point.size}{Numeric point size for background points.}
+\item{background.point.size}{A single positive numeric value giving the
+background point size (default: \code{0.22}).}
 
-\item{background.point.col}{Color for background points.}
+\item{background.point.col}{A single character string giving the background
+point color when \code{background.group.labels = NULL} (default: \code{"grey60"}).}
 
-\item{background.point.alpha}{Numeric transparency for background points.}
+\item{background.point.alpha}{A single numeric value between \code{0} and \code{1}
+controlling background point transparency (default: \code{0.9}).}
 
-\item{axis.numbers.size}{Numeric font size for axis tick labels.}
+\item{axis.numbers.size}{A single positive numeric value giving the coordinate
+tick-label font size (default: \code{9.1}).}
 
-\item{add.USA.states}{Logical; if \code{TRUE}, add USA state borders.}
+\item{add.USA.states}{Logical; if \code{TRUE}, USA state borders are added
+(default: \code{TRUE}).}
 
-\item{add.USA.counties}{Logical; if \code{TRUE}, add USA county borders.}
+\item{add.USA.counties}{Logical; if \code{TRUE}, USA county borders are added
+(default: \code{FALSE}).}
 
-\item{country.lwd}{Numeric line width for country borders.}
+\item{country.lwd}{A single non-negative numeric value giving the country
+border line width (default: \code{1}).}
 
-\item{USA.state.lwd}{Numeric line width for USA state borders.}
+\item{USA.state.lwd}{A single non-negative numeric value giving the USA state
+border line width (default: \code{1}).}
 
-\item{USA.county.lwd}{Numeric line width for USA county borders.}
+\item{USA.county.lwd}{A single non-negative numeric value giving the USA
+county border line width (default: \code{0.3}).}
 
-\item{map.background}{Fill color used for the map background.}
+\item{map.background}{A single character string giving the fill color used for
+the map background (default: \code{"lightgrey"}).}
 
-\item{north.arrow.position}{Numeric vector of length 2 giving the relative
-x/y position of the north arrow.}
+\item{north.arrow.position}{Numeric vector of length two giving the relative
+x/y position of the north arrow within the plotted extent
+(default: \code{c(0.03, 0.88)}).}
 
-\item{north.arrow.length}{Numeric arrow length for the north arrow.}
+\item{north.arrow.length}{A single positive numeric value giving the north
+arrow length in map units (default: \code{0.7}).}
 
-\item{north.arrow.lwd}{Numeric line width for the north arrow.}
+\item{north.arrow.lwd}{A single non-negative numeric value giving the north
+arrow line width (default: \code{2}).}
 
-\item{north.arrow.font.size}{Numeric font size for the north-arrow label.}
+\item{north.arrow.font.size}{A single positive numeric value giving the font
+size of the north-arrow label (default: \code{9.1}).}
 
-\item{north.arrow.N.position}{Numeric vertical offset for the \code{"N"} label.}
+\item{north.arrow.N.position}{A single numeric value giving the vertical offset
+of the \code{"N"} label above the arrow tip (default: \code{0.3}).}
 
-\item{scale.position}{Numeric vector of length 2 giving the relative x/y
-position of the scale bar.}
+\item{scale.position}{Numeric vector of length two giving the relative x/y
+position of the scale bar within the plotted extent
+(default: \code{c(0.03, 0.05)}).}
 
-\item{scale.size}{Numeric width scaling for the scale bar.}
+\item{scale.size}{A single positive numeric value controlling the scale-bar
+width (default: \code{0.16}).}
 
-\item{scale.font.size}{Numeric font size for the scale bar text.}
+\item{scale.font.size}{A single positive numeric value giving the scale-bar
+text font size (default: \code{7}).}
 
-\item{legend.position}{Position of the legend.}
+\item{legend.position}{A single character string giving the legend position
+used by base R graphics (default: \code{"topright"}).}
 
-\item{legend.font.size}{Numeric font size of legend text.}
+\item{legend.font.size}{A single positive numeric value giving the legend text
+font size (default: \code{9.1}).}
 
-\item{legend.group.names}{Optional character vector of legend labels for the
-groups.}
+\item{legend.group.names}{Optional character vector giving legend labels for
+the two occurrence groups. If \code{NULL}, levels of \code{group.labels} are used
+(default: \code{NULL}).}
 
-\item{legend.box}{Logical; if \code{TRUE}, draw a legend box.}
+\item{legend.box}{Logical; if \code{TRUE}, a legend box is drawn
+(default: \code{TRUE}).}
 
-\item{legend.text.italics}{Logical; if \code{TRUE}, italicize legend text.}
+\item{legend.text.italics}{Logical; if \code{TRUE}, legend text is italicized
+(default: \code{FALSE}).}
 
-\item{legend.symbol.size}{Numeric size of legend symbols.}
+\item{legend.symbol.size}{A single positive numeric value giving the legend
+symbol size (default: \code{1.5}).}
 
-\item{show.plot}{Logical; if \code{TRUE}, draw the plot.}
+\item{show.plot}{Logical; if \code{TRUE}, the map is drawn on the active graphics
+device (default: \code{TRUE}).}
 
-\item{save}{Logical; if \code{TRUE}, save the plot to disk.}
+\item{save}{Logical; if \code{TRUE}, the map is saved to disk
+(default: \code{FALSE}).}
 
-\item{overwrite}{Logical; if \code{TRUE}, allow overwriting an existing file.}
+\item{overwrite}{Logical; if \code{TRUE}, an existing output file is overwritten
+when \code{save = TRUE} (default: \code{TRUE}).}
 
-\item{filename}{File name used when \code{save = TRUE}, without extension.}
+\item{filename}{A single character string giving the output filename without
+extension when \code{save = TRUE} (default: \code{"occurrence_map"}).}
 
-\item{output.dir}{Output directory used when \code{save = TRUE}.}
+\item{output.dir}{Optional character string giving the directory for saved
+plots when \code{save = TRUE} (default: \code{NULL}; if \code{NULL}, the current working
+directory is used).}
 
-\item{type}{Output file type when saving.}
+\item{type}{A single character string giving the output file type. One of
+\code{"png"}, \code{"svg"}, or \code{"jpg"} (default: \code{"svg"}).}
 
-\item{width}{Plot width when saving.}
+\item{width}{A single positive numeric value giving plot width in centimeters
+when \code{save = TRUE} (default: \code{15}).}
 
-\item{height}{Plot height when saving.}
+\item{height}{A single positive numeric value giving plot height in
+centimeters when \code{save = TRUE} (default: \code{20}).}
 
-\item{resolution}{Plot resolution in dpi when saving.}
+\item{resolution}{A single positive numeric value giving plot resolution in
+dpi when saving raster formats (default: \code{300}).}
 
-\item{verbose}{Logical; if \code{TRUE}, print messages during saving.}
+\item{verbose}{Logical; if \code{TRUE}, messages are printed when saving
+(default: \code{TRUE}).}
 }
 \value{
-No return value. The function is called for its side
-effects: drawing a base R map and, when \code{save = TRUE}, writing the plot to
-disk.
+No return value. The function is called for its side effects: drawing
+a base R map and, when \code{save = TRUE}, writing the plot to disk.
 }
 \description{
-Plot occurrence coordinates, optionally with background points and map
-annotations.
+Plot occurrence coordinates on a base map, optionally with background points
+and map annotations.
+}
+\details{
+Occurrence maps provide the geographic context for niche-divergence analyses
+by showing where occurrence records and, optionally, accessible background
+points are located in geographic space. This is useful because environmental
+niche divergence is tested in environmental space, but the interpretation of
+sampling, accessible areas, spatial clustering, and background availability
+depends on the geographic distribution of the data.
+
+The function is designed for occurrence and background coordinates in decimal
+degrees. Map extents are expanded by the latitude and longitude buffer
+arguments so that plotted points are not placed directly on the map boundary.
+Optional state and county overlays can be used when the study area falls within
+the United States. The plot may require repeated adjustment of mapping
+parameters to produce an appropriate layout, including legend placement, north
+arrow position, scale-bar position, point sizes, and map extent.
 }

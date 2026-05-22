@@ -2,7 +2,7 @@
 % Please edit documentation in R/NicheDiv-functions.R
 \name{filter.analogous.variables}
 \alias{filter.analogous.variables}
-\title{Filter environmental variables to those analogous between backgrounds}
+\title{Filter environmental variables to analogous background environment}
 \usage{
 filter.analogous.variables(
   Sp1.background.data,
@@ -36,49 +36,54 @@ contain the same environmental columns as the background tables, plus any
 optional columns listed in \code{exclude.cols}.}
 
 \item{exclude.cols}{Optional character vector of columns to retain in the
-output occurrence table but exclude from environmental filtering.}
+output occurrence table but exclude from environmental filtering
+(default: \code{NULL}).}
 
 \item{CV.threshold}{A single non-negative numeric value giving the minimum
-coefficient of variation required in both species' backgrounds.}
+coefficient of variation required in both species' backgrounds
+(default: \code{0.01}).}
 
 \item{overlap.threshold}{A single numeric value between 0 and 1 giving the
-minimum acceptable Schoener's D overlap for both the univariate KDE and
-bivariate quantile-histogram analogy filters. Variables below this threshold
-are removed. Set to \code{0} to skip overlap-based filtering after the
-low-variation screen.}
+minimum acceptable environmental overlap for both the univariate and
+bivariate analogy filters. Variables below this threshold are removed. Set
+to \code{0} to skip overlap-based filtering after the low-variation screen
+(default: \code{0.7}).}
 
 \item{max.NA.prop}{A single numeric value between 0 and 1 giving the maximum
 allowed proportion of missing values per row before that row is discarded
-from the background tables.}
+from the background tables (default: \code{0.2}).}
 
-\item{min.rows}{A single positive integer giving the minimum number of
-non-missing observations required per species for a variable to be tested.}
+\item{min.rows}{A single positive integer-like numeric value giving the
+minimum number of non-missing observations required per species for a
+variable to be tested (default: \code{15}).}
 
 \item{impute.NA.median}{Logical; if \code{TRUE}, eligible missing values are
 replaced by the variable median during overlap calculations. If \code{FALSE},
-incomplete cases are removed instead.}
+incomplete cases are removed instead (default: \code{TRUE}).}
 
 \item{plot.1D.overlap}{Logical; if \code{TRUE}, a histogram of univariate overlap
-values is plotted.}
+values is plotted (default: \code{TRUE}).}
 
 \item{bin.n.2D}{Optional single numeric value giving the number of bins per
 axis used in the bivariate overlap calculations. If \code{NULL}, the function
-determines a value automatically from the effective background sample size.}
+determines a value automatically from the effective background sample size
+(default: \code{NULL}).}
 
-\item{max.pairs}{A single positive integer giving the maximum number of
-variable pairs to evaluate in the bivariate overlap step.}
+\item{max.pairs}{A single positive integer-like numeric value giving the
+maximum number of variable pairs to evaluate in the bivariate overlap step
+(default: \code{10000}).}
 
 \item{use.parallel}{Logical; if \code{TRUE}, parallel processing is used for the
-bivariate overlap calculations.}
+bivariate overlap calculations (default: \code{FALSE}).}
 
-\item{N.cores}{A single positive integer giving the number of CPU cores to
-use when \code{use.parallel = TRUE}.}
+\item{N.cores}{A single positive integer-like numeric value giving the number
+of CPU cores to use when \code{use.parallel = TRUE} (default: \code{3}).}
 
 \item{seed}{A single numeric value used to set the random seed for
-reproducible pair subsampling.}
+reproducible pair subsampling (default: \code{1}).}
 
 \item{verbose}{Logical; if \code{TRUE}, progress messages describing each filtering
-step are printed.}
+step are printed (default: \code{TRUE}).}
 }
 \value{
 A filtered \code{data.frame} containing \code{Sp1.Sp2.occurrence.data} subset
@@ -90,4 +95,132 @@ Screen background environmental variables for comparability between two taxa
 by sequentially removing predictors with too few observations, low variation,
 low univariate overlap, and low bivariate overlap. The retained variable set
 is then used to subset the supplied occurrence table.
+}
+\details{
+Environmental analogy screening reduces bias caused by comparing species
+across background environments that are poorly comparable or partly
+non-analogous. Non-analogous environments can distort estimates of niche
+similarity, inflate apparent niche divergence, and increase extrapolation risk
+when species have access to different portions of environmental space (Barve
+et al., 2011; Peterson et al., 2011; Guisan et al., 2014; Brown & Carnaval,
+2019).
+
+Low-information predictors are removed before analogy screening because
+near-constant variables contribute little to environmental discrimination and
+can make overlap estimates unstable. The coefficient of variation is used
+because it measures relative variability on a unitless scale, allowing
+predictors measured in different units and magnitudes to be compared before
+standardization (Pearson, 1896; Sokal & Rohlf, 2012; Zar, 2010). The default
+threshold (\code{CV.threshold = 0.01}) treats variables with less than one percent
+relative variability as effectively constant.
+
+Variables with too few observations are excluded because overlap estimates are
+unreliable when based on sparse data. The default requirement
+(\code{min.rows = 15}) is intended to remove variables with insufficient
+information for stable estimates while avoiding unnecessarily strict filtering
+in datasets with limited background availability. Missing data are also
+restricted because high missingness can make apparent overlap depend more on
+data availability than on environmental similarity. The default missingness
+threshold (\code{max.NA.prop = 0.2}) follows common guidance that moderate levels of
+missingness can often be handled cautiously, whereas higher levels increase
+the risk of imputation-driven bias (Harrell, 2015; van Buuren, 2018).
+
+Univariate overlap screening evaluates whether each predictor has sufficient
+marginal environmental overlap between species' accessible background spaces.
+This step removes variables that are individually non-analogous and therefore
+likely to drive comparisons through extrapolation rather than shared
+environmental conditions. Overlap values are interpreted on the same general
+scale as Schoener's D, where larger values indicate greater similarity between
+environmental distributions (Schoener, 1968; Warren et al., 2008; Rödder &
+Engler, 2011).
+
+Bivariate overlap screening is included because variables can appear
+comparable in isolation but become non-analogous when considered jointly.
+Pairwise screening therefore helps detect non-analogous combinations of
+predictors and differences in environmental covariance structure that are not
+visible from univariate comparisons alone (Peterson et al., 2011; Mesgaran et
+al., 2014). Requiring retained predictors to participate in sufficiently
+overlapping bivariate combinations reduces the risk that downstream analyses
+are driven by environmental combinations available to one species but absent
+from the other.
+
+The default overlap threshold (\code{overlap.threshold = 0.7}) is intended as a
+practical compromise between retaining informative predictors and excluding
+variables with poor analogy. Lower values allow greater environmental
+non-analogy and higher extrapolation risk, whereas stricter thresholds may
+remove biologically meaningful predictors and leave too few variables for
+downstream analyses (Barve et al., 2011; Warren et al., 2008; Rödder & Engler,
+2011; Peterson et al., 2011).
+
+Screening is restricted to univariate and bivariate projections because
+estimating overlap in higher-dimensional environmental space requires rapidly
+increasing sample sizes and becomes increasingly sensitive to sparse data. In
+practice, many major extrapolation risks are detectable in marginal or pairwise
+dimensions, making univariate and bivariate screening a tractable compromise
+between computational feasibility and effective detection of environmental
+non-analogy (Silverman, 1986; Scott, 2015; Mesgaran et al., 2014).
+}
+\references{
+Barve, N., Barve, V., Jiménez-Valverde, A., Lira-Noriega, A., Maher, S. P.,
+Peterson, A. T., Soberón, J., & Villalobos, F. (2011). The crucial role of
+the accessible area in ecological niche modeling and species distribution
+modeling. \emph{Ecological Modelling}, 222(11), 1810-1819.
+https://doi.org/10.1016/j.ecolmodel.2011.02.011
+
+Brown, J., & Carnaval, A. C. (2019). A tale of two niches: Methods, concepts,
+and evolution. \emph{Frontiers of Biogeography}, 11(4).
+https://doi.org/10.21425/F5FBG44158
+
+Guisan, A., Petitpierre, B., Broennimann, O., Daehler, C., & Kueffer, C.
+(2014). Unifying niche shift studies. Insights from biological invasions.
+\emph{Trends in Ecology & Evolution}, 29(5), 260-269.
+https://doi.org/10.1016/j.tree.2014.02.009
+
+Harrell, F. E. (2015). \emph{Regression modeling strategies: With applications
+to linear models, logistic and ordinal regression, and survival analysis}
+(2nd ed.). Springer.
+
+Mesgaran, M. B., Cousens, R. D., & Webber, B. L. (2014). Here be dragons: A
+tool for quantifying novelty due to covariate range and correlation change
+when projecting species distribution models. \emph{Diversity and
+Distributions}, 20(10), 1147-1159. https://doi.org/10.1111/ddi.12209
+
+Pearson, K. (1896). VII. Mathematical contributions to the theory of
+evolution.—III. Regression, heredity, and panmixia. \emph{Philosophical
+Transactions of the Royal Society of London. Series A, Containing Papers of
+a Mathematical or Physical Character}, 187, 253-318.
+https://doi.org/10.1098/rsta.1896.0007
+
+Peterson, A. T., Soberón, J., Pearson, R. G., Anderson, R. P.,
+Martínez-Meyer, E., Nakamura, M., & Araújo, M. B. (2011). \emph{Ecological
+niches and geographic distributions}. Princeton University Press.
+https://doi.org/10.1515/9781400840670
+
+Rödder, D., & Engler, J. O. (2011). Quantitative metrics of overlaps in
+Grinnellian niches: Advances and possible drawbacks. \emph{Global Ecology
+and Biogeography}, 20(6), 915-927.
+https://doi.org/10.1111/j.1466-8238.2011.00659.x
+
+Schoener, T. W. (1968). The anolis lizards of Bimini: Resource partitioning
+in a complex fauna. \emph{Ecology}, 49(4), 704-726.
+https://doi.org/10.2307/1935534
+
+Scott, D. W. (2015). \emph{Multivariate density estimation: Theory, practice,
+and visualization} (2nd ed.). Wiley.
+
+Silverman, B. W. (1986). \emph{Density estimation for statistics and data
+analysis}. Chapman and Hall.
+
+Sokal, R. R., & Rohlf, F. J. (2012). \emph{Biometry: The principles and
+practice of statistics in biological research} (4th ed.). W. H. Freeman.
+
+van Buuren, S. (2018). \emph{Flexible imputation of missing data}. Chapman &
+Hall/CRC.
+
+Warren, D. L., Glor, R. E., & Turelli, M. (2008). Environmental niche
+equivalency versus conservatism: Quantitative approaches to niche evolution.
+\emph{Evolution}, 62(11), 2868-2883.
+https://doi.org/10.1111/j.1558-5646.2008.00482.x
+
+Zar, J. H. (2010). \emph{Biostatistical analysis}. Pearson.
 }
