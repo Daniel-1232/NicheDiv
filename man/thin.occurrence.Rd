@@ -10,7 +10,7 @@ thin.occurrence(
   longitude.col = "Longitude",
   thinning.dist.km = 1,
   exclude.cols = NULL,
-  N.thinning.replicates = 100,
+  N.thinning.replicates = 50,
   calc.Morans.I = TRUE,
   plot.Morans.I = TRUE,
   prioritize.NA = TRUE,
@@ -39,7 +39,7 @@ automatically (default: \code{NULL}).}
 \item{N.thinning.replicates}{A single positive integer-like numeric value
 giving the number of thinning replicates to run. The replicate retaining the
 most points is kept; ties are broken by total missingness when
-\code{prioritize.NA = TRUE} (default: \code{100}).}
+\code{prioritize.NA = TRUE} (default: \code{50}).}
 
 \item{calc.Morans.I}{Logical; if \code{TRUE}, Moran's I is calculated for retained
 numeric non-coordinate variables as a diagnostic of residual spatial
@@ -112,6 +112,15 @@ is intentionally conservative and should be interpreted as a practical
 diagnostic rather than a universal rule. The goal is to reduce residual spatial
 dependence to biologically acceptable levels while retaining enough occurrence
 records for downstream analyses (Dormann et al., 2007).
+
+For datasets with more than 5000 valid coordinate records, the function uses
+a sparse distance-neighbour search instead of constructing a full pairwise
+distance matrix. This reduces memory use and speeds up thinning for large
+datasets by around 30\%. Nonetheless, runtime can still be substantial when
+records are highly clustered, the thinning distance is large, or many
+thinning replicates are requested. For datasets with 5000 or fewer valid
+coordinate records, the original full pairwise distance matrix thinning
+algorithm is used.
 }
 \references{
 Aiello-Lammens, M. E., Boria, R. A., Radosavljevic, A., Vilela, B., &
