@@ -7294,7 +7294,12 @@ extract.env.and.background <- function(occurrence.data, #input data.frame with c
                                    "\\1\n                  terra::crs(stk_gcm) <- \"EPSG:4326\"",
                                    ClimateNAr_clean_lines)
     ClimateNAr_clean_src <- paste(ClimateNAr_clean_lines, collapse = "\n")
-    ClimateNAr.replicate <- eval(parse(text = ClimateNAr_clean_src), envir = parent.frame())
+    ClimateNAr_clean_src <- gsub("(^|[^:[:alnum:]_.])as\\.data\\.table\\s*\\(", "\\1data.table::as.data.table(", ClimateNAr_clean_src, perl = TRUE)
+    ClimateNAr_clean_src <- gsub("(^|[^:[:alnum:]_.])fread\\s*\\(", "\\1data.table::fread(", ClimateNAr_clean_src, perl = TRUE)
+    ClimateNAr_env <- new.env(parent = asNamespace("ClimateNAr"))
+    ClimateNAr_env$as.data.table <- data.table::as.data.table
+    ClimateNAr_env$fread <- data.table::fread
+    ClimateNAr.replicate <- eval(parse(text = ClimateNAr_clean_src), envir = ClimateNAr_env)
     ClimateNA_dir <- file.path(rasters.dir, "ClimateNA")
     if (!dir.exists(ClimateNA_dir)) dir.create(ClimateNA_dir, recursive = TRUE)
     ClimateNA_dir_abs <- normalizePath(ClimateNA_dir, winslash = "\\", mustWork = FALSE)
