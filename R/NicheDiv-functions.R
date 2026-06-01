@@ -6753,10 +6753,8 @@ extract.env.and.background <- function(occurrence.data, #input data.frame with c
   occurrence_output_file <- file.path(output.dir, csv.occurrence.out.file)
   environmental_dataset <- occurrence.data
   rownames(environmental_dataset) <- rownames(occurrence.data)
-  idx <- match(c(longitude.col, latitude.col), names(environmental_dataset)) #match user-provided coord names
-  names(environmental_dataset)[idx] <- c("Longitude", "Latitude") #canonicalize for all downstream steps
-  if (!identical(longitude.col, "Longitude")) environmental_dataset[[longitude.col]] <- environmental_dataset[["Longitude"]] #restore alias if different
-  if (!identical(latitude.col, "Latitude")) environmental_dataset[[latitude.col]] <- environmental_dataset[["Latitude"]] #restore alias if different
+  idx <- match(c(longitude.col, latitude.col), names(environmental_dataset))
+  names(environmental_dataset)[idx] <- c("Longitude", "Latitude")
   base_ids <- rownames(environmental_dataset)
   existing <- if (file.exists(occurrence_output_file) && !overwrite) {
     tryCatch(read.csv(occurrence_output_file, row.names = 1, check.names = FALSE), error = function(e) NULL)
