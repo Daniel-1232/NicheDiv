@@ -590,11 +590,11 @@ citation("NicheDiv")
 If the package citation is not yet installed, cite the manuscript as:
 
 ```text
-Schönberger, D., MacDonald, Z. G., Tuttle, J. P., Schmidt, B. C., & Dupuis, J. R. NicheDiv: A DAPC framework to quantify niche divergence across highly multivariate environmental space. Manuscript in review.
+Schönberger, D., MacDonald, Z. G., Tuttle, J. P., Schmidt, B. C., & Dupuis, J. R. NicheDiv: A DAPC framework to quantify niche divergence across highly multivariate environmental space (2026). Manuscript in review.
 ```
 
 Please also include the package version or GitHub commit used for the analysis.
 
 ## License
 
-Add license information here before public release.
+NicheDiv is released under the MIT License.
