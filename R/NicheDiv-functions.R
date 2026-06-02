@@ -6639,13 +6639,12 @@ extract.env.and.background <- function(occurrence.data, #input data.frame with c
   robust.download.raster <- function(url, dest, max_attempts = 5, min_size_mb = 10, ...) {
     dest_ext <- tolower(tools::file_ext(dest))
     is_raster_ext <- dest_ext %in% c("tif", "tiff")
+    old_timeout <- getOption("timeout")
+    options(timeout = max(old_timeout, 8 * 60 * 60))
+    on.exit(options(timeout = old_timeout), add = TRUE)
     for (attempt in 1:max_attempts) {
       if (file.exists(dest) && file.size(dest) < min_size_mb * 1024^2) file.remove(dest)
-      download_try <- try(utils::download.file(url,
-                                               destfile = dest,
-                                               mode = "wb",
-                                               quiet = TRUE),
-                          silent = TRUE)
+      download_try <- try(utils::download.file(url, destfile = dest, mode = "wb", quiet = TRUE, method = "libcurl"), silent = TRUE)
       if (inherits(download_try, "try-error")) message("Download failed: ", attr(download_try, "condition")$message)
       valid <- FALSE
       if (file.exists(dest) && file.size(dest) > min_size_mb * 1024^2) {
