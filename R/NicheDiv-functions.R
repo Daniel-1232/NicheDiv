@@ -7170,23 +7170,23 @@ extract.env.and.background <- function(occurrence.data, #input data.frame with c
       if (is_europe_elevation) {
         if (verbose) message("Using Europe elevation raster (250m resolution)")
         Europe_elevation_zip_url <- "https://zenodo.org/records/17487973/files/Copernicus_GLO90_Europe_250m.zip?download=1"
-        elevation_raster <- download.and.load.elevation.tile("Europe", Europe_elevation_zip_url, elevation_dir, min_size_mb = 650, redownload = redownload.rasters, verbose = verbose)
+        elevation_raster <- download.and.load.elevation.tile("Europe", Europe_elevation_zip_url, elevation_dir, min_size_mb = 600, redownload = redownload.rasters, verbose = verbose)
       } else if (is_asia_elevation) {
         if (verbose) message("Using Asia elevation raster (250m resolution)")
         Asia_elevation_zip_url <- "https://zenodo.org/records/17450334/files/Copernicus_GLO90_Asia_250m.zip?download=1"
-        elevation_raster <- download.and.load.elevation.tile("Asia", Asia_elevation_zip_url, elevation_dir, min_size_mb = 3500, redownload = redownload.rasters, verbose = verbose)
+        elevation_raster <- download.and.load.elevation.tile("Asia", Asia_elevation_zip_url, elevation_dir, min_size_mb = 3200, redownload = redownload.rasters, verbose = verbose)
       } else if (is_north_america_elevation) {
         if (verbose) message("Using North America elevation raster (250m resolution)")
         NorthAmerica_elevation_zip_url <- "https://zenodo.org/records/17487973/files/Copernicus_GLO90_NorthAmerica_250m.zip?download=1"
-        elevation_raster <- download.and.load.elevation.tile("NorthAmerica", NorthAmerica_elevation_zip_url, elevation_dir, min_size_mb = 1800, redownload = redownload.rasters, verbose = verbose)
+        elevation_raster <- download.and.load.elevation.tile("NorthAmerica", NorthAmerica_elevation_zip_url, elevation_dir, min_size_mb = 1500, redownload = redownload.rasters, verbose = verbose)
       } else if (is_south_america_elevation) {
         if (verbose) message("Using South America elevation raster (250m resolution)")
         SouthAmerica_elevation_zip_url <- "https://zenodo.org/records/17450334/files/Copernicus_GLO90_SouthAmerica_250m.zip?download=1"
-        elevation_raster <- download.and.load.elevation.tile("SouthAmerica", SouthAmerica_elevation_zip_url, elevation_dir, min_size_mb = 900, redownload = redownload.rasters, verbose = verbose)
+        elevation_raster <- download.and.load.elevation.tile("SouthAmerica", SouthAmerica_elevation_zip_url, elevation_dir, min_size_mb = 600, redownload = redownload.rasters, verbose = verbose)
       } else if (is_africa_elevation) {
         if (verbose) message("Using Africa elevation raster (250m resolution)")
         Africa_elevation_zip_url <- "https://zenodo.org/records/17458753/files/Copernicus_GLO90_Africa_250m.zip?download=1"
-        elevation_raster <- download.and.load.elevation.tile("Africa", Africa_elevation_zip_url, elevation_dir, min_size_mb = 1700, redownload = redownload.rasters, verbose = verbose)
+        elevation_raster <- download.and.load.elevation.tile("Africa", Africa_elevation_zip_url, elevation_dir, min_size_mb = 1500, redownload = redownload.rasters, verbose = verbose)
       } else if (is_australia_elevation) {
         if (verbose) message("Using Australia elevation raster (250m resolution)")
         Australia_elevation_zip_url <- "https://zenodo.org/records/17458753/files/Copernicus_GLO90_Australia_250m.zip?download=1"
@@ -7194,23 +7194,23 @@ extract.env.and.background <- function(occurrence.data, #input data.frame with c
       } else if (is_new_world_elevation) {
         if (verbose) message("Using New World elevation raster (250m resolution)")
         NewWorld_elevation_zip_url <- "https://zenodo.org/records/17485342/files/Copernicus_GLO90_NewWorld_250m.zip?download=1"
-        elevation_raster <- download.and.load.elevation.tile("NewWorld", NewWorld_elevation_zip_url, elevation_dir, min_size_mb = 2700, redownload = redownload.rasters, verbose = verbose)
+        elevation_raster <- download.and.load.elevation.tile("NewWorld", NewWorld_elevation_zip_url, elevation_dir, min_size_mb = 2500, redownload = redownload.rasters, verbose = verbose)
       } else if (is_indo_pacific_elevation) {
         if (verbose) message("Using Indo-Pacific elevation raster (250m resolution)")
         IndoPacific_elevation_zip_url <- "https://zenodo.org/records/17485342/files/Copernicus_GLO90_IndoPacific_250m.zip?download=1"
-        elevation_raster <- download.and.load.elevation.tile("IndoPacific", IndoPacific_elevation_zip_url, elevation_dir, min_size_mb = 4000, redownload = redownload.rasters, verbose = verbose)
+        elevation_raster <- download.and.load.elevation.tile("IndoPacific", IndoPacific_elevation_zip_url, elevation_dir, min_size_mb = 3800, redownload = redownload.rasters, verbose = verbose)
       } else if (is_eurasia_elevation) {
         if (verbose) message("Using Eurasia elevation raster (250m resolution)")
         Eurasia_elevation_zip_url <- "https://zenodo.org/records/17485342/files/Copernicus_GLO90_Eurasia_250m.zip?download=1"
-        elevation_raster <- download.and.load.elevation.tile("Eurasia", Eurasia_elevation_zip_url, elevation_dir, min_size_mb = 4200, redownload = redownload.rasters, verbose = verbose)
+        elevation_raster <- download.and.load.elevation.tile("Eurasia", Eurasia_elevation_zip_url, elevation_dir, min_size_mb = 4000, redownload = redownload.rasters, verbose = verbose)
       } else if (is_holarctic_elevation) {
         if (verbose) message("Using Holarctic elevation raster (250m resolution)")
         Holarctic_elevation_zip_url <- "https://zenodo.org/records/17485342/files/Copernicus_GLO90_Holarctic_250m.zip?download=1"
-        elevation_raster <- download.and.load.elevation.tile("Holarctic", Holarctic_elevation_zip_url, elevation_dir, min_size_mb = 6100, redownload = redownload.rasters, verbose = verbose)
+        elevation_raster <- download.and.load.elevation.tile("Holarctic", Holarctic_elevation_zip_url, elevation_dir, min_size_mb = 5900, redownload = redownload.rasters, verbose = verbose)
       } else {
         if (verbose) message("Using Global elevation raster (250m resolution)")
         Global_elevation_zip_url <- "https://zenodo.org/records/17485342/files/Copernicus_GLO90_Global_250m.zip?download=1"
-        elevation_raster <- download.and.load.elevation.tile("Global", Global_elevation_zip_url, elevation_dir, min_size_mb = 9100, redownload = redownload.rasters, verbose = verbose)
+        elevation_raster <- download.and.load.elevation.tile("Global", Global_elevation_zip_url, elevation_dir, min_size_mb = 8900, redownload = redownload.rasters, verbose = verbose)
       }
       names(elevation_raster) <- elevation_variable_name
       raster_crs <- terra::crs(elevation_raster)
