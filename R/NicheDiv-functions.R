@@ -8657,9 +8657,7 @@ extract.env.and.background <- function(occurrence.data, #input data.frame with c
       )[[continent_name_atmosphere]]
       for (i in seq_along(atmosphere_variables)) {
         min_size_mb <- if (!is.null(expected_size_mb)) expected_size_mb[i] else 50
-        if (!file.exists(atmosphere_raster_files[i]) || file.size(atmosphere_raster_files[i]) < (min_size_mb * 1e6) || redownload.rasters) {
-          robust.download.raster(url, atmosphere_raster_files[i], min_size_mb = min_size_mb)
-        }
+        if (!file.exists(atmosphere_raster_files[i]) || file.size(atmosphere_raster_files[i]) < (min_size_mb * 1e6) || redownload.rasters) robust.download.raster(atmosphere_raster_urls[i], atmosphere_raster_files[i], min_size_mb = min_size_mb)
       }
       srad_atmosphere_raster <- terra::rast(atmosphere_raster_files[1])
       wind_atmosphere_raster <- terra::rast(atmosphere_raster_files[2])
