@@ -1,10 +1,14 @@
-# NicheDiv
+# NicheDiv R package
 
 NicheDiv is an R package for testing ecological niche divergence between two predefined groups, such as species, lineages, subspecies, populations, or genetic clusters, across highly multivariate environmental space. The approach is described in an associated manuscript that is currently in review.
 
 The package adapts discriminant analysis of principal components (DAPC) to environmental niche data. Environmental variables are first transformed into principal components to reduce dimensionality and collinearity. Discriminant analysis is then used to identify the axis that best separates the two groups. NicheDiv evaluates the significance of this separation with a permutation test and summarizes niche divergence with interpretable metrics, including Schoener’s D, niche dissimilarity, niche breadth exclusivity, niche divergence magnitude, and niche divergence angle.
 
 NicheDiv is designed for workflows that use many environmental predictors, including climatic, topographic, phenological, vegetation, soil, land-cover, anthropogenic, and user-supplied raster layers.
+
+## Development status
+
+NicheDiv is under active development. The methodological framework is described in an associated manuscript that is currently in review. Function names, defaults, and output structure may change before a stable release.
 
 ## Main features
 
@@ -29,6 +33,11 @@ if (!requireNamespace("remotes", quietly = TRUE)) install.packages("remotes")
 remotes::install_github("Daniel-1232/NicheDiv")
 ```
 
+Load the package:
+
+```r
+library(NicheDiv)
+```
 
 Large environmental extraction workflows may require substantial disk space and processing time, especially when downloading high-resolution rasters or generating large background datasets.
 
@@ -119,11 +128,11 @@ exclude_cols <- c("SampleID", "Locality", "CollectionDate")
 set.seed(1)
 ```
 
-Optional custom rasters can be supplied as GeoTIFF files:
+Optional custom rasters can be supplied as GeoTIFF files. If no custom rasters are used, keep these objects as `NULL`.
 
 ```r
-custom_raster_path <- file.path(base_dir, "Data/custom_environmental_layers.tif")
-custom_raster_variable_names <- list(names(terra::rast(custom_raster_path)))
+# custom_raster_path <- file.path(base_dir, "Data/custom_environmental_layers.tif")
+# custom_raster_variable_names <- list(names(terra::rast(custom_raster_path)))
 ```
 
 ## 2. Extract environmental data and generate background points
@@ -169,8 +178,8 @@ Env_data_background <- read.csv(file.path(results_dir, csv_background_out_file),
 
 
 ## Remove metadata columns not used as environmental predictors
-Env_data_occurrences <- dplyr::select(Env_data_occurrences, -any_of(exclude_cols))
-Env_data_background <- dplyr::select(Env_data_background, -any_of(exclude_cols))
+Env_data_occurrences <- Env_data_occurrences[, setdiff(colnames(Env_data_occurrences), exclude_cols), drop = FALSE]
+Env_data_background <- Env_data_background[, setdiff(colnames(Env_data_background), exclude_cols), drop = FALSE]
 
 
 ## Convert integer columns to numeric
@@ -183,8 +192,8 @@ Env_data_occurrences <- Env_data_occurrences[Env_data_occurrences[[Species_col]]
 
 
 ## Rename groups for plotting
-Env_data_occurrences[[Species_col]] <- dplyr::recode(Env_data_occurrences[[Species_col]],
-                                                     !!!setNames(c(Sp1_label, Sp2_label), c(Sp1_name, Sp2_name)))
+group_name_map <- setNames(c(Sp1_label, Sp2_label), c(Sp1_name, Sp2_name))
+Env_data_occurrences[[Species_col]] <- group_name_map[as.character(Env_data_occurrences[[Species_col]])]
 Env_data_occurrences[[Species_col]] <- factor(Env_data_occurrences[[Species_col]], levels = c(Sp1_label, Sp2_label))
 
 
@@ -254,11 +263,11 @@ Environmental variables may be skewed, uninformative, or non-analogous between a
 #### Transform skewed environmental variables ##################################
 
 ## Combine occurrence and background datasets
-Sp1_Sp2_occurrence_thinned <- dplyr::bind_rows(Sp1_occurrence_thinned, Sp2_occurrence_thinned)
+Sp1_Sp2_occurrence_thinned <- rbind(Sp1_occurrence_thinned, Sp2_occurrence_thinned)
 
 Sp1_background_data[[Species_col]] <- Sp1_label
 Sp2_background_data[[Species_col]] <- Sp2_label
-Sp1_Sp2_background_data <- dplyr::bind_rows(Sp1_background_data, Sp2_background_data)
+Sp1_Sp2_background_data <- rbind(Sp1_background_data, Sp2_background_data)
 
 
 ## Transform skewed variables
@@ -295,7 +304,7 @@ Sp2_occurrence_filtered <- CV_removal_results$occurrence_Sp2
 Sp1_background_filtered <- CV_removal_results$background.Sp1
 Sp2_background_filtered <- CV_removal_results$background.Sp2
 
-Sp1_Sp2_occurrence_filtered <- dplyr::bind_rows(Sp1_occurrence_filtered, Sp2_occurrence_filtered)
+Sp1_Sp2_occurrence_filtered <- rbind(Sp1_occurrence_filtered, Sp2_occurrence_filtered)
 ```
 
 Filter to analogous environmental variables:
@@ -455,7 +464,7 @@ background_labels <- factor(c(rep(levels(Sp1_Sp2_species_assignment)[1], nrow(Sp
                               rep(levels(Sp1_Sp2_species_assignment)[2], nrow(Sp2_background_data))),
                             levels = levels(Sp1_Sp2_species_assignment))
 
-background_data_combined <- dplyr::bind_rows(Sp1_background_data, Sp2_background_data)
+background_data_combined <- rbind(Sp1_background_data, Sp2_background_data)
 
 NicheDiv::plot.occurrences.map(coordinates = Sp1_Sp2_analogous,
                                group.labels = Sp1_Sp2_species_assignment,
@@ -590,11 +599,11 @@ citation("NicheDiv")
 If the package citation is not yet installed, cite the manuscript as:
 
 ```text
-Schönberger, D., MacDonald, Z. G., Tuttle, J. P., Schmidt, B. C., & Dupuis, J. R. NicheDiv: A DAPC framework to quantify niche divergence across highly multivariate environmental space (2026). Manuscript in review.
+Schönberger, D., MacDonald, Z. G., Tuttle, J. P., Schmidt, B. C., & Dupuis, J. R. NicheDiv: A DAPC framework to quantify niche divergence across highly multivariate environmental space. Manuscript in review.
 ```
 
 Please also include the package version or GitHub commit used for the analysis.
 
 ## License
 
-NicheDiv is released under the MIT License.
+NicheDiv is released under the MIT License. See the `LICENSE` file for details.
