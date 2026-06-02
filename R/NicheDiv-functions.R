@@ -6676,10 +6676,10 @@ extract.env.and.background <- function(occurrence.data, #input data.frame with c
       }
       if (!file.exists(elevation_zip_file) || file.size(elevation_zip_file) < (min_size_mb - 100) * 1e6 || redownload) {
         ok <- FALSE
+        old_timeout <- getOption("timeout")
+        options(timeout = max(old_timeout, 8 * 60 * 60))
+        on.exit(options(timeout = old_timeout), add = TRUE)
         for (i in 1:5) {
-          old_timeout <- getOption("timeout")
-          options(timeout = max(old_timeout, 8 * 60 * 60))
-          on.exit(options(timeout = old_timeout), add = TRUE)
           download_try <- try(utils::download.file(url_elevation_zip, destfile = elevation_zip_file, mode = "wb", quiet = TRUE, method = "libcurl"), silent = TRUE)
           if (inherits(download_try, "try-error")) message("Download failed: ", attr(download_try, "condition")$message)
           if (file.exists(elevation_zip_file) && file.info(elevation_zip_file)$size > min_size_mb * 1e6) {
