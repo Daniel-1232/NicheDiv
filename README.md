@@ -25,22 +25,10 @@ NicheDiv is designed for workflows that use many environmental predictors, inclu
 Install the development version from GitHub:
 
 ```r
-install.packages("remotes")
+if (!requireNamespace("remotes", quietly = TRUE)) install.packages("remotes")
 remotes::install_github("Daniel-1232/NicheDiv")
 ```
 
-Load the package:
-
-```r
-library(NicheDiv)
-```
-
-Several workflows also use common data-manipulation and raster packages:
-
-```r
-library(dplyr)
-library(terra)
-```
 
 Large environmental extraction workflows may require substantial disk space and processing time, especially when downloading high-resolution rasters or generating large background datasets.
 
