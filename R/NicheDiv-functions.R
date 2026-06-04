@@ -3343,6 +3343,7 @@ run.DAPC.crossval.permutation <- function(data.input, #matrix or data.frame of p
                     "observed_assign_prop",
                     "permutation_assign_props",
                     "p_val_assign",
+                    "pca_object_full",
                     "ARI"),
            file = output_path)
 
