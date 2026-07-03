@@ -1,32 +1,26 @@
 # NicheDiv R package
 
-NicheDiv is an R package for testing ecological niche divergence between two predefined groups, such as species, lineages, subspecies, populations, or genetic clusters, across highly multivariate environmental space. The approach is described in an associated manuscript that is currently in review.
+NicheDiv is an R package for testing niche divergence across highly multivariate environmental space between two predefined groups (e.g., species, lineages, populations, or genetic clusters). This is done by adapting discriminant analysis of principal components (DAPC) to environmental niche data. Environmental variables are first transformed into principal components (PCs) to reduce dimensionality and collinearity. Discriminant analysis is then used to identify the axis that best separates the two groups. NicheDiv summarizes niche divergence with easily interpretable metrics.
 
-The package adapts discriminant analysis of principal components (DAPC) to environmental niche data. Environmental variables are first transformed into principal components to reduce dimensionality and collinearity. Discriminant analysis is then used to identify the axis that best separates the two groups. NicheDiv evaluates the significance of this separation with a permutation test and summarizes niche divergence with interpretable metrics, including Schoener’s D, niche dissimilarity, niche breadth exclusivity, niche divergence magnitude, and niche divergence angle.
 
-NicheDiv is designed for workflows that use many environmental predictors, including climatic, topographic, phenological, vegetation, soil, land-cover, anthropogenic, and user-supplied raster layers.
+## Main advantages of the approach
+
+- Automatically extracts environmental values for occurrence records and background points from implemented and user-supplied environmental layers.
+- Includes implemented global environmental layers covering monthly to seasonal climate, topography, phenology, vegetation, soil, land cover, and anthropogenic variables.
+- Mitigates common biases in niche divergence testing by incorporating background environments, analogous-environment filtering, variable transformation, low-variation filtering, and occurrence thinning.
+- Can handle hundreds of correlated environmental variables.
+- Identifies environmental variables contributing most to niche separation.
+- Visualizes DAPC-based niche divergence along a single discriminant axis, making results easy to interpret.
 
 ## Development status
+NicheDiv is under active development. The methodological framework is described in an associated preprint, available at https://www.biorxiv.org/content/10.64898/2026.06.19.733388v1, and the manuscript is currently in review. Function names, defaults, and output structure may change before a stable release.
 
-NicheDiv is under active development. The methodological framework is described in an associated manuscript that is currently in review. Function names, defaults, and output structure may change before a stable release.
+For bug reports, feedback, or questions, please contact me: daniel.schoenberger@uky.edu.
 
-## Main features
-
-* Extract environmental values for occurrence records and background points.
-* Generate accessible-area background points from occurrence coordinates.
-* Crop background points to group-specific buffered accessible areas.
-* Spatially thin occurrence records to reduce spatial autocorrelation.
-* Balance sample sizes between groups.
-* Transform skewed environmental variables.
-* Remove low-information variables based on coefficient of variation.
-* Filter predictors to analogous environmental space.
-* Run cross-validated DAPC with a permutation test.
-* Calculate niche divergence metrics from the discriminant axis.
-* Plot DAPC niche divergence, permutation null distributions, variable contributions, top predictors, and occurrence/background maps.
 
 ## Installation
 
-Install the development version from GitHub:
+Install the R package from GitHub:
 
 ```r
 if (!requireNamespace("remotes", quietly = TRUE)) install.packages("remotes")
@@ -39,47 +33,33 @@ Load the package:
 library(NicheDiv)
 ```
 
-Large environmental extraction workflows may require substantial disk space and processing time, especially when downloading high-resolution rasters or generating large background datasets.
 
 ## Input data
 
-The main input is an occurrence data frame containing at least:
+The approach only requires a data frame with occurrence records:
 
 * one row per occurrence record;
 * unique row names or an ID column;
 * longitude and latitude columns;
-* one grouping column with two groups to compare;
-* optional metadata columns;
-* optional environmental variables if environmental extraction has already been performed.
+* one grouping column with two or more groups to compare;
 
 Example required columns:
 
 ```r
-head(occurrence_data[, c("Longitude", "Latitude", "Species")])
+head(occurrence_data[, c("ID", "Longitude", "Latitude", "Species")])
 ```
 
 ```text
-  Longitude Latitude Species
-1   -121.50    38.40     Sp1
-2   -121.75    38.55     Sp1
-3   -117.25    34.15     Sp2
-4   -117.10    34.40     Sp2
+     ID Longitude Latitude Species
+1 ID_001  -121.50   38.40   Sp1
+2 ID_002  -121.75   38.55   Sp1
+3 ID_003  -117.25   34.15   Sp2
+4 ID_004  -117.10   34.40   Sp2
 ```
-
-NicheDiv can either extract environmental data internally from raster layers or use a data frame where environmental variables are already present.
 
 ## Recommended workflow
 
-The typical NicheDiv workflow has seven major steps:
-
-1. Set paths, group names, coordinate columns, and analysis parameters.
-2. Extract environmental data and generate background points.
-3. Prepare occurrence and background data.
-4. Crop and downsample group-specific background data.
-5. Spatially thin and balance occurrence records.
-6. Transform, filter, and restrict predictors to analogous environmental space.
-7. Run DAPC, calculate niche divergence metrics, and plot results.
-
+The typical NicheDiv workflow has seven major steps.
 The code below gives a compact version of the full workflow.
 
 ## 1. Set working environment and input parameters
@@ -128,8 +108,6 @@ exclude_cols <- c("SampleID", "Locality", "CollectionDate")
 set.seed(1)
 ```
 
-Optional custom rasters can be supplied as GeoTIFF files. If no custom rasters are used, keep these objects as `NULL`.
-
 ```r
 # custom_raster_path <- file.path(base_dir, "Data/custom_environmental_layers.tif")
 # custom_raster_variable_names <- list(names(terra::rast(custom_raster_path)))
@@ -138,6 +116,7 @@ Optional custom rasters can be supplied as GeoTIFF files. If no custom rasters a
 ## 2. Extract environmental data and generate background points
 
 Use `extract.env.and.background()` to extract environmental values for occurrence records and generate background points within the accessible area.
+Optional custom rasters can be supplied as GeoTIFF files.
 
 ```r
 #### Extract environmental data ################################################
@@ -164,8 +143,6 @@ NicheDiv::extract.env.and.background(occurrence.data = occurrence_data,
                                      custom.env.rasters = custom_raster_path,
                                      custom.env.rasters.variable.names = custom_raster_variable_names)
 ```
-
-If environmental variables have already been extracted, this step can be skipped and the occurrence/background tables can be imported directly.
 
 ## 3. Import and prepare extracted data
 
@@ -240,7 +217,6 @@ Spatial thinning reduces clustered sampling and residual spatial autocorrelation
 ## Thin occurrence records
 Sp1_occurrence_thinned <- NicheDiv::thin.occurrence(Sp1_occurrence_data,
                                                     thinning.dist.km = 1)
-
 Sp2_occurrence_thinned <- NicheDiv::thin.occurrence(Sp2_occurrence_data,
                                                     thinning.dist.km = 1)
 
@@ -250,7 +226,6 @@ n_min_occurrence_thinned <- min(nrow(Sp1_occurrence_thinned), nrow(Sp2_occurrenc
 
 Sp1_occurrence_thinned <- NicheDiv::sample.down(Sp1_occurrence_thinned,
                                                 N.rows = n_min_occurrence_thinned)
-
 Sp2_occurrence_thinned <- NicheDiv::sample.down(Sp2_occurrence_thinned,
                                                 N.rows = n_min_occurrence_thinned)
 ```
@@ -264,7 +239,6 @@ Environmental variables may be skewed, uninformative, or non-analogous between a
 
 ## Combine occurrence and background datasets
 Sp1_Sp2_occurrence_thinned <- rbind(Sp1_occurrence_thinned, Sp2_occurrence_thinned)
-
 Sp1_background_data[[Species_col]] <- Sp1_label
 Sp2_background_data[[Species_col]] <- Sp2_label
 Sp1_Sp2_background_data <- rbind(Sp1_background_data, Sp2_background_data)
@@ -274,7 +248,6 @@ Sp1_Sp2_background_data <- rbind(Sp1_background_data, Sp2_background_data)
 transformation_results <- NicheDiv::transform.skewed.variables(data.frame = Sp1_Sp2_occurrence_thinned,
                                                                exclude.cols = c(Latitude_col, Longitude_col, Species_col, "ID"),
                                                                background.dataframe = Sp1_Sp2_background_data)
-
 Sp1_Sp2_occurrence_transformed <- transformation_results$transformed
 Sp1_Sp2_background_transformed <- transformation_results$background.transformed
 
@@ -291,7 +264,6 @@ Remove low-variation variables:
 
 ```r
 #### Remove low-information variables ##########################################
-
 CV_removal_results <- NicheDiv::remove.low.CV.vars(Sp1.occurrence.data = Sp1_occurrence_transformed,
                                                    Sp2.occurrence.data = Sp2_occurrence_transformed,
                                                    Sp1.background.data = Sp1_background_transformed,
@@ -311,7 +283,6 @@ Filter to analogous environmental variables:
 
 ```r
 #### Filter to analogous environmental variables ###############################
-
 Sp1_Sp2_analogous <- NicheDiv::filter.analogous.variables(Sp1.Sp2.occurrence.data = Sp1_Sp2_occurrence_filtered,
                                                           Sp1.background.data = Sp1_background_filtered,
                                                           Sp2.background.data = Sp2_background_filtered,
@@ -322,7 +293,7 @@ Sp1_Sp2_analogous <- NicheDiv::filter.analogous.variables(Sp1.Sp2.occurrence.dat
 
 This step removes predictors whose background distributions are not sufficiently analogous between groups. This helps reduce bias caused by comparing groups across environmental conditions that are available to one group but not the other.
 
-## 7. Run DAPC with cross-validation and permutation test
+## 7. Run DAPC
 
 ```r
 #### Run DAPC niche divergence test ############################################
@@ -334,7 +305,6 @@ Sp1_Sp2_species_assignment <- factor(Sp1_Sp2_analogous[[Species_col]])
 ## Set named group colors
 Sp1_Sp2_species_colors <- setNames(base_colors[seq_along(levels(Sp1_Sp2_species_assignment))],
                                    levels(Sp1_Sp2_species_assignment))
-
 Sp1_Sp2_species_assignment <- factor(Sp1_Sp2_species_assignment,
                                      levels = names(Sp1_Sp2_species_colors))
 
@@ -374,11 +344,14 @@ Niche_divergence_metrics_weighted
 
 The main metrics are:
 
-* `Schoener_D`: niche overlap; 1 indicates complete overlap and 0 indicates no overlap.
-* `Niche_dissimilarity`: density-based divergence along the discriminant axis.
-* `Niche_breadth_exclusivity`: range exclusivity along the discriminant axis.
-* `Niche_divergence_magnitude`: combined divergence magnitude in the niche divergence plane.
-* `Niche_divergence_angle`: relative contribution of density-based versus range-based divergence.
+
+* `Schoener_D (D)`: niche overlap between the two groups along the discriminant axis. Values range from 0 to 1, where 1 indicates complete overlap and 0 indicates no overlap. Lower values therefore indicate stronger niche differentiation.
+* `Niche_dissimilarity (NDS)`: density-based niche divergence along the discriminant axis. This metric captures how strongly the two groups differ in the distribution of their occurrence densities, even when their total occupied ranges overlap.
+* `Niche_breadth_exclusivity (NE)`: range-based niche divergence along the discriminant axis. This metric captures how much of each group’s occupied environmental range is exclusive rather than shared with the other group.
+* `Niche_divergence_magnitude (ND)`: combined divergence magnitude in the niche divergence plane. This summarizes the joint strength of density-based divergence and range-based exclusivity in a single value.
+* `Niche_divergence_angle (θ)`: relative contribution of density-based versus range-based divergence. Angles closer to the density-based axis indicate that divergence is mainly driven by differences in occurrence density, whereas angles closer to the range-based axis indicate that divergence is mainly driven by exclusive environmental ranges.
+
+The most important summary metrics are `D` and `ND`. Stronger niche divergence is indicated by lower `D` values and higher `ND` values. As a general rule of thumb: `D` values around or below 0.4 and `ND` values around or above 0.9 indicate strong divergence in the current framework.
 
 ## 9. Plot DAPC results
 
@@ -570,39 +543,16 @@ Use analogous-environment filtering when comparing groups from different accessi
 
 Do not interpret variable contributions as proof of causation. They identify predictors associated with niche divergence and should be evaluated with biological knowledge, natural history, and independent evidence.
 
-## Example output files
-
-A standard analysis can produce:
-
-```text
-Results/
-├── Occurrences_env.csv
-├── Background_env.csv
-└── Figure_files/
-    ├── DAPC_niche_divergence.svg
-    ├── DAPC_permutation_test.svg
-    ├── DAPC_variable_contributions.svg
-    ├── DAPC_top_predictors.svg
-    └── Occurrence_background_map.svg
-```
 
 ## Citation
 
-The methodological framework implemented in NicheDiv is described in an associated manuscript that is currently in review.
+Please cite the NicheDiv framework as follows:
 
-Please cite NicheDiv and the associated manuscript when using the package:
+Schönberger, D., MacDonald, Z. G., Tuttle, J. P., Schmidt, B. C., & Dupuis, J. R. NicheDiv: A DAPC framework to quantify niche divergence across highly multivariate environmental space. bioRxiv. https://www.biorxiv.org/content/10.64898/2026.06.19.733388v1
+
 
 ```r
 citation("NicheDiv")
-```
-
-If the package citation is not yet installed, cite the manuscript as:
-
-```text
-Schönberger, D., MacDonald, Z. G., Tuttle, J. P., Schmidt, B. C., & Dupuis, J. R. NicheDiv: A DAPC framework to quantify niche divergence across highly multivariate environmental space. Manuscript in review.
-```
-
-Please also include the package version or GitHub commit used for the analysis.
 
 ## License
 
