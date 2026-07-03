@@ -6,14 +6,14 @@ NicheDiv is an R package for testing niche divergence across highly multivariate
 ## Main advantages of the approach
 
 - Automatically extracts environmental values for occurrence records and background points from implemented and user-supplied environmental layers.
-- Includes implemented global environmental layers covering monthly to seasonal climate, topography, phenology, vegetation, soil, land cover, and anthropogenic variables.
+- Implemented global environmental layers cover monthly to seasonal climate, topography, phenology, hyrdology, vegetation, soil, land cover, and anthropogenic variables.
 - Mitigates common biases in niche divergence testing by incorporating background environments, analogous-environment filtering, variable transformation, low-variation filtering, and occurrence thinning.
 - Can handle hundreds of correlated environmental variables.
 - Identifies environmental variables contributing most to niche separation.
 - Visualizes DAPC-based niche divergence along a single discriminant axis, making results easy to interpret.
 
 ## Development status
-NicheDiv is under active development. The methodological framework is described in an associated preprint, available at https://www.biorxiv.org/content/10.64898/2026.06.19.733388v1, and the manuscript is currently in review. Function names, defaults, and output structure may change before a stable release.
+NicheDiv is under active development. The methodological framework is described in an associated preprint (https://doi.org/10.64898/2026.06.19.733388), and the manuscript is currently in review.  
 
 For bug reports, feedback, or questions, please contact me: daniel.schoenberger@uky.edu.
 
@@ -43,7 +43,7 @@ The approach only requires a data frame with occurrence records:
 * longitude and latitude columns;
 * one grouping column with two or more groups to compare;
 
-Example required columns:
+Example:
 
 ```r
 head(occurrence_data[, c("ID", "Longitude", "Latitude", "Species")])
@@ -99,31 +99,23 @@ CRS_all <- "EPSG:4326"
 ## Set analysis parameters
 buffer_km <- 5
 N_background_points <- 500000
-N_background_sample <- 10000
 N_permutations <- 1000
 CV_threshold <- 0.01
 base_colors <- c("#A331A3", "#6CB3A5")
 
-exclude_cols <- c("SampleID", "Locality", "CollectionDate")
+exclude_cols <- c("ID", "Locality", "CollectionDate") #columns to ignore throughout
 set.seed(1)
-```
-
-```r
-# custom_raster_path <- file.path(base_dir, "Data/custom_environmental_layers.tif")
-# custom_raster_variable_names <- list(names(terra::rast(custom_raster_path)))
 ```
 
 ## 2. Extract environmental data and generate background points
 
 Use `extract.env.and.background()` to extract environmental values for occurrence records and generate background points within the accessible area.
-Optional custom rasters can be supplied as GeoTIFF files.
 
 ```r
 #### Extract environmental data ################################################
 
 ## Import occurrences
 occurrence_data <- read.csv(occurrence_data_file)
-
 
 ## Extract environmental data and background points
 NicheDiv::extract.env.and.background(occurrence.data = occurrence_data,
@@ -132,14 +124,41 @@ NicheDiv::extract.env.and.background(occurrence.data = occurrence_data,
                                      generate.background.data = TRUE,
                                      N.background.points = N_background_points,
                                      buffer.km = buffer_km,
-                                     remove.hydrolakes.background = FALSE,
-                                     landmask.largest.N.pieces = 5,
+                                     remove.hydrolakes.background = TRUE,
                                      csv.occurrence.out.file = csv_occurrence_out_file,
                                      csv.background.out.file = csv_background_out_file,
                                      output.dir = results_dir,
                                      intermediate.files.dir = intermediate_files_dir_name,
                                      CRS.occurrences = CRS_all,
-                                     overwrite = TRUE,
+                                     env.datasets = c("elevation", "ClimateNA", "EVI", "terrain",
+                                                      "ENVIREM", "footprint", "landcover", "soil",
+                                                      "forest_height", "atmosphere", "nightlight",
+                                                      "burned_area", "snow_water_equivalent",
+                                                      "daylength", "soil_moisture"))
+```
+
+In the example above, all implemented environmental datasets are used. This can take several hours because the raster layers need to be downloaded.
+Some datasets are only available for North America ("ClimateNA", "daylength", "snow_water_equivalent")
+
+Optional custom rasters can also be supplied by the user as one or more GeoTIFF files:
+
+```r
+custom_raster_path <- file.path(base_dir, "Data/custom_environmental_layers.tif")
+custom_raster_variable_names <- names(terra::rast(custom_raster_path))
+
+NicheDiv::extract.env.and.background(occurrence.data = occurrence_data,
+                                     longitude.col = Longitude_col,
+                                     latitude.col = Latitude_col,
+                                     generate.background.data = TRUE,
+                                     N.background.points = N_background_points,
+                                     buffer.km = buffer_km,
+                                     remove.hydrolakes.background = TRUE,
+                                     csv.occurrence.out.file = csv_occurrence_out_file,
+                                     csv.background.out.file = csv_background_out_file,
+                                     output.dir = results_dir,
+                                     intermediate.files.dir = intermediate_files_dir_name,
+                                     CRS.occurrences = CRS_all,
+                                     env.datasets = c("elevation", "ClimateNA"),
                                      custom.env.rasters = custom_raster_path,
                                      custom.env.rasters.variable.names = custom_raster_variable_names)
 ```
@@ -201,8 +220,8 @@ Sp2_background_data <- NicheDiv::crop.background.buffered(occurrence.data = Sp2_
 
 
 ## Downsample background data
-Sp1_background_data <- NicheDiv::sample.down(Sp1_background_data, N.rows = N_background_sample)
-Sp2_background_data <- NicheDiv::sample.down(Sp2_background_data, N.rows = N_background_sample)
+Sp1_background_data <- NicheDiv::sample.down(Sp1_background_data, N.rows = 10000)
+Sp2_background_data <- NicheDiv::sample.down(Sp2_background_data, N.rows = 10000)
 ```
 
 Available background geometries are `"hull"`, `"points"`, `"alpha"`, and `"bbox"`. The convex hull is usually a robust default, but point buffers or alpha hulls can be useful for fragmented or spatially complex distributions.
@@ -531,7 +550,7 @@ Third, the variable-contribution plots identify environmental predictors most as
 
 ## Notes and recommendations
 
-Use biologically meaningful groups. NicheDiv tests divergence between predefined groups and does not infer species limits by itself.
+* Use biologically meaningful groups. NicheDiv tests divergence between predefined groups and does not infer species limits by itself.
 
 Use a biologically justified accessible area. Background data should represent the environmental conditions plausibly available to each group.
 
@@ -541,18 +560,16 @@ Inspect spatial thinning diagnostics. Thinning reduces spatial clustering but ma
 
 Use analogous-environment filtering when comparing groups from different accessible areas. This helps reduce bias from environmental conditions available to only one group.
 
-Do not interpret variable contributions as proof of causation. They identify predictors associated with niche divergence and should be evaluated with biological knowledge, natural history, and independent evidence.
+* Do not interpret variable contributions as proof of causation. They identify predictors associated with niche divergence and should be evaluated with biological knowledge, natural history, and independent evidence.
 
 
 ## Citation
 
 Please cite the NicheDiv framework as follows:
 
-Schönberger, D., MacDonald, Z. G., Tuttle, J. P., Schmidt, B. C., & Dupuis, J. R. NicheDiv: A DAPC framework to quantify niche divergence across highly multivariate environmental space. bioRxiv. https://www.biorxiv.org/content/10.64898/2026.06.19.733388v1
+Schönberger, D., MacDonald, Z. G., Schmidt, B. C., & Dupuis, J. R. NicheDiv: A DAPC framework to quantify niche divergence across highly multivariate environmental space. bioRxiv. https://doi.org/10.64898/2026.06.19.733388 
 
 
-```r
-citation("NicheDiv")
 
 ## License
 
