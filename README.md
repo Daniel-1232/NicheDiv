@@ -22,6 +22,8 @@ NicheDiv is under active development. The framework is described in a preprint (
 For bug reports, feedback, or questions, please contact me: daniel.schoenberger@uky.edu.
 
 
+# Tutorial
+
 ## Installation
 
 Install the R package from GitHub:
