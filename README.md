@@ -1,19 +1,23 @@
 # NicheDiv R package
 
-NicheDiv is an R package for testing niche divergence across highly multivariate environmental space between two predefined groups (e.g., species, lineages, populations, or genetic clusters). This is done by adapting discriminant analysis of principal components (DAPC) to environmental niche data. Environmental variables are first transformed into principal components (PCs) to reduce dimensionality and collinearity. Discriminant analysis is then used to identify the axis that best separates the two groups. NicheDiv summarizes niche divergence with easily interpretable metrics.
+NicheDiv is an R package for testing pairwise niche divergence across highly multivariate environmental space.
+
+This is done by adapting discriminant analysis of principal components (DAPC) to environmental niche data. Environmental variables are first transformed into principal components (PCs) to reduce dimensionality and collinearity. Discriminant analysis is then used to identify the axis that best separates the two groups. NicheDiv summarizes niche divergence with easily interpretable metrics and density plots.
 
 
 ## Main advantages of the approach
 
-- Automatically extracts environmental values for occurrence records and background points from implemented and user-supplied environmental layers.
-- Implemented global environmental layers cover monthly to seasonal climate, topography, phenology, hyrdology, vegetation, soil, land cover, and anthropogenic variables.
-- Mitigates common biases in niche divergence testing by incorporating background environments, analogous-environment filtering, variable transformation, low-variation filtering, and occurrence thinning.
+- Requires only occurrence data as input
+- Automatically extracts environmental values for occurrence records and background points from implemented and user-supplied environmental GIS layers. Implemented GIS layers cover monthly to seasonal climate, topography, phenology, hydrology, vegetation, soil, land cover, and anthropogenic variables (most at global extent).
+- Implements a preprocessing pipeline that reduces common biases: delimiting accessible background space, spatially thinning occurrences, balancing sample sizes, filtering low-information variables, and screening predictors for between-group environmental analogy.
 - Can handle hundreds of correlated environmental variables.
 - Identifies environmental variables contributing most to niche separation.
-- Visualizes DAPC-based niche divergence along a single discriminant axis, making results easy to interpret.
+- Visualizes multivariate niche divergence along a single discriminant axis, making results easy to interpret.
+- Can distinguish different forms of niche divergence (weighted, nested, soft, and hard niche divergence)
+- Compared with alternative divergence tests, NicheDiv generally retains more variation, and scales more consistently with increasing divergence.
 
 ## Development status
-NicheDiv is under active development. The methodological framework is described in an associated preprint (https://doi.org/10.64898/2026.06.19.733388), and the manuscript is currently in review.  
+NicheDiv is under active development. The framework is described in a preprint (https://doi.org/10.64898/2026.06.19.733388) and the manuscript is currently in review.  
 
 For bug reports, feedback, or questions, please contact me: daniel.schoenberger@uky.edu.
 
@@ -38,15 +42,16 @@ library(NicheDiv)
 
 The approach only requires a data frame with occurrence records:
 
-* one row per occurrence record;
-* unique row names or an ID column;
-* longitude and latitude columns;
-* one grouping column with two or more groups to compare;
+* one row per occurrence record
+* unique row names
+* longitude and latitude columns
+* one grouping column with two (or more) groups to compare
 
 Example:
 
 ```r
 head(occurrence_data[, c("ID", "Longitude", "Latitude", "Species")])
+rownames(occurrence_data) <- occurrence_data$ID
 ```
 
 ```text
@@ -57,10 +62,14 @@ head(occurrence_data[, c("ID", "Longitude", "Latitude", "Species")])
 4 ID_004  -117.10   34.40   Sp2
 ```
 
+The dataframe can include other columns as long as they are specified under `exclude_cols` (see below).
+Groups can be species, population, lineages or any other predefined clusters.
+The dataframe can also include multiple species if you want to perform multiple pairwise comparisons (see section "How to include multiple species" at the end).
+
+
 ## Recommended workflow
 
-The typical NicheDiv workflow has seven major steps.
-The code below gives a compact version of the full workflow.
+The typical NicheDiv workflow has seven major steps. The code below describes the full workflow using recommended default parameters throughout. Parameters that may require tuning are discussed explicitly.
 
 ## 1. Set working environment and input parameters
 
@@ -73,39 +82,34 @@ results_dir <- file.path(base_dir, "Results")
 figure_dir <- file.path(results_dir, "Figure_files")
 intermediate_files_dir_name <- "Intermediate_files"
 
-if (!dir.exists(results_dir)) dir.create(results_dir, recursive = TRUE, showWarnings = FALSE)
-if (!dir.exists(figure_dir)) dir.create(figure_dir, recursive = TRUE, showWarnings = FALSE)
 
-
-## Set input files
+## Set input occurrence file
 occurrence_data_file <- file.path(base_dir, "Data/occurrences.csv")
 
+
+# Set output occurrence files with enviromental data
 csv_occurrence_out_file <- "Occurrences_env.csv"
 csv_background_out_file <- "Background_env.csv"
 
 
-## Set group and coordinate columns
+## Set parameters and column names
 Sp1_name <- "Group_1"
 Sp2_name <- "Group_2"
 Sp1_label <- "Group 1"
 Sp2_label <- "Group 2"
 
 Species_col <- "Species"
+
 Longitude_col <- "Longitude"
 Latitude_col <- "Latitude"
 CRS_all <- "EPSG:4326"
 
-
-## Set analysis parameters
 buffer_km <- 5
-N_background_points <- 500000
-N_permutations <- 1000
-CV_threshold <- 0.01
 base_colors <- c("#A331A3", "#6CB3A5")
-
 exclude_cols <- c("ID", "Locality", "CollectionDate") #columns to ignore throughout
-set.seed(1)
 ```
+`buffer_km` should be chosen to reflect the estimated approximate dispersal distance of the species group.
+
 
 ## 2. Extract environmental data and generate background points
 
@@ -122,7 +126,7 @@ NicheDiv::extract.env.and.background(occurrence.data = occurrence_data,
                                      longitude.col = Longitude_col,
                                      latitude.col = Latitude_col,
                                      generate.background.data = TRUE,
-                                     N.background.points = N_background_points,
+                                     N.background.points = 300000,
                                      buffer.km = buffer_km,
                                      remove.hydrolakes.background = TRUE,
                                      csv.occurrence.out.file = csv_occurrence_out_file,
@@ -137,10 +141,12 @@ NicheDiv::extract.env.and.background(occurrence.data = occurrence_data,
                                                       "daylength", "soil_moisture"))
 ```
 
-In the example above, all implemented environmental datasets are used. This can take several hours because the raster layers need to be downloaded.
+In the example above, all implemented environmental datasets are used (recommended default). This can take several hours because all raster layers need to be downloaded.
 Some datasets are only available for North America ("ClimateNA", "daylength", "snow_water_equivalent")
 
 Optional custom rasters can also be supplied by the user as one or more GeoTIFF files:
+
+For terrestrial taxa, we recommend to set `remove.hydrolakes.background = TRUE` which avoids that the background environment includes
 
 ```r
 custom_raster_path <- file.path(base_dir, "Data/custom_environmental_layers.tif")
@@ -150,7 +156,7 @@ NicheDiv::extract.env.and.background(occurrence.data = occurrence_data,
                                      longitude.col = Longitude_col,
                                      latitude.col = Latitude_col,
                                      generate.background.data = TRUE,
-                                     N.background.points = N_background_points,
+                                     N.background.points = 300000,
                                      buffer.km = buffer_km,
                                      remove.hydrolakes.background = TRUE,
                                      csv.occurrence.out.file = csv_occurrence_out_file,
@@ -288,7 +294,7 @@ CV_removal_results <- NicheDiv::remove.low.CV.vars(Sp1.occurrence.data = Sp1_occ
                                                    Sp1.background.data = Sp1_background_transformed,
                                                    Sp2.background.data = Sp2_background_transformed,
                                                    exclude.cols = c(Latitude_col, Longitude_col, Species_col, "ID"),
-                                                   CV.threshold = CV_threshold)
+                                                   CV.threshold = 0.01)
 
 Sp1_occurrence_filtered <- CV_removal_results$occurrence_Sp1
 Sp2_occurrence_filtered <- CV_removal_results$occurrence_Sp2
@@ -306,7 +312,7 @@ Sp1_Sp2_analogous <- NicheDiv::filter.analogous.variables(Sp1.Sp2.occurrence.dat
                                                           Sp1.background.data = Sp1_background_filtered,
                                                           Sp2.background.data = Sp2_background_filtered,
                                                           exclude.cols = c(Latitude_col, Longitude_col, Species_col),
-                                                          CV.threshold = CV_threshold,
+                                                          CV.threshold = 0.01,
                                                           overlap.threshold = 0.7)
 ```
 
@@ -332,8 +338,8 @@ Sp1_Sp2_species_assignment <- factor(Sp1_Sp2_species_assignment,
 DAPC_results <- NicheDiv::run.DAPC.crossval.permutation(data.input = Sp1_Sp2_analogous,
                                                         species.col = Species_col,
                                                         exclude.cols = c(Latitude_col, Longitude_col),
-                                                        N.permutations = N_permutations,
-                                                        N.crossval.replicates = 300)
+                                                        N.permutations = 1000,
+                                                        N.crossval.replicates = 100)
 ```
 
 The permutation test compares the observed DAPC assignment accuracy to a null distribution generated by randomly permuting group labels. A significant result indicates that group separation along the discriminant axis is stronger than expected under random group membership.
@@ -509,8 +515,8 @@ Sp1_Sp2_species_assignment_no_analogy <- factor(Sp1_Sp2_species_assignment_no_an
 DAPC_results_no_analogy <- NicheDiv::run.DAPC.crossval.permutation(data.input = Sp1_Sp2_occurrence_filtered,
                                                                    species.col = Species_col,
                                                                    exclude.cols = c(Latitude_col, Longitude_col),
-                                                                   N.permutations = N_permutations,
-                                                                   N.crossval.replicates = 300)
+                                                                   N.permutations = 1000,
+                                                                   N.crossval.replicates = 100)
 
 Niche_divergence_metrics_no_analogy <- NicheDiv::calc.niche.divergence.metrics(DAPC_results_no_analogy,
                                                                                group.assignment = Sp1_Sp2_species_assignment_no_analogy)
