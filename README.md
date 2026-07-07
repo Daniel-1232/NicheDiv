@@ -73,7 +73,9 @@ The dataframe can also include multiple species if you want to perform multiple 
 
 The typical NicheDiv workflow has seven major steps. The code below describes the full workflow using recommended default parameters throughout. Parameters that may require tuning are discussed explicitly.
 
-## 1. Set working environment and input parameters
+## Set working environment and input parameters
+
+Before starting, we need to define all directories, file names and parameters
 
 ```r
 #### Set working environment and input #########################################
@@ -108,14 +110,22 @@ CRS_all <- "EPSG:4326"
 
 buffer_km <- 5
 base_colors <- c("#A331A3", "#6CB3A5")
-exclude_cols <- c("ID", "Locality", "CollectionDate") #columns to ignore throughout
+exclude_cols <- c("ID", "Locality", "CollectionDate")
 ```
+
+
+Use `Sp1_name` and `Sp2_name` for the group names exactly as they appear in the grouping column of your input data frame, and use `Sp1_label` and `Sp2_label` for the labels displayed in plots.
 `buffer_km` should be chosen to reflect the estimated approximate dispersal distance of the species group.
+Use `exclude_cols` to list columns that should be excluded from environmental predictor variables throughout the workflow, such as IDs, locality names, or collection dates.
 
+## 1. Extract environmental data and generate background points
 
-## 2. Extract environmental data and generate background points
+We start by extracting environmental values for occurrence records and generate background points within the accessible area.
+This is the step which usually takes most time since we need to download all the environmental layers. Fortunately, our approach has minimal GIS layer processing/projecting, saving hours of time and a lot of memory.
+In the example below, all implemented environmental datasets are used (recommended default) which can can take several hours.
+Some datasets are only available for North America ("ClimateNA", "daylength", "snow_water_equivalent").
 
-Use `extract.env.and.background()` to extract environmental values for occurrence records and generate background points within the accessible area.
+For terrestrial taxa, we recommend to set `remove.hydrolakes.background = TRUE` which avoids that the background environment includes.
 
 ```r
 #### Extract environmental data ################################################
@@ -143,12 +153,7 @@ NicheDiv::extract.env.and.background(occurrence.data = occurrence_data,
                                                       "daylength", "soil_moisture"))
 ```
 
-In the example above, all implemented environmental datasets are used (recommended default). This can take several hours because all raster layers need to be downloaded.
-Some datasets are only available for North America ("ClimateNA", "daylength", "snow_water_equivalent")
-
 Optional custom rasters can also be supplied by the user as one or more GeoTIFF files:
-
-For terrestrial taxa, we recommend to set `remove.hydrolakes.background = TRUE` which avoids that the background environment includes
 
 ```r
 custom_raster_path <- file.path(base_dir, "Data/custom_environmental_layers.tif")
@@ -171,7 +176,9 @@ NicheDiv::extract.env.and.background(occurrence.data = occurrence_data,
                                      custom.env.rasters.variable.names = custom_raster_variable_names)
 ```
 
-## 3. Import and prepare extracted data
+## 2. Import and prepare extracted data
+
+Next, we import and process the extracted environmental data. Here, no changes in parameters are needed.
 
 ```r
 #### Import and prepare extracted data #########################################
@@ -206,9 +213,10 @@ Sp1_occurrence_data <- Env_data_occurrences[Env_data_occurrences[[Species_col]] 
 Sp2_occurrence_data <- Env_data_occurrences[Env_data_occurrences[[Species_col]] == Sp2_label, , drop = FALSE]
 ```
 
-## 4. Crop and downsample background data
+## 3. Crop and downsample background data
 
-Background data should reflect the accessible environmental space for each group. The example below crops the shared background pool to a buffered convex hull around each group’s occurrence records and then downsamples each background to the same target size.
+The next step crops the shared background to a buffered convex hull around each group’s occurrence records and then downsamples each background to the same target size.
+Available background geometries are `"hull"`, `"points"`, `"alpha"`, and `"bbox"`. Below we use the convex hull which is usually a robust default, but point buffers or alpha hulls can be useful for fragmented or spatially complex distributions.
 
 ```r
 #### Prepare background data ###################################################
@@ -232,11 +240,9 @@ Sp1_background_data <- NicheDiv::sample.down(Sp1_background_data, N.rows = 10000
 Sp2_background_data <- NicheDiv::sample.down(Sp2_background_data, N.rows = 10000)
 ```
 
-Available background geometries are `"hull"`, `"points"`, `"alpha"`, and `"bbox"`. The convex hull is usually a robust default, but point buffers or alpha hulls can be useful for fragmented or spatially complex distributions.
+## 4. Spatially thin and balance occurrence records
 
-## 5. Spatially thin and balance occurrence records
-
-Spatial thinning reduces clustered sampling and residual spatial autocorrelation. After thinning, both groups are downsampled to the same number of occurrences.
+To reduce spatial autocorrelation, we thin our occurrence records. A thinning distance of one kilometer is usually a appropropriate value, as set below. We also downsample both groups to the same number of occurrences.
 
 ```r
 #### Spatial thinning and sample-size balancing ################################
@@ -257,9 +263,9 @@ Sp2_occurrence_thinned <- NicheDiv::sample.down(Sp2_occurrence_thinned,
                                                 N.rows = n_min_occurrence_thinned)
 ```
 
-## 6. Transform and filter environmental variables
+## 5. Transform and filter environmental variables
 
-Environmental variables may be skewed, uninformative, or non-analogous between accessible areas. NicheDiv includes functions to handle these preprocessing steps before running DAPC.
+Next, we transform skewed variables and remove variables with low variation.
 
 ```r
 #### Transform skewed environmental variables ##################################
@@ -286,8 +292,6 @@ Sp2_occurrence_transformed <- Sp1_Sp2_occurrence_transformed[Sp1_Sp2_occurrence_
 Sp1_background_transformed <- Sp1_Sp2_background_transformed[Sp1_Sp2_background_transformed[[Species_col]] == Sp1_label, , drop = FALSE]
 Sp2_background_transformed <- Sp1_Sp2_background_transformed[Sp1_Sp2_background_transformed[[Species_col]] == Sp2_label, , drop = FALSE]
 ```
-
-Remove low-variation variables:
 
 ```r
 #### Remove low-information variables ##########################################
@@ -320,7 +324,7 @@ Sp1_Sp2_analogous <- NicheDiv::filter.analogous.variables(Sp1.Sp2.occurrence.dat
 
 This step removes predictors whose background distributions are not sufficiently analogous between groups. This helps reduce bias caused by comparing groups across environmental conditions that are available to one group but not the other.
 
-## 7. Run DAPC
+## 6. Run DAPC and evaluate results
 
 ```r
 #### Run DAPC niche divergence test ############################################
@@ -346,7 +350,7 @@ DAPC_results <- NicheDiv::run.DAPC.crossval.permutation(data.input = Sp1_Sp2_ana
 
 The permutation test compares the observed DAPC assignment accuracy to a null distribution generated by randomly permuting group labels. A significant result indicates that group separation along the discriminant axis is stronger than expected under random group membership.
 
-## 8. Calculate niche divergence metrics
+Calculate niche divergence metrics:
 
 ```r
 #### Calculate niche divergence metrics ########################################
@@ -380,7 +384,7 @@ The main metrics are:
 
 The most important summary metrics are `D` and `ND`. Stronger niche divergence is indicated by lower `D` values and higher `ND` values. As a general rule of thumb: `D` values around or below 0.4 and `ND` values around or above 0.9 indicate strong divergence in the current framework.
 
-## 9. Plot DAPC results
+## Plot DAPC results
 
 Plot the discriminant-axis density distributions:
 
@@ -455,7 +459,7 @@ NicheDiv::plot.top.DAPC.predictors(dapc.results = DAPC_results_short_names,
                                    height = 10)
 ```
 
-## 10. Plot occurrences and background points
+Plot occurrences and background points
 
 ```r
 #### Plot occurrence and background map ########################################
@@ -524,16 +528,6 @@ Niche_divergence_metrics_no_analogy <- NicheDiv::calc.niche.divergence.metrics(D
                                                                                group.assignment = Sp1_Sp2_species_assignment_no_analogy)
 ```
 
-## Interpreting results
-
-A complete NicheDiv analysis should be interpreted using three complementary outputs.
-
-First, the permutation test evaluates whether group separation is stronger than expected under random group labels. A significant result indicates that the groups are more environmentally separable than expected by chance.
-
-Second, the niche divergence metrics quantify the amount and type of divergence along the discriminant axis. Schoener’s D describes overlap, niche dissimilarity describes density-based divergence, niche breadth exclusivity describes range exclusivity, niche divergence magnitude summarizes overall divergence in the niche divergence plane, and niche divergence angle describes whether divergence is driven more by density differences, range exclusivity, or both.
-
-Third, the variable-contribution plots identify environmental predictors most associated with the discriminant separation. These contributions should be interpreted as environmental associations with the discriminant axis, not as direct evidence of causal ecological mechanisms.
-
 ## Main functions
 
 | Function                           | Purpose                                                                          |
@@ -555,20 +549,6 @@ Third, the variable-contribution plots identify environmental predictors most as
 | `plot.top.DAPC.predictors()`       | Plot raw distributions of top contributing predictors.                           |
 | `plot.occurrences.map()`           | Plot occurrence and background records on a map.                                 |
 | `map.env.variable.names()`         | Convert environmental variable names to shorter or more readable labels.         |
-
-## Notes and recommendations
-
-* Use biologically meaningful groups. NicheDiv tests divergence between predefined groups and does not infer species limits by itself.
-
-Use a biologically justified accessible area. Background data should represent the environmental conditions plausibly available to each group.
-
-Balance occurrence sample sizes before DAPC. Unequal sample sizes can affect discrimination and interpretation.
-
-Inspect spatial thinning diagnostics. Thinning reduces spatial clustering but may not remove all spatial autocorrelation.
-
-Use analogous-environment filtering when comparing groups from different accessible areas. This helps reduce bias from environmental conditions available to only one group.
-
-* Do not interpret variable contributions as proof of causation. They identify predictors associated with niche divergence and should be evaluated with biological knowledge, natural history, and independent evidence.
 
 
 ## Citation
