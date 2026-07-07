@@ -115,7 +115,9 @@ exclude_cols <- c("ID", "Locality", "CollectionDate")
 
 
 Use `Sp1_name` and `Sp2_name` for the group names exactly as they appear in the grouping column of your input data frame, and use `Sp1_label` and `Sp2_label` for the labels displayed in plots.
+
 `buffer_km` should be chosen to reflect the estimated approximate dispersal distance of the species group.
+
 Use `exclude_cols` to list columns that should be excluded from environmental predictor variables throughout the workflow, such as IDs, locality names, or collection dates.
 
 ## 1. Extract environmental data and generate background points
@@ -373,7 +375,7 @@ Niche_divergence_metrics_weighted <- NicheDiv::calc.niche.divergence.metrics(DAP
 Niche_divergence_metrics_weighted
 ```
 
-The main metrics are:
+The following 5 niche divergence metrics are calculated:
 
 
 * `Schoener_D (D)`: niche overlap between the two groups along the discriminant axis. Values range from 0 to 1, where 1 indicates complete overlap and 0 indicates no overlap. Lower values therefore indicate stronger niche differentiation.
