@@ -196,7 +196,9 @@ Next, we import and process the extracted environmental data. In this section, n
 
 ## Import extracted occurrence and background data
 Env_data_occurrences <- read.csv(file.path(results_dir, csv_occurrence_out_file))
+dim(Env_data_occurrences)
 Env_data_background <- read.csv(file.path(results_dir, csv_background_out_file), check.names = FALSE)
+dim(Env_data_background)
 
 
 ## Remove metadata columns not used as environmental predictors
