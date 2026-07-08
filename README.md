@@ -4,7 +4,7 @@ NicheDiv is an R package for testing pairwise niche divergence across highly mul
 
 This is done by adapting discriminant analysis of principal components (DAPC) to environmental niche data. Environmental variables are first transformed into principal components (PCs) to reduce dimensionality and collinearity. Discriminant analysis is then used to identify the axis that best separates the two groups. NicheDiv summarizes niche divergence with easily interpretable metrics and density plots.
 
-The idea behind the approach is that multiple environmental axes beyond annual climate can be the predominant dimensions of niche divergence
+The idea behind our approach is that ecological niches are highly multidimensional and are rarely captured fully by commonly used annual climate variables alone. Seasonal and monthly variables can capture phenology, resource availability, physiological stress, and other time-dependent ecological processes that may be obscured by annual averages. NicheDiv tackles this problem in two ways: first, by automatically extracting environmental values from a broad set of implemented GIS layers covering both abiotic and biotic environmental dimensions; and second, by making it possible to test niche divergence across this high-dimensional and correlated environmental space using our DAPC-based framework.
 
 ## Main advantages of the approach
 
@@ -249,7 +249,7 @@ Sp2_background_data <- NicheDiv::sample.down(Sp2_background_data, N.rows = 10000
 
 ## 4. Spatially thin and balance occurrence records
 
-To reduce spatial autocorrelation, we thin our occurrence records. A thinning distance of one kilometer is usually an appropriate value, as set below. 
+To reduce spatial autocorrelation, we thin our occurrence records. A thinning distance (`thinning.dist.km`) of one kilometer is usually an appropriate value, as set below. 
 We also downsample both groups to the same number of occurrences (to avoid bias in the discriminant analysis caused by unequal sample sizes).
 
 ```r
