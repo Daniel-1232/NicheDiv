@@ -325,7 +325,7 @@ CV_removal_results <- remove.low.CV.vars(Sp1.occurrence.data = Sp1_occurrence_tr
                                          Sp2.occurrence.data = Sp2_occurrence_transformed,
                                          Sp1.background.data = Sp1_background_transformed,
                                          Sp2.background.data = Sp2_background_transformed,
-                                         exclude.cols = c(Latitude_col, Longitude_col, Species_col, ID_col),
+                                         exclude.cols = c(Latitude_col, Longitude_col, Species_col),
                                          CV.threshold = 0.01)
 
 Sp1_occurrence_filtered <- CV_removal_results$occurrence_Sp1
@@ -379,7 +379,7 @@ DAPC_results <- run.DAPC.crossval.permutation(data.input = Sp1_Sp2_analogous,
                                               species.col = Species_col,
                                               exclude.cols = c(Latitude_col, Longitude_col),
                                               N.permutations = 1000,
-                                              N.crossval.replicates = 100)
+                                              N.crossval.replicates = 300)
 ```
 
 Based on the DAPC results, we can calculate the following five niche divergence metrics:
@@ -396,8 +396,6 @@ The most important summary metrics are `D` and `ND`. Stronger niche divergence i
 #### Calculate niche divergence metrics ########################################
 Niche_divergence_metrics <- calc.niche.divergence.metrics(DAPC_results,
                                                           group.assignment = Sp1_Sp2_species_assignment)
-
-Niche_divergence_metrics
 ```
 
 Optionally, we can calculate background-corrected metrics (following Brown and Carnaval 2019) by up-weighting rare and down-weighting common environments along the discriminant axis to account for unequal environmental availability.
@@ -408,14 +406,12 @@ Niche_divergence_metrics_weighted <- calc.niche.divergence.metrics(DAPC_results,
                                                                    Sp1.background.data = Sp1_background_filtered,
                                                                    Sp2.background.data = Sp2_background_filtered,
                                                                    group.assignment = Sp1_Sp2_species_assignment)
-
-Niche_divergence_metrics_weighted
 ```
 
 ## 8. Plot results
 In general, all plot functions include a built-in saving option, allowing figures to be exported directly as SVG, PNG, or JPEG files with user-defined dimensions.
 
-Plot: discriminant-axis density distributions
+We start by plotting the discriminant-axis density distributions, followed visualizing the permutation null distribution of classification accuracy (observed value shown as red line)
 
 ```r
 #### Plot DAPC niche divergence ################################################
@@ -428,11 +424,8 @@ plot.DAPC.niche.divergence(DAPC_results,
                            filename = "DAPC_niche_divergence",
                            width = 16,
                            height = 12)
-```
 
-Plot: permutation null distribution of classification accuracy (observed value shown as red line)
 
-```r
 #### Plot permutation test #####################################################
 plot.DAPC.permutation(DAPC_results,
                       save = TRUE,
@@ -548,7 +541,7 @@ DAPC_results_no_analogy <- run.DAPC.crossval.permutation(data.input = Sp1_Sp2_oc
                                                          species.col = Species_col,
                                                          exclude.cols = c(Latitude_col, Longitude_col),
                                                          N.permutations = 1000,
-                                                         N.crossval.replicates = 100)
+                                                         N.crossval.replicates = 300)
 
 Niche_divergence_metrics_no_analogy <- calc.niche.divergence.metrics(DAPC_results_no_analogy,
                                                                      group.assignment = Sp1_Sp2_species_assignment_no_analogy)
