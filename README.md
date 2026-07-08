@@ -17,7 +17,7 @@ This is done by adapting discriminant analysis of principal components (DAPC) to
 - Compared with alternative divergence tests, NicheDiv generally retains more variation, and scales more consistently with increasing divergence.
 
 ## Development status
-NicheDiv is under active development. The framework is described in a preprint (https://doi.org/10.64898/2026.06.19.733388) and the manuscript is currently in review.  
+caThe framework is described in a preprint (https://doi.org/10.64898/2026.06.19.733388) and the manuscript is currently in review.  
 
 For bug reports, feedback, or questions, please contact me: daniel.schoenberger@uky.edu.
 
@@ -72,6 +72,12 @@ The dataframe can also include multiple species if you want to perform multiple 
 ## Recommended workflow
 
 The typical NicheDiv workflow has seven major steps. The code below describes the full workflow using recommended default parameters throughout. Parameters that may require tuning are discussed explicitly.
+
+Framework overview:
+
+![NicheDiv workflow](man/figures/README-schoenberger-etal-figure-1.png)
+
+Figure from Schönberger, MacDonald, Tuttle, Schmidt & Dupuis (2026), bioRxiv, licensed under CC-BY 4.0.
 
 ## Set working environment and input parameters
 
@@ -487,6 +493,11 @@ NicheDiv::plot.occurrences.map(coordinates = Sp1_Sp2_analogous,
                                width = 16,
                                height = 12)
 ```
+Here an example:
+
+![NicheDiv example result](man/figures/README-schoenberger-etal-figure-3.png)
+
+Figure from Schönberger, MacDonald, Tuttle, Schmidt & Dupuis (2026), bioRxiv, licensed under CC-BY 4.0.
 
 ## Optional: Brown and Carnaval-style analogous trimming
 
