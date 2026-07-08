@@ -441,7 +441,8 @@ Here an example output from the two functions above showing strong multivariate 
 
 ![NicheDiv example result](man/figures/README-schoenberger-etal-figure-4.png)
 
-Plot: environmental variable contributions to the discriminant axis
+
+Next, we plot the environmental variable contributions to the discriminant axis.
 
 These values show which original environmental variables contribute most to the DAPC separation between the two groups. Contributions are calculated by back-transforming the discriminant axis from retained PCs to the original environmental variables. Higher values indicate variables that contribute more strongly to group separation, but they should not be interpreted as independent causal effects because correlated predictors can share the same signal.
 
@@ -465,7 +466,9 @@ DAPC_var_contr <- plot.DAPC.var.contributions(DAPC_results_short_names,
 head(DAPC_var_contr)
 ```
 
-Plot: raw distributions of the top contributing predictors
+We can also examine the raw distributions of the top contributing predictors. 
+
+We can adjust how many variable to show via `N.top.variables` (6 is usually working well in this plot layout).
 
 ```r
 #### Plot top predictors #######################################################
@@ -475,6 +478,7 @@ plot.top.DAPC.predictors(dapc.results = DAPC_results_short_names,
                          predictor.data = Sp1_Sp2_analogous_short_names,
                          species.labels = Sp1_Sp2_species_assignment,
                          group.colors = Sp1_Sp2_species_colors,
+                         N.top.variables = 6,
                          save = TRUE,
                          overwrite = TRUE,
                          type = "svg",
