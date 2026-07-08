@@ -1,6 +1,6 @@
 Package: NicheDiv
 Title: Tools for Ecological Niche Divergence Analyses
-Version: 1.0.0
+Version: 0.1.0
 Authors@R: 
     person("Daniel", "Schönberger", email = "daniel@familie-schoenberger.de", role = c("aut", "cre"))
 Description: Functions for a DAPC-based niche divergence approach, including
