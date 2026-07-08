@@ -523,7 +523,7 @@ Here an example map (figure 3 from Schönberger et al. preprint): the large poin
 ![NicheDiv example result](man/figures/README-schoenberger-etal-figure-3.png)
 
 
-## DAPC in full-environment
+## Optional: DAPC in full-environment
 
 We can also run the DAPC test using the full-environment (without non-analogous filtering). 
 This helps to evaluate how much non-analogous environmental space affects the final result.
@@ -654,7 +654,7 @@ If you have multiple taxa (e.g., all members of a species group), you can compar
 * NicheDiv currently only supports continuous environmental variables. Because DAPC is widely used with biallelic genetic markers (Jombart et al. 2010, Miller et al. 2020), the framework could potentially be extended to binary or categorical ecological predictors in the future. If you want to include binary or categorical data (e.g., host presence/absence, habitat classes, symbionts, or pollinator types), running a SOM (self-organizing map) model may be useful (Pyron et al. 2023; see https://github.com/rpyron/delim-SOM).
 
 
-## Main functions
+## *NicheDiv* functions
 
 | Function                           | Description                                                                     |
 | ---------------------------------- | ------------------------------------------------------------------------------- |
