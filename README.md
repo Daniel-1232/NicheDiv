@@ -1,10 +1,10 @@
-# NicheDiv R package
+# *NicheDiv* *R* package
 
-NicheDiv is an R package for testing pairwise niche divergence across highly multivariate environmental space.
+*NicheDiv* is an *R* package for testing pairwise niche divergence across highly multivariate environmental space.
 
-This is done by adapting discriminant analysis of principal components (DAPC) to environmental niche data. DAPC was originally developed for population genetics (Jombart et al. 2010) but is also well suited for numerous correlated environmental variables. Environmental variables are first transformed into principal components (PCs) to reduce dimensionality and collinearity. Discriminant analysis (Fisher 1936, Lachenbruch & Goldstein 1979) is then used to identify the axis that best separates the two groups. NicheDiv summarizes niche divergence with easily interpretable metrics and density plots.
+This is done by adapting discriminant analysis of principal components (DAPC) to environmental niche data. DAPC was originally developed for population genetics (Jombart et al. 2010) but is well suited for numerous correlated environmental variables. Environmental variables are first transformed into principal components (PCs) to reduce dimensionality and collinearity. Discriminant analysis (Fisher 1936, Lachenbruch & Goldstein 1979) is then used to identify the axis that best separates the two groups. Our method summarizes niche divergence with easily interpretable metrics and density plots.
 
-The idea behind our approach is that ecological niches are highly multidimensional (Hutchinson, 1957) and are rarely captured fully by commonly used annual climate variables alone (Elith & Leathwick 2009; Kearney & Porter 2009; Soberón, 2007), such as WorldClim’s BIO1–BIO19 variables (Hijmans et al. 2005). Seasonal and monthly variables are often required to capture phenology, resource availability, physiological stress, and other time-dependent ecological processes that may be obscured by annual averages (Prajzlerová et al. 2025; Zimmermann et al. 2009). NicheDiv tackles this problem in two ways: first, by automatically extracting environmental values from a broad set of implemented GIS layers covering both abiotic and biotic environmental dimensions; and second, by making it possible to test niche divergence across this high-dimensional and correlated environmental space using our DAPC-based framework.
+The idea behind our approach is that ecological niches are highly multidimensional (Hutchinson, 1957) and are rarely captured completely by the commonly used annual climate variables alone (Elith & Leathwick 2009; Kearney & Porter 2009; Soberón, 2007), such as WorldClim’s BIO1–BIO19 variables (Hijmans et al. 2005). Seasonal and monthly variables are often required to capture phenology, resource availability, physiological stress, and other time-dependent ecological processes that may be obscured by annual averages (Prajzlerová et al. 2025; Zimmermann et al. 2009). *NicheDiv* tackles this problem in two ways: first, by automatically extracting environmental values from a broad set of implemented GIS layers covering both abiotic and biotic environmental dimensions; and second, by making it possible to test niche divergence across this high-dimensional and correlated environmental space using our DAPC-based framework.
 
 ## Main advantages of the approach
 
@@ -15,12 +15,12 @@ The idea behind our approach is that ecological niches are highly multidimension
 - Identifies environmental variables contributing most to niche separation.
 - Visualizes multivariate niche divergence along a single discriminant axis, making results easy to interpret.
 - Can distinguish different forms of niche divergence (weighted, nested, soft, and hard niche divergence)
-- Compared with alternative divergence tests, NicheDiv generally retains more variation, and scales more consistently with increasing divergence.
+- Compared with alternative divergence tests, *NicheDiv* generally retains more variation, and scales more consistently with increasing divergence.
 
 ## Development status
 The framework is described in a preprint (https://doi.org/10.64898/2026.06.19.733388) and the manuscript is currently in review.  
 
-Current R package version: 0.1.0
+Current *R* package version: 0.1.0
 
 For bug reports, feedback, or questions, please contact me: daniel.schoenberger@uky.edu.
 
@@ -29,7 +29,7 @@ For bug reports, feedback, or questions, please contact me: daniel.schoenberger@
 
 ## Installation
 
-Install the R package from GitHub and load:
+Install the *NicheDiv* *R* package from GitHub and load:
 
 ```r
 if (!requireNamespace("remotes", quietly = TRUE)) install.packages("remotes")
@@ -71,7 +71,7 @@ The dataframe can also include multiple species if you want to perform multiple 
 
 ## Recommended workflow
 
-The NicheDiv workflow has several major steps. The code below describes the full workflow using recommended default parameters throughout. Parameters that may require tuning are discussed explicitly.
+The *NicheDiv* workflow has several major steps. The code below describes the full workflow using recommended default parameters throughout. Parameters that may require tuning are discussed explicitly.
 
 Below is a schematic overview of the niche divergence framework, using two theoretical taxon pairs and three environmental layers as example (figure 1 from Schönberger et al. preprint):
 
@@ -544,7 +544,7 @@ Niche_divergence_metrics_no_analogy <- NicheDiv::calc.niche.divergence.metrics(D
 
 ## Optional: Brown and Carnaval-style analogous trimming
 
-In addition to variable-level analogy filtering above (`filter.analogous.variables()`), NicheDiv includes `trim.to.analogous.environments()` to remove occurrence records from non-analogous environmental conditions following the logic of Brown and Carnaval-style environmental analogy correction (Brown & Carnaval 2019).
+In addition to variable-level analogy filtering above (`filter.analogous.variables()`), *NicheDiv* includes `trim.to.analogous.environments()` to remove occurrence records from non-analogous environmental conditions following the logic of Brown and Carnaval-style environmental analogy correction (Brown & Carnaval 2019).
 This might be especially desired if the variable-level analogy filtering removes most variables, limiting the inference of the most important variables.
 
 ```r
@@ -563,7 +563,7 @@ The trimmed dataset can then be passed to `run.DAPC.crossval.permutation()` usin
 
 
 ## How to include multiple pairwise comparisons
-If you have multiple taxa (e.g., all members of a species group), you can compare them by running NicheDiv in a pairwise fashion:
+If you have multiple taxa (e.g., all members of a species group), you can compare them by running *NicheDiv* in a pairwise fashion:
 1) Use input dataframe with coordinates for all taxa of interest.
 2) Extract environmental data and generate background points once for all taxa together (Step 1 in workflow: `extract.env.and.background()` function). We recommend increasing `N.background.points` to ensure enough background points for all comparisons (1 million worked well in our species group for North America). 
 3) For each pairwise comparison, first set `Sp1_name`, `Sp2_name`, `Sp1_label`, `Sp2_label`, `base_colors`, and `filename` in each plotting call (or change `figure_dir` for each), and then run steps 2-7 of the workflow for each pair.
@@ -572,7 +572,7 @@ If you have multiple taxa (e.g., all members of a species group), you can compar
 ## Further recommendations
 
 * We recommend first running the DAPC niche divergence test using only analogous environmental variables. Strong and significant divergence in this analysis suggests that the groups differ within shared accessible environmental space (Brown & Carnaval, 2019). If no analogous variables remain after filtering, this also provides evidence that the groups occupy strongly different accessible environments. If divergence is weak and non-significant in the analogous-only analysis, repeat the DAPC analysis using the full environmental dataset, including both analogous and non-analogous variables. Strong and significant separation in the full dataset indicates that the groups occupy different environments, but this result alone should not be interpreted as evidence of adaptive niche divergence because the separation may be driven by environments that are not jointly available to both groups. Running the full-dataset analysis can also be useful even when the analogous-only analysis shows strong divergence, because analogous filtering can remove environmental axes along which divergence occurs. In such cases, using only analogous variables may reduce discriminatory power and increase the risk of false negatives. If separation is weak and non-significant in both analyses, the background permutation test can be used to evaluate whether the non-significant result reflects true niche similarity or limited statistical power given the available environmental conditions.
-* NicheDiv currently only supports continuous environmental variables. Because DAPC is widely used with biallelic genetic markers (Jombart et al. 2010, Miller et al. 2020), the framework could potentially be extended to binary or categorical ecological predictors in the future. If you want to include binary or categorical data (e.g., host presence/absence, habitat classes, symbionts, or pollinator types), running a SOM (self-organizing map) model may be useful (Pyron et al. 2023; see https://github.com/rpyron/delim-SOM).
+* *NicheDiv* currently only supports continuous environmental variables. Because DAPC is widely used with biallelic genetic markers (Jombart et al. 2010, Miller et al. 2020), the framework could potentially be extended to binary or categorical ecological predictors in the future. If you want to include binary or categorical data (e.g., host presence/absence, habitat classes, symbionts, or pollinator types), running a SOM (self-organizing map) model may be useful (Pyron et al. 2023; see https://github.com/rpyron/delim-SOM).
 
 
 ## Main functions
@@ -637,11 +637,11 @@ If you have multiple taxa (e.g., all members of a species group), you can compar
 
 ## Citation
 
-Please cite the NicheDiv framework as follows:
+Please cite the *NicheDiv* framework as follows:
 
 Schönberger, D., MacDonald, Z. G., Schmidt, B. C., & Dupuis, J. R. NicheDiv: A DAPC framework to quantify niche divergence across highly multivariate environmental space. bioRxiv. https://doi.org/10.64898/2026.06.19.733388 
 
 
 ## License
 
-NicheDiv is released under the MIT License. See the `LICENSE` file for details.
+*NicheDiv* is released under the MIT License. See the `LICENSE` file for details.
