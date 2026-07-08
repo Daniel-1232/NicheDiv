@@ -2,15 +2,15 @@
 
 NicheDiv is an R package for testing pairwise niche divergence across highly multivariate environmental space.
 
-This is done by adapting discriminant analysis of principal components (DAPC) to environmental niche data. Environmental variables are first transformed into principal components (PCs) to reduce dimensionality and collinearity. Discriminant analysis is then used to identify the axis that best separates the two groups. NicheDiv summarizes niche divergence with easily interpretable metrics and density plots.
+This is done by adapting discriminant analysis of principal components (DAPC) to environmental niche data. DAPC was originally developed for population genetics (Jombart et al. 2010) but is also well suited for numerous correlated environmental variables. Environmental variables are first transformed into principal components (PCs) to reduce dimensionality and collinearity. Discriminant analysis (Lachenbruch & Goldstein, 1979) is then used to identify the axis that best separates the two groups. NicheDiv summarizes niche divergence with easily interpretable metrics and density plots.
 
-The idea behind our approach is that ecological niches are highly multidimensional and are rarely captured fully by commonly used annual climate variables alone. Seasonal and monthly variables can capture phenology, resource availability, physiological stress, and other time-dependent ecological processes that may be obscured by annual averages. NicheDiv tackles this problem in two ways: first, by automatically extracting environmental values from a broad set of implemented GIS layers covering both abiotic and biotic environmental dimensions; and second, by making it possible to test niche divergence across this high-dimensional and correlated environmental space using our DAPC-based framework.
+The idea behind our approach is that ecological niches are highly multidimensional (Hutchinson, 1957) and are rarely captured fully by commonly used annual climate variables alone (Elith & Leathwick 2009; Kearney & Porter 2009; Soberón, 2007), such as WorldClim’s BIO1–BIO19 variables (Hijmans et al. 2005). Seasonal and monthly variables are often required to capture phenology, resource availability, physiological stress, and other time-dependent ecological processes that may be obscured by annual averages (Prajzlerová et al. 2025; Zimmermann et al. 2009). NicheDiv tackles this problem in two ways: first, by automatically extracting environmental values from a broad set of implemented GIS layers covering both abiotic and biotic environmental dimensions; and second, by making it possible to test niche divergence across this high-dimensional and correlated environmental space using our DAPC-based framework.
 
 ## Main advantages of the approach
 
 - Requires only occurrence data as input.
 - Automatically extracts environmental values for occurrence records and background points from implemented and user-supplied environmental GIS layers. Implemented GIS layers cover monthly to seasonal climate, topography, phenology, hydrology, vegetation, soil, land cover, and anthropogenic variables (most at global extent).
-- Implements a preprocessing pipeline that reduces common biases: delimiting accessible background space, spatially thinning occurrences, balancing sample sizes, filtering low-information variables, and screening predictors for between-group environmental analogy.
+- Implements a preprocessing pipeline that reduces common biases: delimiting accessible background space, spatially thinning occurrences, balancing sample sizes, filtering low-information variables, and screening predictors for between-group environmental analogy (e.g., Dormann et al. 2013, Soberón 2007, Brown & Carnaval 2019).
 - Can handle hundreds of correlated environmental variables.
 - Identifies environmental variables contributing most to niche separation.
 - Visualizes multivariate niche divergence along a single discriminant axis, making results easy to interpret.
@@ -364,11 +364,11 @@ DAPC_results <- NicheDiv::run.DAPC.crossval.permutation(data.input = Sp1_Sp2_ana
 
 Based on the DAPC results, we can calculate the following five niche divergence metrics:
 
-* `Schoener_D (D)`: niche overlap between the two groups along the discriminant axis. Values range from 0 to 1, where 1 indicates complete overlap and 0 indicates no overlap.
-* `Niche_dissimilarity (NDS)`: density-based niche divergence along the discriminant axis. Values range from 0 to 1, where 0 indicates identical occurrence-density distributions and 1 indicates completely non-overlapping densities.
-* `Niche_breadth_exclusivity (NE)`: range-based niche divergence along the discriminant axis. Values range from 0 to 1, where 0 indicates completely shared occupied ranges and 1 indicates completely exclusive occupied ranges.
-* `Niche_divergence_magnitude (ND)`: combined divergence magnitude in the niche divergence plane. Values range from 0 to 1.41, where 0 indicates no divergence and 1.41 indicates maximum combined density-based and range-based divergence.
-* `Niche_divergence_angle (θ)`: relative contribution of density-based versus range-based divergence. Values range from 0° to 90°, where values near 0° indicate divergence mainly driven by range exclusivity, values near 90° indicate divergence mainly driven by density differences within shared space, and intermediate values indicate mixed contributions.
+* `Schoener_D (D)`: niche overlap between the two groups along the discriminant axis. Values range from 0 to 1, where 1 indicates complete overlap and 0 indicates no overlap (Schoener 1968).
+* `Niche_dissimilarity (NDS)`: density-based niche divergence along the discriminant axis. Values range from 0 to 1, where 0 indicates identical occurrence-density distributions and 1 indicates completely non-overlapping densities (Ascanio et al. 2024).
+* `Niche_breadth_exclusivity (NE)`: range-based niche divergence along the discriminant axis. Values range from 0 to 1, where 0 indicates completely shared occupied ranges and 1 indicates completely exclusive occupied ranges (Ascanio et al. 2024).
+* `Niche_divergence_magnitude (ND)`: combined divergence magnitude in the niche divergence plane. Values range from 0 to 1.41, where 0 indicates no divergence and 1.41 indicates maximum combined density-based and range-based divergence (Ascanio et al. 2024).
+* `Niche_divergence_angle (θ)`: relative contribution of density-based versus range-based divergence. Values range from 0° to 90°, where values near 0° indicate divergence mainly driven by range exclusivity, values near 90° indicate divergence mainly driven by density differences within shared space, and intermediate values indicate mixed contributions (Ascanio et al. 2024).
 
 The most important summary metrics are `D` and `ND`. Stronger niche divergence is indicated by lower `D` values and higher `ND` values. As a general rule of thumb: `D` values below 0.4 and `ND` values above 0.9 indicate strong divergence in the current framework.
 
@@ -381,7 +381,7 @@ Niche_divergence_metrics <- NicheDiv::calc.niche.divergence.metrics(DAPC_results
 Niche_divergence_metrics
 ```
 
-Optionally, calculate background-weighted metrics:
+Optionally, calculate background-corrected metrics. Following Brown and Carnaval (2019), unequal environmental availability is corrected by up-weighting rare and down-weighting common environments along the discriminant axis.
 
 ```r
 Niche_divergence_metrics_weighted <- NicheDiv::calc.niche.divergence.metrics(DAPC_results,
@@ -507,24 +507,7 @@ Here an example map (figure 3 from Schönberger et al preprint); the large point
 
 ![NicheDiv example result](man/figures/README-schoenberger-etal-figure-3.png)
 
-## Optional: Brown and Carnaval-style analogous trimming
-
-In addition to variable-level analogy filtering, NicheDiv includes `trim.to.analogous.environments()` to remove occurrence records from non-analogous environmental conditions following the logic of Brown and Carnaval-style environmental analogy correction.
-
-```r
-#### Optional Brown and Carnaval-style correction ##############################
-
-Sp1_Sp2_analogous_trimmed <- NicheDiv::trim.to.analogous.environments(Sp1.occurrence.data = Sp1_occurrence_filtered,
-                                                                      Sp2.occurrence.data = Sp2_occurrence_filtered,
-                                                                      Sp1.background.data = Sp1_background_filtered,
-                                                                      Sp2.background.data = Sp2_background_filtered,
-                                                                      exclude.cols = c(Latitude_col, Longitude_col, Species_col),
-                                                                      keep.occurrence.cols = c(Latitude_col, Longitude_col, Species_col))
-```
-
-The trimmed dataset can then be passed to `run.DAPC.crossval.permutation()` using the same DAPC workflow shown above.
-
-## Optional: run DAPC without analogous-variable filtering
+## DAPC in full-environment 
 
 For comparison, users may also run the DAPC test on the filtered occurrence data before analogous-variable filtering. This can help evaluate how much non-analogous environmental space affects the final result.
 
@@ -548,6 +531,32 @@ DAPC_results_no_analogy <- NicheDiv::run.DAPC.crossval.permutation(data.input = 
 Niche_divergence_metrics_no_analogy <- NicheDiv::calc.niche.divergence.metrics(DAPC_results_no_analogy,
                                                                                group.assignment = Sp1_Sp2_species_assignment_no_analogy)
 ```
+
+## Optional: Brown and Carnaval-style analogous trimming
+
+In addition to variable-level analogy filtering above (`filter.analogous.variables()`), NicheDiv includes `trim.to.analogous.environments()` to remove occurrence records from non-analogous environmental conditions following the logic of Brown and Carnaval-style environmental analogy correction (Brown & Carnaval 2019).
+This might be especially desired if the variable-level analogy filtering removes most variables, limiting the inference of the most important variables.
+
+```r
+#### Optional Brown and Carnaval-style correction ##############################
+
+Sp1_Sp2_analogous_trimmed <- NicheDiv::trim.to.analogous.environments(Sp1.occurrence.data = Sp1_occurrence_filtered,
+                                                                      Sp2.occurrence.data = Sp2_occurrence_filtered,
+                                                                      Sp1.background.data = Sp1_background_filtered,
+                                                                      Sp2.background.data = Sp2_background_filtered,
+                                                                      exclude.cols = c(Latitude_col, Longitude_col, Species_col),
+                                                                      keep.occurrence.cols = c(Latitude_col, Longitude_col, Species_col))
+```
+
+The trimmed dataset can then be passed to `run.DAPC.crossval.permutation()` using the same DAPC workflow shown above.
+
+## Optional: run DAPC without analogous-variable filtering
+
+
+## Further recommendations
+
+* We recommend first running the DAPC niche divergence test using only analogous environmental variables. Strong and significant divergence in this analysis suggests that the groups differ within shared accessible environmental space (Brown & Carnaval, 2019). If no analogous variables remain after filtering, this also provides evidence that the groups occupy strongly different accessible environments. If divergence is weak and non-significant in the analogous-only analysis, repeat the DAPC analysis using the full environmental dataset, including both analogous and non-analogous variables. Strong and significant separation in the full dataset indicates that the groups occupy different environments, but this result alone should not be interpreted as evidence of adaptive niche divergence because the separation may be driven by environments that are not jointly available to both groups. Running the full-dataset analysis can also be useful even when the analogous-only analysis shows strong divergence, because analogous filtering can remove environmental axes along which divergence occurs. In such cases, using only analogous variables may reduce discriminatory power and increase the risk of false negatives. If separation is weak and non-significant in both analyses, the background permutation test can be used to evaluate whether the non-significant result reflects true niche similarity or limited statistical power given the available environmental conditions.
+* NicheDiv currently only supports continuous environmental variables. Because DAPC is widely used with biallelic genetic markers (Jombart et al. 2010, Miller et al. 2020), the framework could potentially be extended to binary or categorical ecological predictors in the future. If you want to include binary or categorical data (e.g., host presence/absence, habitat classes, symbionts, or pollinator types), running a SOM (self-organizing map) model may be useful (Pyron et al. 2023; see https://github.com/rpyron/delim-SOM).
 
 ## Main functions
 
@@ -573,25 +582,29 @@ Niche_divergence_metrics_no_analogy <- NicheDiv::calc.niche.divergence.metrics(D
 
 ## References
 
-Ascanio, A., Bracken, J. T., Stevens, M. H. H., & Jezkova, T. (2024). New theoretical and analytical framework for quantifying and classifying ecological niche differentiation. *Ecological Monographs, 94*(4). https://doi.org/10.1002/ecm.1622
+* Ascanio, A., Bracken, J. T., Stevens, M. H. H., & Jezkova, T. (2024). New theoretical and analytical framework for quantifying and classifying ecological niche differentiation. *Ecological Monographs, 94*(4). https://doi.org/10.1002/ecm.1622
 
-Brown, J. L., & Carnaval, A. C. (2019). A tale of two niches: Methods, concepts, and evolution. *Frontiers of Biogeography, 11*(4). https://doi.org/10.21425/F5FBG44158
+* Brown, J. L., & Carnaval, A. C. (2019). A tale of two niches: Methods, concepts, and evolution. *Frontiers of Biogeography, 11*(4). https://doi.org/10.21425/F5FBG44158
 
-Dormann, C. F., Elith, J., Bacher, S., Buchmann, C., Carl, G., Carré, G., Marquéz, J. R. G., Gruber, B., Lafourcade, B., Leitão, P. J., Münkemüller, T., McClean, C., Osborne, P. E., Reineking, B., Schröder, B., Skidmore, A. K., Zurell, D., & Lautenbach, S. (2013). Collinearity: A review of methods to deal with it and a simulation study evaluating their performance. *Ecography, 36*(1), 27–46. https://doi.org/10.1111/j.1600-0587.2012.07348.x
+* Dormann, C. F., Elith, J., Bacher, S., Buchmann, C., Carl, G., Carré, G., Marquéz, J. R. G., Gruber, B., Lafourcade, B., Leitão, P. J., Münkemüller, T., McClean, C., Osborne, P. E., Reineking, B., Schröder, B., Skidmore, A. K., Zurell, D., & Lautenbach, S. (2013). Collinearity: A review of methods to deal with it and a simulation study evaluating their performance. *Ecography, 36*(1), 27–46. https://doi.org/10.1111/j.1600-0587.2012.07348.x
 
-Dormann, C. F., McPherson, J. M., Araújo, M. B., Bivand, R., Bolliger, J., Carl, G., Davies, R. G., Hirzel, A., Jetz, W., Kissling, W. D., Kühn, I., Ohlemüller, R., Peres-Neto, P. R., Reineking, B., Schröder, B., Schurr, F. M., & Wilson, R. (2007). Methods to account for spatial autocorrelation in the analysis of species distributional data: A review. *Ecography, 30*(5), 609–628. https://doi.org/10.1111/j.2007.0906-7590.05171.x
+* Dormann, C. F., McPherson, J. M., Araújo, M. B., Bivand, R., Bolliger, J., Carl, G., Davies, R. G., Hirzel, A., Jetz, W., Kissling, W. D., Kühn, I., Ohlemüller, R., Peres-Neto, P. R., Reineking, B., Schröder, B., Schurr, F. M., & Wilson, R. (2007). Methods to account for spatial autocorrelation in the analysis of species distributional data: A review. *Ecography, 30*(5), 609–628. https://doi.org/10.1111/j.2007.0906-7590.05171.x
 
-Jombart, T., Devillard, S., & Balloux, F. (2010). Discriminant analysis of principal components: A new method for the analysis of genetically structured populations. *BMC Genetics, 11*, 94. https://doi.org/10.1186/1471-2156-11-94
+* Jombart, T., Devillard, S., & Balloux, F. (2010). Discriminant analysis of principal components: A new method for the analysis of genetically structured populations. *BMC Genetics, 11*, 94. https://doi.org/10.1186/1471-2156-11-94
 
-Lachenbruch, P. A., & Goldstein, M. (1979). Discriminant analysis. *Biometrics, 35*(1), 69–85. https://doi.org/10.2307/2529937
+* Lachenbruch, P. A., & Goldstein, M. (1979). Discriminant analysis. *Biometrics, 35*(1), 69–85. https://doi.org/10.2307/2529937
 
-Potapov, P., Li, X., Hernandez-Serna, A., Tyukavina, A., Hansen, M. C., Kommareddy, A., Pickens, A., Turubanova, S., Tang, H., Silva, C. E., Armston, J., Dubayah, R., Blair, J. B., & Hofton, M. (2021). Mapping global forest canopy height through integration of GEDI and Landsat data. *Remote Sensing of Environment, 253*, 112165. https://doi.org/10.1016/j.rse.2020.112165
+* Miller, J. M., Cullingham, C. I., & Peery, R. M. (2020). The influence of a priori grouping on inference of genetic clusters: Simulation study and literature review of the DAPC method. *Heredity, 125*(5), 269–280. https://doi.org/10.1038/s41437-020-0348-2
 
-Prajzlerová, D., Barták, V., Balej, P., Moudrý, V., & Šímová, P. (2025). The time of acquisition of multispectral predictors matters: The role of seasonality in bird species distribution models. *Ecography*. https://doi.org/10.1002/ecog.07935
+* Potapov, P., Li, X., Hernandez-Serna, A., Tyukavina, A., Hansen, M. C., Kommareddy, A., Pickens, A., Turubanova, S., Tang, H., Silva, C. E., Armston, J., Dubayah, R., Blair, J. B., & Hofton, M. (2021). Mapping global forest canopy height through integration of GEDI and Landsat data. *Remote Sensing of Environment, 253*, 112165. https://doi.org/10.1016/j.rse.2020.112165
 
-Schoener, T. W. (1968). The Anolis lizards of Bimini: Resource partitioning in a complex fauna. *Ecology, 49*(4), 704–726. https://doi.org/10.2307/1935534
+* Prajzlerová, D., Barták, V., Balej, P., Moudrý, V., & Šímová, P. (2025). The time of acquisition of multispectral predictors matters: The role of seasonality in bird species distribution models. *Ecography*. https://doi.org/10.1002/ecog.07935
 
-Zimmermann, N. E., Yoccoz, N. G., Edwards, T. C., Meier, E. S., Thuiller, W., Guisan, A., Schmatz, D. R., & Pearman, P. B. (2009). Climatic extremes improve predictions of spatial patterns of tree species. *Proceedings of the National Academy of Sciences, 106*, 19723–19728. https://doi.org/10.1073/pnas.0901643106
+* Pyron, R. A., O’Connell, K. A., Duncan, S. C., Burbrink, F. T., & Beamer, D. A. (2023). Speciation hypotheses from phylogeographic delimitation yield an integrative taxonomy for Seal Salamanders (*Desmognathus monticola*). *Systematic Biology, 72*(1), 179–197. https://doi.org/10.1093/sysbio/syac065
+
+* Schoener, T. W. (1968). The Anolis lizards of Bimini: Resource partitioning in a complex fauna. *Ecology, 49*(4), 704–726. https://doi.org/10.2307/1935534
+
+* Zimmermann, N. E., Yoccoz, N. G., Edwards, T. C., Meier, E. S., Thuiller, W., Guisan, A., Schmatz, D. R., & Pearman, P. B. (2009). Climatic extremes improve predictions of spatial patterns of tree species. *Proceedings of the National Academy of Sciences, 106*, 19723–19728. https://doi.org/10.1073/pnas.0901643106
 
 
 ## Citation
