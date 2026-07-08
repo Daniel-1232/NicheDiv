@@ -520,7 +520,7 @@ Here an example map (figure 3 from Schönberger et al. preprint); the large poin
 
 ![NicheDiv example result](man/figures/README-schoenberger-etal-figure-3.png)
 
-## DAPC in full-environment 
+## DAPC in full-environment (without analogous-variable filtering)
 
 For comparison, users may also run the DAPC test on the filtered occurrence data before analogous-variable filtering. This can help evaluate how much non-analogous environmental space affects the final result.
 
@@ -560,8 +560,6 @@ Sp1_Sp2_analogous_trimmed <- trim.to.analogous.environments(Sp1.occurrence.data 
 ```
 
 The trimmed dataset can then be passed to `run.DAPC.crossval.permutation()` using the same DAPC workflow shown above.
-
-## Optional: run DAPC without analogous-variable filtering
 
 
 ## How to include multiple pairwise comparisons
