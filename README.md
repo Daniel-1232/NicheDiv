@@ -466,9 +466,7 @@ DAPC_var_contr <- plot.DAPC.var.contributions(DAPC_results_short_names,
 head(DAPC_var_contr)
 ```
 
-We can also examine the raw distributions of the top contributing predictors. 
-
-We can adjust how many variable to show via `N.top.variables` (6 is usually working well in this plot layout).
+We can also examine the raw distributions of the top contributing predictors. The number of variable to show can be adjusted via `N.top.variables` (6 is usually working well in this plot layout).
 
 ```r
 #### Plot top predictors #######################################################
@@ -487,14 +485,14 @@ plot.top.DAPC.predictors(dapc.results = DAPC_results_short_names,
                          width = 16,
                          height = 10)
 ```
-Here is an example output from the two variable-contribution plotting functions above (figure 5 from Schönberger et al. preprint). The figure summarizes which environmental variables contribute most strongly to the DAPC-based separation of the two taxa in multivariate niche space. Panel A shows the relative contribution of each predictor to the discriminant axis and indicates which species has higher values for each variable. Panel B shows the distributions of the strongest contributing predictors, illustrating how univariate differences in these variables drive the estimated niche divergence. 
+Here is an example output from the two variable-contribution plotting functions above (figure 5 from Schönberger et al. preprint)
 
 ![NicheDiv example result](man/figures/README-schoenberger-etal-figure-5.png)
 
 
-Plot: occurrences and background points
+Lastly, we can plot the occurrences and background points on a map.
 
-This map is useful for checking the geographic distribution of the two groups, the sampled background environments, and whether the accessible areas are biologically reasonable. 
+This is useful for checking the geographic distribution of the two groups, the sampled background environments, and whether the accessible areas are biologically reasonable. 
 Some map elements may need to be adjusted depending on the study area, map extent, and figure size. In particular, the arguments `north.arrow.length`, `north.arrow.N.position`, `north.arrow.position`, `scale.position`, `longitude.buffer.range`, `latitude.buffer.range`, and `north.arrow.lwd` may need manual tuning to avoid overlap with points or map boundaries.
 
 ```r
@@ -534,21 +532,45 @@ This analysis is especially useful if many variables are removed during analogou
 ```r
 #### Optional DAPC without analogous-variable filtering ########################
 Sp1_Sp2_species_assignment_no_analogy <- factor(Sp1_Sp2_occurrence_filtered[[Species_col]])
-
 Sp1_Sp2_species_colors_no_analogy <- setNames(base_colors[seq_along(levels(Sp1_Sp2_species_assignment_no_analogy))],
                                               levels(Sp1_Sp2_species_assignment_no_analogy))
-
 Sp1_Sp2_species_assignment_no_analogy <- factor(Sp1_Sp2_species_assignment_no_analogy,
                                                 levels = names(Sp1_Sp2_species_colors_no_analogy))
-
 DAPC_results_no_analogy <- run.DAPC.crossval.permutation(data.input = Sp1_Sp2_occurrence_filtered,
                                                          species.col = Species_col,
                                                          exclude.cols = c(Latitude_col, Longitude_col),
                                                          N.permutations = 1000,
                                                          N.crossval.replicates = 300)
-
 Niche_divergence_metrics_no_analogy <- calc.niche.divergence.metrics(DAPC_results_no_analogy,
                                                                      group.assignment = Sp1_Sp2_species_assignment_no_analogy)
+
+DAPC_results_no_analogy_short_names <- DAPC_results_no_analogy
+DAPC_results_no_analogy_short_names$dapc_results$var.contr <- map.env.variable.names(DAPC_results_no_analogy_short_names$dapc_results$var.contr, "short")
+DAPC_results_no_analogy_short_names$dapc_results$var.load <- map.env.variable.names(DAPC_results_no_analogy_short_names$dapc_results$var.load, "short")
+DAPC_var_contr_no_analogy <- plot.DAPC.var.contributions(DAPC_results_no_analogy_short_names,
+                                                         group.colors = Sp1_Sp2_species_colors_no_analogy,
+                                                         save = TRUE,
+                                                         overwrite = TRUE,
+                                                         type = "svg",
+                                                         output.dir = figure_dir,
+                                                         filename = "DAPC_variable_contributions_no_analogy",
+                                                         width = 16,
+                                                         height = 10)
+head(DAPC_var_contr_no_analogy)
+
+Sp1_Sp2_occurrence_filtered_short_names <- map.env.variable.names(Sp1_Sp2_occurrence_filtered, "short")
+plot.top.DAPC.predictors(dapc.results = DAPC_results_no_analogy_short_names,
+                         predictor.data = Sp1_Sp2_occurrence_filtered_short_names,
+                         species.labels = Sp1_Sp2_species_assignment_no_analogy,
+                         group.colors = Sp1_Sp2_species_colors_no_analogy,
+                         N.top.variables = 6,
+                         save = TRUE,
+                         overwrite = TRUE,
+                         type = "svg",
+                         output.dir = figure_dir,
+                         filename = "DAPC_top_predictors_no_analogy",
+                         width = 16,
+                         height = 10)
 ```
 
 ## Optional: Brown and Carnaval-style analogous trimming
@@ -557,6 +579,7 @@ In addition to variable-level analogy filtering (`filter.analogous.variables()`)
 
 This occurrence record-based analogy filtering (`trim.to.analogous.environments()`) may be preferred over variable-based analogy filtering if the latter removes many variables and therefore limits inference about the environmental variables contributing most to niche separation. However, if occurrence record-based trimming removes many records, DAPC inference may become less stable because of reduced sample size. In that case, variable-based analogy filtering may be preferred.
 
+The trimmed dataset can then be passed to `run.DAPC.crossval.permutation()` using the same DAPC workflow shown above.
 
 ```r
 #### Optional Brown and Carnaval-style correction ##############################
@@ -566,9 +589,49 @@ Sp1_Sp2_analogous_trimmed <- trim.to.analogous.environments(Sp1.occurrence.data 
                                                             Sp2.background.data = Sp2_background_filtered,
                                                             exclude.cols = c(Latitude_col, Longitude_col, Species_col),
                                                             keep.occurrence.cols = c(Latitude_col, Longitude_col, Species_col))
-```
 
-The trimmed dataset can then be passed to `run.DAPC.crossval.permutation()` using the same DAPC workflow shown above.
+
+Sp1_Sp2_species_assignment_trimmed <- factor(Sp1_Sp2_analogous_trimmed[[Species_col]])
+Sp1_Sp2_species_colors_trimmed <- setNames(base_colors[seq_along(levels(Sp1_Sp2_species_assignment_trimmed))],
+                                           levels(Sp1_Sp2_species_assignment_trimmed))
+Sp1_Sp2_species_assignment_trimmed <- factor(Sp1_Sp2_species_assignment_trimmed,
+                                             levels = names(Sp1_Sp2_species_colors_trimmed))
+DAPC_results_trimmed <- run.DAPC.crossval.permutation(data.input = Sp1_Sp2_analogous_trimmed,
+                                                      species.col = Species_col,
+                                                      exclude.cols = c(Latitude_col, Longitude_col),
+                                                      N.permutations = 1000,
+                                                      N.crossval.replicates = 300)
+Niche_divergence_metrics_trimmed <- calc.niche.divergence.metrics(DAPC_results_trimmed,
+                                                                  group.assignment = Sp1_Sp2_species_assignment_trimmed)
+
+DAPC_results_trimmed_short_names <- DAPC_results_trimmed
+DAPC_results_trimmed_short_names$dapc_results$var.contr <- map.env.variable.names(DAPC_results_trimmed_short_names$dapc_results$var.contr, "short")
+DAPC_results_trimmed_short_names$dapc_results$var.load <- map.env.variable.names(DAPC_results_trimmed_short_names$dapc_results$var.load, "short")
+DAPC_var_contr_trimmed <- plot.DAPC.var.contributions(DAPC_results_trimmed_short_names,
+                                                      group.colors = Sp1_Sp2_species_colors_trimmed,
+                                                      save = TRUE,
+                                                      overwrite = TRUE,
+                                                      type = "svg",
+                                                      output.dir = figure_dir,
+                                                      filename = "DAPC_variable_contributions_trimmed",
+                                                      width = 16,
+                                                      height = 10)
+head(DAPC_var_contr_trimmed)
+
+Sp1_Sp2_analogous_trimmed_short_names <- map.env.variable.names(Sp1_Sp2_analogous_trimmed, "short")
+plot.top.DAPC.predictors(dapc.results = DAPC_results_trimmed_short_names,
+                         predictor.data = Sp1_Sp2_analogous_trimmed_short_names,
+                         species.labels = Sp1_Sp2_species_assignment_trimmed,
+                         group.colors = Sp1_Sp2_species_colors_trimmed,
+                         N.top.variables = 6,
+                         save = TRUE,
+                         overwrite = TRUE,
+                         type = "svg",
+                         output.dir = figure_dir,
+                         filename = "DAPC_top_predictors_trimmed",
+                         width = 16,
+                         height = 10)
+```                         
 
 
 ## How to include multiple pairwise comparisons
