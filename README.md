@@ -415,7 +415,7 @@ Niche_divergence_metrics_weighted
 ## 8. Plot results
 In general, all plot functions include a built-in saving option, allowing figures to be exported directly as SVG, PNG, or JPEG files with user-defined dimensions.
 
-Plot the discriminant-axis density distributions. 
+Plot: discriminant-axis density distributions
 
 ```r
 #### Plot DAPC niche divergence ################################################
@@ -430,7 +430,7 @@ plot.DAPC.niche.divergence(DAPC_results,
                            height = 12)
 ```
 
-Plot the permutation null distribution of classification accuracy (observed value shown as red line):
+Plot: permutation null distribution of classification accuracy (observed value shown as red line)
 
 ```r
 #### Plot permutation test #####################################################
@@ -448,7 +448,9 @@ Here an example output from the two functions above showing strong multivariate 
 
 ![NicheDiv example result](man/figures/README-schoenberger-etal-figure-4.png)
 
-Plot environmental variable contributions to the discriminant axis. These values show which original environmental variables contribute most to the DAPC separation between the two groups. Contributions are calculated by back-transforming the discriminant axis from retained PCs to the original environmental variables. Higher values indicate variables that contribute more strongly to group separation, but they should not be interpreted as independent causal effects because correlated predictors can share the same signal.
+Plot: environmental variable contributions to the discriminant axis
+
+These values show which original environmental variables contribute most to the DAPC separation between the two groups. Contributions are calculated by back-transforming the discriminant axis from retained PCs to the original environmental variables. Higher values indicate variables that contribute more strongly to group separation, but they should not be interpreted as independent causal effects because correlated predictors can share the same signal.
 
 
 ```r
@@ -470,7 +472,7 @@ DAPC_var_contr <- plot.DAPC.var.contributions(DAPC_results_short_names,
 head(DAPC_var_contr)
 ```
 
-Plot raw distributions of the top contributing predictors:
+Plot: raw distributions of the top contributing predictors
 
 ```r
 #### Plot top predictors #######################################################
@@ -493,8 +495,9 @@ Here is an example output from the two variable-contribution plotting functions 
 ![NicheDiv example result](man/figures/README-schoenberger-etal-figure-5.png)
 
 
-Plot occurrences and background points. This map is useful for checking the geographic distribution of the two groups, the sampled background environments, and whether the accessible areas are biologically reasonable.
+Plot: occurrences and background points
 
+This map is useful for checking the geographic distribution of the two groups, the sampled background environments, and whether the accessible areas are biologically reasonable. 
 Some map elements may need to be adjusted depending on the study area, map extent, and figure size. In particular, the arguments `north.arrow.length`, `north.arrow.N.position`, `north.arrow.position`, `scale.position`, `longitude.buffer.range`, `latitude.buffer.range`, and `north.arrow.lwd` may need manual tuning to avoid overlap with points or map boundaries.
 
 ```r
@@ -520,13 +523,16 @@ plot.occurrences.map(coordinates = Sp1_Sp2_analogous,
                      width = 16,
                      height = 12)
 ```
-Here an example map (figure 3 from Schönberger et al. preprint); the large points represent occurrence records and the small points background records:
+Here an example map (figure 3 from Schönberger et al. preprint): the large points represent occurrence records and the small points background records
 
 ![NicheDiv example result](man/figures/README-schoenberger-etal-figure-3.png)
 
-## DAPC in full-environment (without analogous-variable filtering)
 
-For comparison, users may also run the DAPC test on the filtered occurrence data before analogous-variable filtering. This can help evaluate how much non-analogous environmental space affects the final result.
+## DAPC in full-environment
+
+We can also run the DAPC test using the full-environment (without non-analogous filtering). 
+This helps to evaluate how much non-analogous environmental space affects the final result.
+This analysis is especially useful if many variables are removed during analogous-variable filtering, because some excluded variables may be biologically relevant and potentially contribute to divergence. However, in the full-environment analysis, we cannot determine whether these variables reflect niche divergence within shared accessible environmental space or differences in environmental availability between taxa.
 
 ```r
 #### Optional DAPC without analogous-variable filtering ########################
