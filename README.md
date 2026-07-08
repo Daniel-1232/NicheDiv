@@ -17,7 +17,7 @@ This is done by adapting discriminant analysis of principal components (DAPC) to
 - Compared with alternative divergence tests, NicheDiv generally retains more variation, and scales more consistently with increasing divergence.
 
 ## Development status
-caThe framework is described in a preprint (https://doi.org/10.64898/2026.06.19.733388) and the manuscript is currently in review.  
+The framework is described in a preprint (https://doi.org/10.64898/2026.06.19.733388) and the manuscript is currently in review.  
 
 For bug reports, feedback, or questions, please contact me: daniel.schoenberger@uky.edu.
 
