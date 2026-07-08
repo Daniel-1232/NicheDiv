@@ -42,7 +42,7 @@ packageVersion("NicheDiv")
 
 ## Input data
 
-The approach only requires a data frame with occurrence records:
+The approach only requires a dataframe with occurrence records:
 
 * one row per occurrence record
 * unique row names
@@ -119,7 +119,7 @@ exclude_cols <- c(ID_col, "Locality", "CollectionDate")
 ```
 
 
-Use `Sp1_name` and `Sp2_name` for the group names exactly as they appear in the grouping column of your input data frame (e.g., "Hemileuca_nevadensis"), and use `Sp1_label` and `Sp2_label` for the labels displayed in plots (e.g., "H. nevadensis").
+Use `Sp1_name` and `Sp2_name` for the group names exactly as they appear in the grouping column of your input dataframe (e.g., "Hemileuca_nevadensis"), and use `Sp1_label` and `Sp2_label` for the labels displayed in plots (e.g., "H. nevadensis").
 
 `buffer_km` should be chosen to reflect the estimated approximate dispersal distance of the species group.
 
@@ -563,7 +563,10 @@ The trimmed dataset can then be passed to `run.DAPC.crossval.permutation()` usin
 
 
 ## How to include multiple pairwise comparisons
-
+If you have multiple taxa (e.g., all members of a species group), you can compare them by running NicheDiv in a pairwise fashion:
+1) Use input dataframe with coordinates for all taxa of interest.
+2) Extract environmental data and generate background points once for all taxa together (Step 1 in workflow: `extract.env.and.background()` function). We recommend increasing `N.background.points` to ensure enough background points for all comparisons (1 million worked well in our species group for North America). 
+3) For each pairwise comparison, first set `Sp1_name`, `Sp2_name`, `Sp1_label`, `Sp2_label`, `base_colors`, and `filename` in each plotting call (or change `figure_dir` for each), and then run steps 2-7 of the workflow for each pair.
 
 
 ## Further recommendations
@@ -574,7 +577,7 @@ The trimmed dataset can then be passed to `run.DAPC.crossval.permutation()` usin
 
 ## Main functions
 
-| Function                           | Purpose                                                                          |
+| Function                           | Description                                                                      |
 | ---------------------------------- | -------------------------------------------------------------------------------- |
 | `extract.env.and.background()`     | Extract environmental variables and generate background data.                    |
 | `convert.integer.to.numeric()`     | Convert integer columns to numeric.                                              |
@@ -594,8 +597,6 @@ The trimmed dataset can then be passed to `run.DAPC.crossval.permutation()` usin
 | `plot.occurrences.map()`           | Plot occurrence and background records on a map.                                 |
 | `map.env.variable.names()`         | Convert environmental variable names to shorter or more readable labels.         |
 
-
-## References
 
 ## References
 
