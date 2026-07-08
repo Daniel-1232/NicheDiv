@@ -408,10 +408,9 @@ Niche_divergence_metrics_weighted <- calc.niche.divergence.metrics(DAPC_results,
 Niche_divergence_metrics_weighted
 ```
 
+Plot the discriminant-axis density distributions. 
 
-## Plot DAPC results
-
-Plot the discriminant-axis density distributions. In general, all plot functions include a built-in saving option, allowing figures to be exported directly as SVG, PNG, or JPEG files with user-defined dimensions.
+In general, all plot functions include a built-in saving option, allowing figures to be exported directly as SVG, PNG, or JPEG files with user-defined dimensions.
 
 ```r
 #### Plot DAPC niche divergence ################################################
