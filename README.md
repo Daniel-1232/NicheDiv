@@ -31,6 +31,122 @@ For bug reports, feedback, or questions, please contact me: daniel.schoenberger@
 
 Install and load the *NicheDiv* *R* package:
 
+```r
+if (!requireNamespace("remotes", quietly = TRUE)) install.packages("remotes")
+remotes::install_github("Daniel-1232/NicheDiv")
+
+library(NicheDiv)
+packageVersion("NicheDiv")
+```
+
+
+## Input data
+
+The approach only requires a dataframe with occurrence records:
+
+* one row per occurrence record
+* unique row names
+* longitude and latitude columns
+* one grouping column with two (or more) groups to compare
+
+Example input:
+
+```r
+head(occurrence_data[, c("ID", "Longitude", "Latitude", "Species")])
+rownames(occurrence_data) <- occurrence_data$ID
+```
+
+```text
+     ID Longitude Latitude Species
+1 ID_001  -121.50   38.40   Sp1
+2 ID_002  -121.75   38.55   Sp1
+3 ID_003  -117.25   34.15   Sp2
+4 ID_004  -117.10   34.40   Sp2
+```
+
+The dataframe can include other columns as long as they are specified under `exclude_cols` (see below).
+Groups can be species, populations, lineages or any other predefined groupings or clusters.
+The dataframe can also include multiple species if you want to perform multiple pairwise comparisons (see section "How to include multiple pairwise comparisons" at the end).
+
+
+## Recommended workflow
+
+The NicheDiv workflow has several major steps. The code below describes the full workflow using recommended default parameters throughout. Parameters that may require tuning are discussed explicitly.
+
+Below is a schematic overview of the niche divergence framework, using two theoretical taxon pairs and three environmental layers as example (figure 1 from Schönberger et al. preprint):
+
+![NicheDiv workflow](man/figures/README-schoenberger-etal-figure-1.png)
+
+
+## Set working environment and input parameters
+
+Before starting, we need to define all directories, file names and parameters.
+
+```r
+#### Set working environment and input #########################################
+
+## Set directories
+base_dir <- "path/to/project"
+results_dir <- file.path(base_dir, "Results")
+figure_dir <- file.path(results_dir, "Figure_files")
+intermediate_files_dir_name <- "Intermediate_files"
+
+dir.create(results_dir, recursive = TRUE, showWarnings = FALSE)
+dir.create(figure_dir, recursive = TRUE, showWarnings = FALSE)
+
+
+## Set input occurrence file
+occurrence_data_file <- file.path(base_dir, "Data/occurrences.csv")
+
+
+## Set output occurrence files with environmental data
+csv_occurrence_out_file <- "Occurrences_env.csv"
+csv_background_out_file <- "Background_env.csv"
+
+
+## Set parameters and column names
+Sp1_name <- "Group_1"
+Sp2_name <- "Group_2"
+Sp1_label <- "Group 1"
+Sp2_label <- "Group 2"
+
+Species_col <- "Species"
+ID_col <- "ID"
+
+Longitude_col <- "Longitude"
+Latitude_col <- "Latitude"
+CRS_all <- "EPSG:4326"
+
+buffer_km <- 5
+base_colors <- c("#A331A3", "#6CB3A5")
+exclude_cols <- c(ID_col, "Locality", "CollectionDate")
+```
+
+Use `Sp1_name` and `Sp2_name` for the group names exactly as they appear in the grouping column of your input dataframe (e.g., `"Hemileuca_nevadensis"`), and use `Sp1_label` and `Sp2_label` for the labels displayed in plots (e.g., `"H. nevadensis"`).
+
+`buffer_km` should be chosen to reflect the estimated approximate dispersal distance of the species group.
+
+Use `exclude_cols` to list columns that should be excluded from environmental predictor variables throughout the workflow, such as IDs, locality names, or collection dates.
+
+`CRS_all` defines the coordinate reference system of the occurrence coordinates. Use `"EPSG:4326"` when your longitude and latitude columns are in decimal degrees, which is the most common format for occurrence data. If your coordinates are already projected, provide the corresponding projected CRS instead.
+
+
+## 1. Extract environmental data and generate background points
+
+We start by extracting environmental values for occurrence records and generating background points within the accessible area.
+This step usually takes the most time because the environmental layers need to be downloaded. Fortunately, our approach uses minimal GIS layer processing/projection, saving hours of time and a lot of memory.
+In the example below, all implemented environmental datasets are used, which can take several hours. Using all datasets is typically a good approach to describe the niche as comprehensively as possible, but your study system may require excluding datasets that are biologically less relevant.
+Furthermore, some datasets are only available for North America (namely, `"ClimateNA"`, `"daylength"`, and `"snow_water_equivalent"`). If your study system is outside North America, remove these datasets from `env.datasets`.
+
+For terrestrial taxa, we recommend setting `remove.hydrolakes.background = TRUE`, which prevents background points from being sampled from lakes and other major inland water bodies.
+
+```r
+#### Extract environmental data ################################################
+
+## Import occurrences
+occurrence_data <- read.csv(occurrence_data_file, check.names = FALSE)
+rownames(occurrence_data) <- occurrence_data[[ID_col]]
+if (anyDuplicated(rownames(occurrence_data)) > 0) stop("Occurrence IDs must be unique")
 
 ## Extract environmental data and background points
 extract.env.and.background(occurrence.data = occurrence_data,
@@ -58,21 +174,21 @@ Optional custom rasters can also be supplied by the user as one or more GeoTIFF 
 custom_raster_path <- file.path(base_dir, "Data/custom_environmental_layers.tif")
 custom_raster_variable_names <- names(terra::rast(custom_raster_path))
 
-extract.env.and.background(occurrence.data = occurrence_data,
-                           longitude.col = Longitude_col,
-                           latitude.col = Latitude_col,
-                           generate.background.data = TRUE,
-                           N.background.points = 300000,
-                           buffer.km = buffer_km,
-                           remove.hydrolakes.background = TRUE,
-                           csv.occurrence.out.file = csv_occurrence_out_file,
-                           csv.background.out.file = csv_background_out_file,
-                           output.dir = results_dir,
-                           intermediate.files.dir = intermediate_files_dir_name,
-                           CRS.occurrences = CRS_all,
-                           env.datasets = c("elevation", "ClimateNA"),
-                           custom.env.rasters = custom_raster_path,
-                           custom.env.rasters.variable.names = custom_raster_variable_names)
+NicheDiv::extract.env.and.background(occurrence.data = occurrence_data,
+                                     longitude.col = Longitude_col,
+                                     latitude.col = Latitude_col,
+                                     generate.background.data = TRUE,
+                                     N.background.points = 300000,
+                                     buffer.km = buffer_km,
+                                     remove.hydrolakes.background = TRUE,
+                                     csv.occurrence.out.file = csv_occurrence_out_file,
+                                     csv.background.out.file = csv_background_out_file,
+                                     output.dir = results_dir,
+                                     intermediate.files.dir = intermediate_files_dir_name,
+                                     CRS.occurrences = CRS_all,
+                                     env.datasets = c("elevation", "ClimateNA"),
+                                     custom.env.rasters = custom_raster_path,
+                                     custom.env.rasters.variable.names = custom_raster_variable_names)
 ```
 
 ## 2. Import and prepare extracted data
@@ -235,7 +351,7 @@ Sp1_Sp2_analogous <- filter.analogous.variables(Sp1.Sp2.occurrence.data = Sp1_Sp
 ```
 
 
-## 7. Run DAPC and plot results
+## 7. Run DAPC
 
 Finally, we run the main niche divergence analysis by applying DAPC to the filtered environmental data. The function first performs a PCA to reduce dimensionality and collinearity, and then uses discriminant analysis to identify the axis that best separates the two groups in multivariate environmental space.
 
@@ -284,7 +400,7 @@ Niche_divergence_metrics <- calc.niche.divergence.metrics(DAPC_results,
 Niche_divergence_metrics
 ```
 
-Optionally, calculate background-corrected metrics (Following Brown and Carnaval 2019) by up-weighting rare and down-weighting common environments along the discriminant axis to account for unequal environmental availability.
+Optionally, we can calculate background-corrected metrics (following Brown and Carnaval 2019) by up-weighting rare and down-weighting common environments along the discriminant axis to account for unequal environmental availability.
 
 ```r
 Niche_divergence_metrics_weighted <- calc.niche.divergence.metrics(DAPC_results,
@@ -296,9 +412,10 @@ Niche_divergence_metrics_weighted <- calc.niche.divergence.metrics(DAPC_results,
 Niche_divergence_metrics_weighted
 ```
 
-Plot the discriminant-axis density distributions. 
-
+## 8. Plot results
 In general, all plot functions include a built-in saving option, allowing figures to be exported directly as SVG, PNG, or JPEG files with user-defined dimensions.
+
+Plot the discriminant-axis density distributions. 
 
 ```r
 #### Plot DAPC niche divergence ################################################
