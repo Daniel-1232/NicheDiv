@@ -362,7 +362,15 @@ DAPC_results <- NicheDiv::run.DAPC.crossval.permutation(data.input = Sp1_Sp2_ana
                                                         N.crossval.replicates = 100)
 ```
 
-Calculate niche divergence metrics:
+Based on the DAPC results, we can calculate the following five niche divergence metrics:
+
+* `Schoener_D (D)`: niche overlap between the two groups along the discriminant axis. Values range from 0 to 1, where 1 indicates complete overlap and 0 indicates no overlap.
+* `Niche_dissimilarity (NDS)`: density-based niche divergence along the discriminant axis. Values range from 0 to 1, where 0 indicates identical occurrence-density distributions and 1 indicates completely non-overlapping densities.
+* `Niche_breadth_exclusivity (NE)`: range-based niche divergence along the discriminant axis. Values range from 0 to 1, where 0 indicates completely shared occupied ranges and 1 indicates completely exclusive occupied ranges.
+* `Niche_divergence_magnitude (ND)`: combined divergence magnitude in the niche divergence plane. Values range from 0 to 1.41, where 0 indicates no divergence and 1.41 indicates maximum combined density-based and range-based divergence.
+* `Niche_divergence_angle (θ)`: relative contribution of density-based versus range-based divergence. Values range from 0° to 90°, where values near 0° indicate divergence mainly driven by range exclusivity, values near 90° indicate divergence mainly driven by density differences within shared space, and intermediate values indicate mixed contributions.
+
+The most important summary metrics are `D` and `ND`. Stronger niche divergence is indicated by lower `D` values and higher `ND` values. As a general rule of thumb: `D` values below 0.4 and `ND` values above 0.9 indicate strong divergence in the current framework.
 
 ```r
 #### Calculate niche divergence metrics ########################################
@@ -385,16 +393,6 @@ Niche_divergence_metrics_weighted <- NicheDiv::calc.niche.divergence.metrics(DAP
 Niche_divergence_metrics_weighted
 ```
 
-The following five niche divergence metrics are calculated:
-
-
-* `Schoener_D (D)`: niche overlap between the two groups along the discriminant axis. Values range from 0 to 1, where 1 indicates complete overlap and 0 indicates no overlap.
-* `Niche_dissimilarity (NDS)`: density-based niche divergence along the discriminant axis. Values range from 0 to 1, where 0 indicates identical occurrence-density distributions and 1 indicates completely non-overlapping densities.
-* `Niche_breadth_exclusivity (NE)`: range-based niche divergence along the discriminant axis. Values range from 0 to 1, where 0 indicates completely shared occupied ranges and 1 indicates completely exclusive occupied ranges.
-* `Niche_divergence_magnitude (ND)`: combined divergence magnitude in the niche divergence plane. Values range from 0 to 1.41, where 0 indicates no divergence and 1.41 indicates maximum combined density-based and range-based divergence.
-* `Niche_divergence_angle (θ)`: relative contribution of density-based versus range-based divergence. Values range from 0° to 90°, where values near 0° indicate divergence mainly driven by range exclusivity, values near 90° indicate divergence mainly driven by density differences within shared space, and intermediate values indicate mixed contributions.
-
-The most important summary metrics are `D` and `ND`. Stronger niche divergence is indicated by lower `D` values and higher `ND` values. As a general rule of thumb: `D` values below 0.4 and `ND` values above 0.9 indicate strong divergence in the current framework.
 
 ## Plot DAPC results
 
@@ -572,6 +570,28 @@ Niche_divergence_metrics_no_analogy <- NicheDiv::calc.niche.divergence.metrics(D
 | `plot.top.DAPC.predictors()`       | Plot raw distributions of top contributing predictors.                           |
 | `plot.occurrences.map()`           | Plot occurrence and background records on a map.                                 |
 | `map.env.variable.names()`         | Convert environmental variable names to shorter or more readable labels.         |
+
+## References
+
+Ascanio, A., Bracken, J. T., Stevens, M. H. H., & Jezkova, T. (2024). New theoretical and analytical framework for quantifying and classifying ecological niche differentiation. *Ecological Monographs, 94*(4). https://doi.org/10.1002/ecm.1622
+
+Brown, J. L., & Carnaval, A. C. (2019). A tale of two niches: Methods, concepts, and evolution. *Frontiers of Biogeography, 11*(4). https://doi.org/10.21425/F5FBG44158
+
+Dormann, C. F., Elith, J., Bacher, S., Buchmann, C., Carl, G., Carré, G., Marquéz, J. R. G., Gruber, B., Lafourcade, B., Leitão, P. J., Münkemüller, T., McClean, C., Osborne, P. E., Reineking, B., Schröder, B., Skidmore, A. K., Zurell, D., & Lautenbach, S. (2013). Collinearity: A review of methods to deal with it and a simulation study evaluating their performance. *Ecography, 36*(1), 27–46. https://doi.org/10.1111/j.1600-0587.2012.07348.x
+
+Dormann, C. F., McPherson, J. M., Araújo, M. B., Bivand, R., Bolliger, J., Carl, G., Davies, R. G., Hirzel, A., Jetz, W., Kissling, W. D., Kühn, I., Ohlemüller, R., Peres-Neto, P. R., Reineking, B., Schröder, B., Schurr, F. M., & Wilson, R. (2007). Methods to account for spatial autocorrelation in the analysis of species distributional data: A review. *Ecography, 30*(5), 609–628. https://doi.org/10.1111/j.2007.0906-7590.05171.x
+
+Jombart, T., Devillard, S., & Balloux, F. (2010). Discriminant analysis of principal components: A new method for the analysis of genetically structured populations. *BMC Genetics, 11*, 94. https://doi.org/10.1186/1471-2156-11-94
+
+Lachenbruch, P. A., & Goldstein, M. (1979). Discriminant analysis. *Biometrics, 35*(1), 69–85. https://doi.org/10.2307/2529937
+
+Potapov, P., Li, X., Hernandez-Serna, A., Tyukavina, A., Hansen, M. C., Kommareddy, A., Pickens, A., Turubanova, S., Tang, H., Silva, C. E., Armston, J., Dubayah, R., Blair, J. B., & Hofton, M. (2021). Mapping global forest canopy height through integration of GEDI and Landsat data. *Remote Sensing of Environment, 253*, 112165. https://doi.org/10.1016/j.rse.2020.112165
+
+Prajzlerová, D., Barták, V., Balej, P., Moudrý, V., & Šímová, P. (2025). The time of acquisition of multispectral predictors matters: The role of seasonality in bird species distribution models. *Ecography*. https://doi.org/10.1002/ecog.07935
+
+Schoener, T. W. (1968). The Anolis lizards of Bimini: Resource partitioning in a complex fauna. *Ecology, 49*(4), 704–726. https://doi.org/10.2307/1935534
+
+Zimmermann, N. E., Yoccoz, N. G., Edwards, T. C., Meier, E. S., Thuiller, W., Guisan, A., Schmatz, D. R., & Pearman, P. B. (2009). Climatic extremes improve predictions of spatial patterns of tree species. *Proceedings of the National Academy of Sciences, 106*, 19723–19728. https://doi.org/10.1073/pnas.0901643106
 
 
 ## Citation
