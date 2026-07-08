@@ -146,22 +146,22 @@ if (anyDuplicated(rownames(occurrence_data)) > 0) stop("Occurrence IDs must be u
 
 ## Extract environmental data and background points
 extract.env.and.background(occurrence.data = occurrence_data,
-                                     longitude.col = Longitude_col,
-                                     latitude.col = Latitude_col,
-                                     generate.background.data = TRUE,
-                                     N.background.points = 300000,
-                                     buffer.km = buffer_km,
-                                     remove.hydrolakes.background = TRUE,
-                                     csv.occurrence.out.file = csv_occurrence_out_file,
-                                     csv.background.out.file = csv_background_out_file,
-                                     output.dir = results_dir,
-                                     intermediate.files.dir = intermediate_files_dir_name,
-                                     CRS.occurrences = CRS_all,
-                                     env.datasets = c("elevation", "ClimateNA", "EVI", "terrain",
-                                                      "ENVIREM", "footprint", "landcover", "soil",
-                                                      "forest_height", "atmosphere", "nightlight",
-                                                      "burned_area", "snow_water_equivalent",
-                                                      "daylength", "soil_moisture"))
+                           longitude.col = Longitude_col,
+                           latitude.col = Latitude_col,
+                           generate.background.data = TRUE,
+                           N.background.points = 300000,
+                           buffer.km = buffer_km,
+                           remove.hydrolakes.background = TRUE,
+                           csv.occurrence.out.file = csv_occurrence_out_file,
+                           csv.background.out.file = csv_background_out_file,
+                           output.dir = results_dir,
+                           intermediate.files.dir = intermediate_files_dir_name,
+                           CRS.occurrences = CRS_all,
+                           env.datasets = c("elevation", "ClimateNA", "EVI", "terrain",
+                                            "ENVIREM", "footprint", "landcover", "soil",
+                                            "forest_height", "atmosphere", "nightlight",
+                                            "burned_area", "snow_water_equivalent",
+                                            "daylength", "soil_moisture"))
 ```
 
 Optional custom rasters can also be supplied by the user as one or more GeoTIFF files:
@@ -171,20 +171,20 @@ custom_raster_path <- file.path(base_dir, "Data/custom_environmental_layers.tif"
 custom_raster_variable_names <- names(terra::rast(custom_raster_path))
 
 extract.env.and.background(occurrence.data = occurrence_data,
-                                     longitude.col = Longitude_col,
-                                     latitude.col = Latitude_col,
-                                     generate.background.data = TRUE,
-                                     N.background.points = 300000,
-                                     buffer.km = buffer_km,
-                                     remove.hydrolakes.background = TRUE,
-                                     csv.occurrence.out.file = csv_occurrence_out_file,
-                                     csv.background.out.file = csv_background_out_file,
-                                     output.dir = results_dir,
-                                     intermediate.files.dir = intermediate_files_dir_name,
-                                     CRS.occurrences = CRS_all,
-                                     env.datasets = c("elevation", "ClimateNA"),
-                                     custom.env.rasters = custom_raster_path,
-                                     custom.env.rasters.variable.names = custom_raster_variable_names)
+                           longitude.col = Longitude_col,
+                           latitude.col = Latitude_col,
+                           generate.background.data = TRUE,
+                           N.background.points = 300000,
+                           buffer.km = buffer_km,
+                           remove.hydrolakes.background = TRUE,
+                           csv.occurrence.out.file = csv_occurrence_out_file,
+                           csv.background.out.file = csv_background_out_file,
+                           output.dir = results_dir,
+                           intermediate.files.dir = intermediate_files_dir_name,
+                           CRS.occurrences = CRS_all,
+                           env.datasets = c("elevation", "ClimateNA"),
+                           custom.env.rasters = custom_raster_path,
+                           custom.env.rasters.variable.names = custom_raster_variable_names)
 ```
 
 ## 2. Import and prepare extracted data
@@ -234,20 +234,20 @@ Available background geometries are `"hull"`, `"points"`, `"alpha"`, and `"bbox"
 
 ## Crop background to each group-specific accessible area
 Sp1_background_data <- crop.background.buffered(occurrence.data = Sp1_occurrence_data,
-                                                          background.data = Env_data_background,
-                                                          latitude.col = Latitude_col,
-                                                          longitude.col = Longitude_col,
-                                                          CRS = CRS_all,
-                                                          buffer.method = "hull",
-                                                          buffer.dist.meters = buffer_km * 1000)
+                                                background.data = Env_data_background,
+                                                latitude.col = Latitude_col,
+                                                longitude.col = Longitude_col,
+                                                CRS = CRS_all,
+                                                buffer.method = "hull",
+                                                buffer.dist.meters = buffer_km * 1000)
 
 Sp2_background_data <- crop.background.buffered(occurrence.data = Sp2_occurrence_data,
-                                                          background.data = Env_data_background,
-                                                          latitude.col = Latitude_col,
-                                                          longitude.col = Longitude_col,
-                                                          CRS = CRS_all,
-                                                          buffer.method = "hull",
-                                                          buffer.dist.meters = buffer_km * 1000)
+                                                background.data = Env_data_background,
+                                                latitude.col = Latitude_col,
+                                                longitude.col = Longitude_col,
+                                                CRS = CRS_all,
+                                                buffer.method = "hull",
+                                                buffer.dist.meters = buffer_km * 1000)
 
 
 ## Downsample background data
@@ -265,22 +265,22 @@ We also downsample both groups to the same number of occurrences (to avoid bias 
 
 ## Thin occurrence records
 Sp1_occurrence_thinned <- thin.occurrence(Sp1_occurrence_data,
-                                                    latitude.col = Latitude_col,
-                                                    longitude.col = Longitude_col,
-                                                    thinning.dist.km = 1)
+                                          latitude.col = Latitude_col,
+                                          longitude.col = Longitude_col,
+                                          thinning.dist.km = 1)
 Sp2_occurrence_thinned <- thin.occurrence(Sp2_occurrence_data,
-                                                    latitude.col = Latitude_col,
-                                                    longitude.col = Longitude_col,
-                                                    thinning.dist.km = 1)
+                                          latitude.col = Latitude_col,
+                                          longitude.col = Longitude_col,
+                                          thinning.dist.km = 1)
 
 
 ## Downsample to equal sample size
 n_min_occurrence_thinned <- min(nrow(Sp1_occurrence_thinned), nrow(Sp2_occurrence_thinned))
 
 Sp1_occurrence_thinned <- sample.down(Sp1_occurrence_thinned,
-                                                N.rows = n_min_occurrence_thinned)
+                                      N.rows = n_min_occurrence_thinned)
 Sp2_occurrence_thinned <- sample.down(Sp2_occurrence_thinned,
-                                                N.rows = n_min_occurrence_thinned)
+                                      N.rows = n_min_occurrence_thinned)
 ```
 
 ## 5. Transform and filter environmental variables
@@ -299,8 +299,8 @@ Sp1_Sp2_background_data <- rbind(Sp1_background_data, Sp2_background_data)
 
 ## Transform skewed variables
 transformation_results <- transform.skewed.variables(data.frame = Sp1_Sp2_occurrence_thinned,
-                                                               exclude.cols = c(Latitude_col, Longitude_col, Species_col, ID_col),
-                                                               background.dataframe = Sp1_Sp2_background_data)
+                                                     exclude.cols = c(Latitude_col, Longitude_col, Species_col, ID_col),
+                                                     background.dataframe = Sp1_Sp2_background_data)
 Sp1_Sp2_occurrence_transformed <- transformation_results$transformed
 Sp1_Sp2_background_transformed <- transformation_results$background.transformed
 
@@ -316,11 +316,11 @@ Sp2_background_transformed <- Sp1_Sp2_background_transformed[Sp1_Sp2_background_
 ```r
 #### Remove low-information variables ##########################################
 CV_removal_results <- remove.low.CV.vars(Sp1.occurrence.data = Sp1_occurrence_transformed,
-                                                   Sp2.occurrence.data = Sp2_occurrence_transformed,
-                                                   Sp1.background.data = Sp1_background_transformed,
-                                                   Sp2.background.data = Sp2_background_transformed,
-                                                   exclude.cols = c(Latitude_col, Longitude_col, Species_col, ID_col),
-                                                   CV.threshold = 0.01)
+                                         Sp2.occurrence.data = Sp2_occurrence_transformed,
+                                         Sp1.background.data = Sp1_background_transformed,
+                                         Sp2.background.data = Sp2_background_transformed,
+                                         exclude.cols = c(Latitude_col, Longitude_col, Species_col, ID_col),
+                                         CV.threshold = 0.01)
 
 Sp1_occurrence_filtered <- CV_removal_results$occurrence_Sp1
 Sp2_occurrence_filtered <- CV_removal_results$occurrence_Sp2
@@ -337,11 +337,11 @@ This step reduces bias from non-analogous environments by filtering out variable
 ```r
 #### Filter to analogous environmental variables ###############################
 Sp1_Sp2_analogous <- filter.analogous.variables(Sp1.Sp2.occurrence.data = Sp1_Sp2_occurrence_filtered,
-                                                          Sp1.background.data = Sp1_background_filtered,
-                                                          Sp2.background.data = Sp2_background_filtered,
-                                                          exclude.cols = c(Latitude_col, Longitude_col, Species_col),
-                                                          CV.threshold = 0.01,
-                                                          overlap.threshold = 0.7)
+                                                Sp1.background.data = Sp1_background_filtered,
+                                                Sp2.background.data = Sp2_background_filtered,
+                                                exclude.cols = c(Latitude_col, Longitude_col, Species_col),
+                                                CV.threshold = 0.01,
+                                                overlap.threshold = 0.7)
 ```
 
 
@@ -370,10 +370,10 @@ Sp1_Sp2_species_assignment <- factor(Sp1_Sp2_species_assignment,
 
 ## Run cross-validated DAPC with permutation test
 DAPC_results <- run.DAPC.crossval.permutation(data.input = Sp1_Sp2_analogous,
-                                                        species.col = Species_col,
-                                                        exclude.cols = c(Latitude_col, Longitude_col),
-                                                        N.permutations = 1000,
-                                                        N.crossval.replicates = 100)
+                                              species.col = Species_col,
+                                              exclude.cols = c(Latitude_col, Longitude_col),
+                                              N.permutations = 1000,
+                                              N.crossval.replicates = 100)
 ```
 
 Based on the DAPC results, we can calculate the following five niche divergence metrics:
@@ -389,7 +389,7 @@ The most important summary metrics are `D` and `ND`. Stronger niche divergence i
 ```r
 #### Calculate niche divergence metrics ########################################
 Niche_divergence_metrics <- calc.niche.divergence.metrics(DAPC_results,
-                                                                    group.assignment = Sp1_Sp2_species_assignment)
+                                                          group.assignment = Sp1_Sp2_species_assignment)
 
 Niche_divergence_metrics
 ```
@@ -398,10 +398,10 @@ Optionally, calculate background-corrected metrics (Following Brown and Carnaval
 
 ```r
 Niche_divergence_metrics_weighted <- calc.niche.divergence.metrics(DAPC_results,
-                                                                             weight.background = TRUE,
-                                                                             Sp1.background.data = Sp1_background_filtered,
-                                                                             Sp2.background.data = Sp2_background_filtered,
-                                                                             group.assignment = Sp1_Sp2_species_assignment)
+                                                                   weight.background = TRUE,
+                                                                   Sp1.background.data = Sp1_background_filtered,
+                                                                   Sp2.background.data = Sp2_background_filtered,
+                                                                   group.assignment = Sp1_Sp2_species_assignment)
 
 Niche_divergence_metrics_weighted
 ```
@@ -414,14 +414,14 @@ Plot the discriminant-axis density distributions. In general, all plot functions
 ```r
 #### Plot DAPC niche divergence ################################################
 plot.DAPC.niche.divergence(DAPC_results,
-                                     group.colors = Sp1_Sp2_species_colors,
-                                     save = TRUE,
-                                     overwrite = TRUE,
-                                     type = "svg",
-                                     output.dir = figure_dir,
-                                     filename = "DAPC_niche_divergence",
-                                     width = 16,
-                                     height = 12)
+                           group.colors = Sp1_Sp2_species_colors,
+                           save = TRUE,
+                           overwrite = TRUE,
+                           type = "svg",
+                           output.dir = figure_dir,
+                           filename = "DAPC_niche_divergence",
+                           width = 16,
+                           height = 12)
 ```
 
 Plot the permutation null distribution of classification accuracy (observed value shown as red line):
@@ -429,13 +429,13 @@ Plot the permutation null distribution of classification accuracy (observed valu
 ```r
 #### Plot permutation test #####################################################
 plot.DAPC.permutation(DAPC_results,
-                                save = TRUE,
-                                overwrite = TRUE,
-                                type = "svg",
-                                output.dir = figure_dir,
-                                filename = "DAPC_permutation_test",
-                                width = 16,
-                                height = 9)
+                      save = TRUE,
+                      overwrite = TRUE,
+                      type = "svg",
+                      output.dir = figure_dir,
+                      filename = "DAPC_permutation_test",
+                      width = 16,
+                      height = 9)
 ```
 
 Here an example output from the two functions above showing strong multivariate niche divergence in this *Hemileuca maia* buck moth group (figure 4 from Schönberger et al. preprint):
@@ -452,14 +452,14 @@ DAPC_results_short_names$dapc_results$var.contr <- map.env.variable.names(DAPC_r
 DAPC_results_short_names$dapc_results$var.load <- map.env.variable.names(DAPC_results_short_names$dapc_results$var.load, "short")
 
 DAPC_var_contr <- plot.DAPC.var.contributions(DAPC_results_short_names,
-                                                        group.colors = Sp1_Sp2_species_colors,
-                                                        save = TRUE,
-                                                        overwrite = TRUE,
-                                                        type = "svg",
-                                                        output.dir = figure_dir,
-                                                        filename = "DAPC_variable_contributions",
-                                                        width = 16,
-                                                        height = 10)
+                                              group.colors = Sp1_Sp2_species_colors,
+                                              save = TRUE,
+                                              overwrite = TRUE,
+                                              type = "svg",
+                                              output.dir = figure_dir,
+                                              filename = "DAPC_variable_contributions",
+                                              width = 16,
+                                              height = 10)
 
 head(DAPC_var_contr)
 ```
@@ -471,16 +471,16 @@ Plot raw distributions of the top contributing predictors:
 Sp1_Sp2_analogous_short_names <- map.env.variable.names(Sp1_Sp2_analogous, "short")
 
 plot.top.DAPC.predictors(dapc.results = DAPC_results_short_names,
-                                   predictor.data = Sp1_Sp2_analogous_short_names,
-                                   species.labels = Sp1_Sp2_species_assignment,
-                                   group.colors = Sp1_Sp2_species_colors,
-                                   save = TRUE,
-                                   overwrite = TRUE,
-                                   type = "svg",
-                                   output.dir = figure_dir,
-                                   filename = "DAPC_top_predictors",
-                                   width = 16,
-                                   height = 10)
+                         predictor.data = Sp1_Sp2_analogous_short_names,
+                         species.labels = Sp1_Sp2_species_assignment,
+                         group.colors = Sp1_Sp2_species_colors,
+                         save = TRUE,
+                         overwrite = TRUE,
+                         type = "svg",
+                         output.dir = figure_dir,
+                         filename = "DAPC_top_predictors",
+                         width = 16,
+                         height = 10)
 ```
 Here is an example output from the two variable-contribution plotting functions above (figure 5 from Schönberger et al. preprint). The figure summarizes which environmental variables contribute most strongly to the DAPC-based separation of the two taxa in multivariate niche space. Panel A shows the relative contribution of each predictor to the discriminant axis and indicates which species has higher values for each variable. Panel B shows the distributions of the strongest contributing predictors, illustrating how univariate differences in these variables drive the estimated niche divergence. 
 
@@ -500,19 +500,19 @@ background_labels <- factor(c(rep(levels(Sp1_Sp2_species_assignment)[1], nrow(Sp
 background_data_combined <- rbind(Sp1_background_data, Sp2_background_data)
 
 plot.occurrences.map(coordinates = Sp1_Sp2_analogous,
-                               group.labels = Sp1_Sp2_species_assignment,
-                               group.colors = unname(Sp1_Sp2_species_colors),
-                               plot.background.points = TRUE,
-                               background.coords = background_data_combined,
-                               background.group.labels = background_labels,
-                               legend.group.names = c(Sp1_label, Sp2_label),
-                               save = TRUE,
-                               overwrite = TRUE,
-                               type = "svg",
-                               output.dir = figure_dir,
-                               filename = "Occurrence_background_map",
-                               width = 16,
-                               height = 12)
+                     group.labels = Sp1_Sp2_species_assignment,
+                     group.colors = unname(Sp1_Sp2_species_colors),
+                     plot.background.points = TRUE,
+                     background.coords = background_data_combined,
+                     background.group.labels = background_labels,
+                     legend.group.names = c(Sp1_label, Sp2_label),
+                     save = TRUE,
+                     overwrite = TRUE,
+                     type = "svg",
+                     output.dir = figure_dir,
+                     filename = "Occurrence_background_map",
+                     width = 16,
+                     height = 12)
 ```
 Here an example map (figure 3 from Schönberger et al. preprint); the large points represent occurrence records and the small points background records:
 
@@ -533,13 +533,13 @@ Sp1_Sp2_species_assignment_no_analogy <- factor(Sp1_Sp2_species_assignment_no_an
                                                 levels = names(Sp1_Sp2_species_colors_no_analogy))
 
 DAPC_results_no_analogy <- run.DAPC.crossval.permutation(data.input = Sp1_Sp2_occurrence_filtered,
-                                                                   species.col = Species_col,
-                                                                   exclude.cols = c(Latitude_col, Longitude_col),
-                                                                   N.permutations = 1000,
-                                                                   N.crossval.replicates = 100)
+                                                         species.col = Species_col,
+                                                         exclude.cols = c(Latitude_col, Longitude_col),
+                                                         N.permutations = 1000,
+                                                         N.crossval.replicates = 100)
 
 Niche_divergence_metrics_no_analogy <- calc.niche.divergence.metrics(DAPC_results_no_analogy,
-                                                                               group.assignment = Sp1_Sp2_species_assignment_no_analogy)
+                                                                     group.assignment = Sp1_Sp2_species_assignment_no_analogy)
 ```
 
 ## Optional: Brown and Carnaval-style analogous trimming
@@ -550,11 +550,11 @@ This might be especially desired if the variable-level analogy filtering removes
 ```r
 #### Optional Brown and Carnaval-style correction ##############################
 Sp1_Sp2_analogous_trimmed <- trim.to.analogous.environments(Sp1.occurrence.data = Sp1_occurrence_filtered,
-                                                                      Sp2.occurrence.data = Sp2_occurrence_filtered,
-                                                                      Sp1.background.data = Sp1_background_filtered,
-                                                                      Sp2.background.data = Sp2_background_filtered,
-                                                                      exclude.cols = c(Latitude_col, Longitude_col, Species_col),
-                                                                      keep.occurrence.cols = c(Latitude_col, Longitude_col, Species_col))
+                                                            Sp2.occurrence.data = Sp2_occurrence_filtered,
+                                                            Sp1.background.data = Sp1_background_filtered,
+                                                            Sp2.background.data = Sp2_background_filtered,
+                                                            exclude.cols = c(Latitude_col, Longitude_col, Species_col),
+                                                            keep.occurrence.cols = c(Latitude_col, Longitude_col, Species_col))
 ```
 
 The trimmed dataset can then be passed to `run.DAPC.crossval.permutation()` using the same DAPC workflow shown above.
