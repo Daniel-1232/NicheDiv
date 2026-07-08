@@ -409,7 +409,7 @@ Niche_divergence_metrics_weighted <- calc.niche.divergence.metrics(DAPC_results,
 ```
 
 ## 8. Plot results
-In general, all plot functions include a built-in saving option, allowing figures to be exported directly as SVG, PNG, or JPEG files with user-defined dimensions.
+In general, all plot functions include built-in saving options. Set save = TRUE to export figures directly as SVG, PNG, or JPEG files using the type argument. Figure dimensions can be adjusted with width and height. Set save = FALSE if you do not want to save the figures. The overwrite argument controls whether existing plot files are overwritten. Many plot functions also include additional arguments for adjusting font sizes and other plotting parameters.
 
 We start by plotting the discriminant-axis density distributions, followed visualizing the permutation null distribution of classification accuracy (observed value shown as red line)
 
