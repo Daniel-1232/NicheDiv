@@ -29,120 +29,8 @@ For bug reports, feedback, or questions, please contact me: daniel.schoenberger@
 
 ## Installation
 
-Install the *NicheDiv* *R* package from GitHub and load:
+Install and load the *NicheDiv* *R* package:
 
-```r
-if (!requireNamespace("remotes", quietly = TRUE)) install.packages("remotes")
-remotes::install_github("Daniel-1232/NicheDiv")
-
-library(NicheDiv)
-packageVersion("NicheDiv")
-```
-
-
-## Input data
-
-The approach only requires a dataframe with occurrence records:
-
-* one row per occurrence record
-* unique row names
-* longitude and latitude columns
-* one grouping column with two (or more) groups to compare
-
-Example input:
-
-```r
-head(occurrence_data[, c("ID", "Longitude", "Latitude", "Species")])
-rownames(occurrence_data) <- occurrence_data$ID
-```
-
-```text
-     ID Longitude Latitude Species
-1 ID_001  -121.50   38.40   Sp1
-2 ID_002  -121.75   38.55   Sp1
-3 ID_003  -117.25   34.15   Sp2
-4 ID_004  -117.10   34.40   Sp2
-```
-
-The dataframe can include other columns as long as they are specified under `exclude_cols` (see below).
-Groups can be species, population, lineages or any other predefined groupings or clusters.
-The dataframe can also include multiple species if you want to perform multiple pairwise comparisons (see section "How to include multiple species" at the end).
-
-
-## Recommended workflow
-
-The *NicheDiv* workflow has several major steps. The code below describes the full workflow using recommended default parameters throughout. Parameters that may require tuning are discussed explicitly.
-
-Below is a schematic overview of the niche divergence framework, using two theoretical taxon pairs and three environmental layers as example (figure 1 from Schönberger et al. preprint):
-
-![NicheDiv workflow](man/figures/README-schoenberger-etal-figure-1.png)
-
-## Set working environment and input parameters
-
-Before starting, we need to define all directories, file names and parameters:
-
-```r
-#### Set working environment and input #########################################
-
-## Set directories
-base_dir <- "path/to/project"
-results_dir <- file.path(base_dir, "Results")
-figure_dir <- file.path(results_dir, "Figure_files")
-intermediate_files_dir_name <- "Intermediate_files"
-
-
-## Set input occurrence file
-occurrence_data_file <- file.path(base_dir, "Data/occurrences.csv")
-
-
-# Set output occurrence files with environmental data
-csv_occurrence_out_file <- "Occurrences_env.csv"
-csv_background_out_file <- "Background_env.csv"
-
-
-## Set parameters and column names
-Sp1_name <- "Group_1"
-Sp2_name <- "Group_2"
-Sp1_label <- "Group 1"
-Sp2_label <- "Group 2"
-
-Species_col <- "Species"
-ID_col <- "ID"
-
-Longitude_col <- "Longitude"
-Latitude_col <- "Latitude"
-CRS_all <- "EPSG:4326"
-
-buffer_km <- 5
-base_colors <- c("#A331A3", "#6CB3A5")
-exclude_cols <- c(ID_col, "Locality", "CollectionDate")
-```
-
-
-Use `Sp1_name` and `Sp2_name` for the group names exactly as they appear in the grouping column of your input dataframe (e.g., "Hemileuca_nevadensis"), and use `Sp1_label` and `Sp2_label` for the labels displayed in plots (e.g., "H. nevadensis").
-
-`buffer_km` should be chosen to reflect the estimated approximate dispersal distance of the species group.
-
-Use `exclude_cols` to list columns that should be excluded from environmental predictor variables throughout the workflow, such as IDs, locality names, or collection dates.
-
-`CRS_all` defines the coordinate reference system of the occurrence coordinates. Use `"EPSG:4326"` when your longitude and latitude columns are in decimal degrees, which is the most common format for occurrence data. If your coordinates are already projected, provide the corresponding projected CRS instead.
-
-## 1. Extract environmental data and generating background points
-
-We start by extracting environmental values for occurrence records and generate background points within the accessible area.
-This the step usually takes most time since we need to download all the environmental layers. Fortunately, our approach has minimal GIS layer processing/projecting, saving hours of time and a lot of memory.
-In the example below, all implemented environmental datasets are used, which can take several hours. Using all datasets is typically a good approach to describe the niche as comprehensively as possible, but your study system may require excluding datasets that are biologically less relevant.
-Furthermore, some datasets are only available for North America (namely, "ClimateNA", "daylength", "snow_water_equivalent").
-
-For terrestrial taxa, we recommend to set `remove.hydrolakes.background = TRUE`, which prevents background points from being sampled from lakes and other major inland water bodies.
-
-```r
-#### Extract environmental data ################################################
-
-## Import occurrences
-occurrence_data <- read.csv(occurrence_data_file, check.names = FALSE)
-rownames(occurrence_data) <- occurrence_data[[ID_col]]
-if (anyDuplicated(rownames(occurrence_data)) > 0) stop("Occurrence IDs must be unique")
 
 ## Extract environmental data and background points
 extract.env.and.background(occurrence.data = occurrence_data,
@@ -347,13 +235,13 @@ Sp1_Sp2_analogous <- filter.analogous.variables(Sp1.Sp2.occurrence.data = Sp1_Sp
 ```
 
 
-## 7. Run DAPC and evaluate results
+## 7. Run DAPC and plot results
 
 Finally, we run the main niche divergence analysis by applying DAPC to the filtered environmental data. The function first performs a PCA to reduce dimensionality and collinearity, and then uses discriminant analysis to identify the axis that best separates the two groups in multivariate environmental space.
 
 Cross-validation is used to select the number of PCs retained for DAPC. This helps retain enough environmental variation to separate the groups while avoiding overfitting caused by retaining too many PCs.
 
-To assess significance, we perform a permutation test that compares the observed DAPC assignment accuracy to a null distribution generated by randomly permuting group labels emulating a single shared niche (k = 1). A significant result indicates that group separation along the discriminant axis is stronger than expected under random group membership.
+To assess significance, a permutation test is also performed that compares the observed DAPC assignment accuracy to a null distribution generated by randomly permuting group labels emulating a single shared niche (k = 1). A significant result indicates that group separation along the discriminant axis is stronger than expected under random group membership.
 Based on simulation testing, the permutation test is highly sensitive and can become significant already at low to moderate levels of niche divergence. Therefore, statistical significance should be interpreted together with the divergence metrics and discriminant density plots
 
 ```r
