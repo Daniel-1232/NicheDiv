@@ -36,8 +36,7 @@ if (!requireNamespace("remotes", quietly = TRUE)) install.packages("remotes")
 remotes::install_github("Daniel-1232/NicheDiv")
 
 library(NicheDiv)
-packageVersion("NicheDiv
-")
+packageVersion("NicheDiv")
 ```
 
 
