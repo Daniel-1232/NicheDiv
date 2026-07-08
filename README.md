@@ -493,6 +493,7 @@ Here is an example output from the two variable-contribution plotting functions 
 Lastly, we can plot the occurrences and background points on a map.
 
 This is useful for checking the geographic distribution of the two groups, the sampled background environments, and whether the accessible areas are biologically reasonable. 
+
 Some map elements may need to be adjusted depending on the study area, map extent, and figure size. In particular, the arguments `north.arrow.length`, `north.arrow.N.position`, `north.arrow.position`, `scale.position`, `longitude.buffer.range`, `latitude.buffer.range`, and `north.arrow.lwd` may need manual tuning to avoid overlap with points or map boundaries.
 
 ```r
@@ -525,7 +526,7 @@ Here an example map (figure 3 from Schönberger et al. preprint): the large poin
 
 ## Optional: DAPC in full-environment
 
-We can also run the DAPC test using the full-environment (without non-analogous filtering). 
+It is also recommend to run the DAPC test using the full-environment (without non-analogous filtering). 
 This helps to evaluate how much non-analogous environmental space affects the final result.
 This analysis is especially useful if many variables are removed during analogous-variable filtering, because some excluded variables may be biologically relevant and potentially contribute to divergence. However, in the full-environment analysis, we cannot determine whether these variables reflect niche divergence within shared accessible environmental space or differences in environmental availability between taxa.
 
@@ -589,7 +590,6 @@ Sp1_Sp2_analogous_trimmed <- trim.to.analogous.environments(Sp1.occurrence.data 
                                                             Sp2.background.data = Sp2_background_filtered,
                                                             exclude.cols = c(Latitude_col, Longitude_col, Species_col),
                                                             keep.occurrence.cols = c(Latitude_col, Longitude_col, Species_col))
-
 
 Sp1_Sp2_species_assignment_trimmed <- factor(Sp1_Sp2_analogous_trimmed[[Species_col]])
 Sp1_Sp2_species_colors_trimmed <- setNames(base_colors[seq_along(levels(Sp1_Sp2_species_assignment_trimmed))],
