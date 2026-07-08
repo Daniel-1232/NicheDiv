@@ -14,7 +14,7 @@ The motivation behind our approach is that ecological niches are highly multidim
 - Can handle hundreds of correlated environmental variables.
 - Identifies environmental variables contributing most to niche separation.
 - Visualizes multivariate niche divergence along a single discriminant axis, making results easy to interpret.
-- Can distinguish different forms of niche divergence (weighted, nested, soft, and hard niche divergence)
+- Can distinguish different forms of niche divergence (weighted, nested, soft, and hard niche divergence).
 - Compared with alternative divergence tests, *NicheDiv* generally retains more variation, and scales more consistently with increasing divergence.
 
 ## Development status
@@ -65,7 +65,7 @@ rownames(occurrence_data) <- occurrence_data$ID
 ```
 
 The dataframe can include other columns as long as they are specified under `exclude_cols` (see below).
-Groups can be species, populations, lineages or any other predefined groupings or clusters.
+Groups can be species, populations, lineages, or any other predefined groupings or clusters.
 The dataframe can also include multiple species if you want to perform multiple pairwise comparisons (see section "How to include multiple pairwise comparisons" at the end).
 
 
@@ -73,7 +73,7 @@ The dataframe can also include multiple species if you want to perform multiple 
 
 The NicheDiv workflow has several major steps. The code below describes the full workflow using recommended default parameters throughout. Parameters that may require tuning are discussed explicitly.
 
-Below is a schematic overview of the niche divergence framework, using two theoretical taxon pairs and three environmental layers as example (figure 1 from Schönberger et al. preprint):
+Below is a schematic overview of the niche divergence framework, using two theoretical taxon pairs and three environmental layers as an example (figure 1 from Schönberger et al. preprint):
 
 ![NicheDiv workflow](man/figures/README-schoenberger-etal-figure-1.png)
 
@@ -174,21 +174,21 @@ Optional custom rasters can also be supplied by the user as one or more GeoTIFF 
 custom_raster_path <- file.path(base_dir, "Data/custom_environmental_layers.tif")
 custom_raster_variable_names <- names(terra::rast(custom_raster_path))
 
-NicheDiv::extract.env.and.background(occurrence.data = occurrence_data,
-                                     longitude.col = Longitude_col,
-                                     latitude.col = Latitude_col,
-                                     generate.background.data = TRUE,
-                                     N.background.points = 300000,
-                                     buffer.km = buffer_km,
-                                     remove.hydrolakes.background = TRUE,
-                                     csv.occurrence.out.file = csv_occurrence_out_file,
-                                     csv.background.out.file = csv_background_out_file,
-                                     output.dir = results_dir,
-                                     intermediate.files.dir = intermediate_files_dir_name,
-                                     CRS.occurrences = CRS_all,
-                                     env.datasets = c("elevation", "ClimateNA"),
-                                     custom.env.rasters = custom_raster_path,
-                                     custom.env.rasters.variable.names = custom_raster_variable_names)
+extract.env.and.background(occurrence.data = occurrence_data,
+                           longitude.col = Longitude_col,
+                           latitude.col = Latitude_col,
+                           generate.background.data = TRUE,
+                           N.background.points = 300000,
+                           buffer.km = buffer_km,
+                           remove.hydrolakes.background = TRUE,
+                           csv.occurrence.out.file = csv_occurrence_out_file,
+                           csv.background.out.file = csv_background_out_file,
+                           output.dir = results_dir,
+                           intermediate.files.dir = intermediate_files_dir_name,
+                           CRS.occurrences = CRS_all,
+                           env.datasets = c("elevation", "ClimateNA"),
+                           custom.env.rasters = custom_raster_path,
+                           custom.env.rasters.variable.names = custom_raster_variable_names)
 ```
 
 ## 2. Import and prepare extracted data
@@ -233,7 +233,7 @@ Sp2_occurrence_data <- Env_data_occurrences[Env_data_occurrences[[Species_col]] 
 ## 3. Crop and downsample background data
 
 The next step crops the shared background to a buffered convex hull around each group’s occurrence records and then downsamples each background to the same target size. Only the `buffer.method` argument needs to be considered in this section. This argument defines how the accessible area is buffered around each group’s occurrence records, with larger or more inclusive buffers retaining more background environments and smaller or stricter buffers focusing the comparison on environments closer to the observed occurrences.
-Available background geometries are `"hull"`, `"points"`, `"alpha"`, and `"bbox"`. Below we use the convex hull which is usually a robust default. Point buffers or alpha hulls may be useful for fragmented or spatially complex distributions.
+Available background geometries are `"hull"`, `"points"`, `"alpha"`, and `"bbox"`. Below, we use the convex hull which is usually a robust default. Point buffers or alpha hulls may be useful for fragmented or spatially complex distributions.
 
 ```r
 #### Prepare background data ###################################################
@@ -358,7 +358,7 @@ Finally, we run the main niche divergence analysis by applying DAPC to the filte
 Cross-validation is used to select the number of PCs retained for DAPC. This helps retain enough environmental variation to separate the groups while avoiding overfitting caused by retaining too many PCs.
 
 To assess significance, a permutation test is also performed that compares the observed DAPC assignment accuracy to a null distribution generated by randomly permuting group labels emulating a single shared niche (k = 1). A significant result indicates that group separation along the discriminant axis is stronger than expected under random group membership.
-Based on simulation testing, the permutation test is highly sensitive and can become significant already at low to moderate levels of niche divergence. Therefore, statistical significance should be interpreted together with the divergence metrics and discriminant density plots
+Based on simulation testing, the permutation test is highly sensitive and can become significant already at low to moderate levels of niche divergence. Therefore, statistical significance should be interpreted together with the divergence metrics and discriminant density plots.
 
 ```r
 #### Run DAPC niche divergence test ############################################
@@ -409,9 +409,9 @@ Niche_divergence_metrics_weighted <- calc.niche.divergence.metrics(DAPC_results,
 ```
 
 ## 8. Plot results
-In general, all plot functions include built-in saving options. Set save = TRUE to export figures directly as SVG, PNG, or JPEG files using the type argument. Figure dimensions can be adjusted with width and height. Set save = FALSE if you do not want to save the figures. The overwrite argument controls whether existing plot files are overwritten. Many plot functions also include additional arguments for adjusting font sizes and other plotting parameters.
+In general, all plot functions include built-in saving options (`save`) to export figures directly as SVG, PNG, or JPEG files (`type`). Figure dimensions can be adjusted with `width` and `height`. Set `save = FALSE` if you do not want to save the figures. The `overwrite` argument controls whether existing plot files are overwritten. Many plot functions also include additional arguments for adjusting font sizes and other plotting parameters.
 
-We start by plotting the discriminant-axis density distributions, followed visualizing the permutation null distribution of classification accuracy (observed value shown as red line)
+We start by plotting the discriminant-axis density distributions, followed by visualizing the permutation null distribution of classification accuracy (observed value shown as red line)
 
 ```r
 #### Plot DAPC niche divergence ################################################
@@ -437,7 +437,7 @@ plot.DAPC.permutation(DAPC_results,
                       height = 9)
 ```
 
-Here an example output from the two functions above showing strong multivariate niche divergence in this *Hemileuca maia* buck moth group (figure 4 from Schönberger et al. preprint):
+Here is an example output from the two functions above, showing strong multivariate niche divergence in this *Hemileuca maia* buck moth group (figure 4 from Schönberger et al. preprint):
 
 ![NicheDiv example result](man/figures/README-schoenberger-etal-figure-4.png)
 
@@ -485,7 +485,7 @@ plot.top.DAPC.predictors(dapc.results = DAPC_results_short_names,
                          width = 16,
                          height = 10)
 ```
-Here is an example output from the two variable-contribution plotting functions above (figure 5 from Schönberger et al. preprint)
+Here is an example output from the two variable-contribution plotting functions above (figure 5 from Schönberger et al. preprint).
 
 ![NicheDiv example result](man/figures/README-schoenberger-etal-figure-5.png)
 
@@ -519,7 +519,7 @@ plot.occurrences.map(coordinates = Sp1_Sp2_analogous,
                      width = 16,
                      height = 12)
 ```
-Here an example map (figure 3 from Schönberger et al. preprint): the large points represent occurrence records and the small points background records
+Here is an example map (figure 3 from Schönberger et al. preprint): the large points represent occurrence records and the small points represent background records
 
 ![NicheDiv example result](man/figures/README-schoenberger-etal-figure-3.png)
 
@@ -636,8 +636,8 @@ plot.top.DAPC.predictors(dapc.results = DAPC_results_trimmed_short_names,
 
 ## How to include multiple pairwise comparisons
 If you have multiple taxa (e.g., all members of a species group), you can compare them by running *NicheDiv* in a pairwise fashion:
-1) Use input dataframe with coordinates for all taxa of interest.
-2) Extract environmental data and generate background points once for all taxa together (Step 1 in workflow: `extract.env.and.background()` function). We recommend increasing `N.background.points` to ensure enough background points for all comparisons (1 million worked well in our species group for North America). 
+1) Use an input dataframe with coordinates for all taxa of interest.
+2) Extract environmental data and generate background points once for all taxa together (Step 1 in the workflow: `extract.env.and.background()` function). We recommend increasing `N.background.points` to ensure enough background points are available for all comparisons (1 million worked well in our species group for North America). 
 3) For each pairwise comparison, first set `Sp1_name`, `Sp2_name`, `Sp1_label`, `Sp2_label`, `base_colors`, and `filename` in each plotting call (or change `figure_dir` for each), and then run steps 2-7 of the workflow for each pair.
 
 
