@@ -4,6 +4,7 @@ NicheDiv is an R package for testing pairwise niche divergence across highly mul
 
 This is done by adapting discriminant analysis of principal components (DAPC) to environmental niche data. Environmental variables are first transformed into principal components (PCs) to reduce dimensionality and collinearity. Discriminant analysis is then used to identify the axis that best separates the two groups. NicheDiv summarizes niche divergence with easily interpretable metrics and density plots.
 
+The idea behind the approach is that multiple environmental axes beyond annual climate can be the predominant dimensions of niche divergence
 
 ## Main advantages of the approach
 
@@ -65,7 +66,7 @@ rownames(occurrence_data) <- occurrence_data$ID
 ```
 
 The dataframe can include other columns as long as they are specified under `exclude_cols` (see below).
-Groups can be species, population, lineages or any other predefined clusters.
+Groups can be species, population, lineages or any other predefined groupings or clusters.
 The dataframe can also include multiple species if you want to perform multiple pairwise comparisons (see section "How to include multiple species" at the end).
 
 
@@ -73,11 +74,9 @@ The dataframe can also include multiple species if you want to perform multiple 
 
 The typical NicheDiv workflow has seven major steps. The code below describes the full workflow using recommended default parameters throughout. Parameters that may require tuning are discussed explicitly.
 
-Framework overview:
+Schematic overview of niche divergence framework, using two theoretical taxon pairs and three environmental layers as example (figure 1 from Schönberger et al preprint):
 
 ![NicheDiv workflow](man/figures/README-schoenberger-etal-figure-1.png)
-
-Figure from Schönberger, MacDonald, Tuttle, Schmidt & Dupuis (2026), bioRxiv, licensed under CC-BY 4.0.
 
 ## Set working environment and input parameters
 
@@ -130,8 +129,8 @@ Use `exclude_cols` to list columns that should be excluded from environmental pr
 
 We start by extracting environmental values for occurrence records and generate background points within the accessible area.
 This is the step which usually takes most time since we need to download all the environmental layers. Fortunately, our approach has minimal GIS layer processing/projecting, saving hours of time and a lot of memory.
-In the example below, all implemented environmental datasets are used (recommended default) which can can take several hours.
-Some datasets are only available for North America ("ClimateNA", "daylength", "snow_water_equivalent").
+In the example below, all implemented environmental datasets are used, which can take several hours. Using all datasets is typically a good approach to describe the niche as comprehensively as possible, but your study system may require excluding datasets that are biologically less relevant.
+Furthermore, some datasets are only available for North America (namely, "ClimateNA", "daylength", "snow_water_equivalent").
 
 For terrestrial taxa, we recommend to set `remove.hydrolakes.background = TRUE` which avoids that the background environment includes.
 
@@ -223,8 +222,8 @@ Sp2_occurrence_data <- Env_data_occurrences[Env_data_occurrences[[Species_col]] 
 
 ## 3. Crop and downsample background data
 
-The next step crops the shared background to a buffered convex hull around each group’s occurrence records and then downsamples each background to the same target size.
-Available background geometries are `"hull"`, `"points"`, `"alpha"`, and `"bbox"`. Below we use the convex hull which is usually a robust default, but point buffers or alpha hulls can be useful for fragmented or spatially complex distributions.
+The next step crops the shared background to a buffered convex hull around each group’s occurrence records and then downsamples each background to the same target size. Only `buffer.method` usually needs to be considered here. This argument defines how the accessible area is buffered around each group’s occurrence records, with larger or more inclusive buffers retaining more background environments and smaller or stricter buffers focusing the comparison on environments closer to the observed occurrences.
+Available background geometries are `"hull"`, `"points"`, `"alpha"`, and `"bbox"`. Below we use the convex hull which is usually a robust default. Point buffers or alpha hulls may be useful for fragmented or spatially complex distributions.
 
 ```r
 #### Prepare background data ###################################################
@@ -250,7 +249,8 @@ Sp2_background_data <- NicheDiv::sample.down(Sp2_background_data, N.rows = 10000
 
 ## 4. Spatially thin and balance occurrence records
 
-To reduce spatial autocorrelation, we thin our occurrence records. A thinning distance of one kilometer is usually a appropropriate value, as set below. We also downsample both groups to the same number of occurrences.
+To reduce spatial autocorrelation, we thin our occurrence records. A thinning distance of one kilometer is usually an appropriate value, as set below. 
+We also downsample both groups to the same number of occurrences (to avoid bias in the discriminant analysis caused by unequal sample sizes).
 
 ```r
 #### Spatial thinning and sample-size balancing ################################
@@ -381,16 +381,16 @@ Niche_divergence_metrics_weighted <- NicheDiv::calc.niche.divergence.metrics(DAP
 Niche_divergence_metrics_weighted
 ```
 
-The following 5 niche divergence metrics are calculated:
+The following five niche divergence metrics are calculated:
 
 
-* `Schoener_D (D)`: niche overlap between the two groups along the discriminant axis. Values range from 0 to 1, where 1 indicates complete overlap and 0 indicates no overlap. Lower values therefore indicate stronger niche differentiation.
-* `Niche_dissimilarity (NDS)`: density-based niche divergence along the discriminant axis. This metric captures how strongly the two groups differ in the distribution of their occurrence densities, even when their total occupied ranges overlap.
-* `Niche_breadth_exclusivity (NE)`: range-based niche divergence along the discriminant axis. This metric captures how much of each group’s occupied environmental range is exclusive rather than shared with the other group.
-* `Niche_divergence_magnitude (ND)`: combined divergence magnitude in the niche divergence plane. This summarizes the joint strength of density-based divergence and range-based exclusivity in a single value.
-* `Niche_divergence_angle (θ)`: relative contribution of density-based versus range-based divergence. Angles closer to the density-based axis indicate that divergence is mainly driven by differences in occurrence density, whereas angles closer to the range-based axis indicate that divergence is mainly driven by exclusive environmental ranges.
+* `Schoener_D (D)`: niche overlap between the two groups along the discriminant axis. Values range from 0 to 1, where 1 indicates complete overlap and 0 indicates no overlap.
+* `Niche_dissimilarity (NDS)`: density-based niche divergence along the discriminant axis. Values range from 0 to 1, where 0 indicates identical occurrence-density distributions and 1 indicates completely non-overlapping densities.
+* `Niche_breadth_exclusivity (NE)`: range-based niche divergence along the discriminant axis. Values range from 0 to 1, where 0 indicates completely shared occupied ranges and 1 indicates completely exclusive occupied ranges.
+* `Niche_divergence_magnitude (ND)`: combined divergence magnitude in the niche divergence plane. Values range from 0 to 1.41, where 0 indicates no divergence and 1.41 indicates maximum combined density-based and range-based divergence.
+* `Niche_divergence_angle (θ)`: relative contribution of density-based versus range-based divergence. Values range from 0° to 90°, where values near 0° indicate divergence mainly driven by range exclusivity, values near 90° indicate divergence mainly driven by density differences within shared space, and intermediate values indicate mixed contributions.
 
-The most important summary metrics are `D` and `ND`. Stronger niche divergence is indicated by lower `D` values and higher `ND` values. As a general rule of thumb: `D` values around or below 0.4 and `ND` values around or above 0.9 indicate strong divergence in the current framework.
+The most important summary metrics are `D` and `ND`. Stronger niche divergence is indicated by lower `D` values and higher `ND` values. As a general rule of thumb: `D` values below 0.4 and `ND` values above 0.9 indicate strong divergence in the current framework.
 
 ## Plot DAPC results
 
@@ -410,7 +410,7 @@ NicheDiv::plot.DAPC.niche.divergence(DAPC_results,
                                      height = 12)
 ```
 
-Plot the permutation null distribution:
+Plot the permutation null distribution of classification accuracy (observed value shown as red line):
 
 ```r
 #### Plot permutation test #####################################################
@@ -424,6 +424,10 @@ NicheDiv::plot.DAPC.permutation(DAPC_results,
                                 width = 16,
                                 height = 9)
 ```
+
+Here an example output from the two functions above showing strong multivariate niche divergence (figure 4 from Schönberger et al preprint):
+
+![NicheDiv example result](man/figures/README-schoenberger-etal-figure-4.png)
 
 Plot environmental variable contributions:
 
@@ -466,6 +470,10 @@ NicheDiv::plot.top.DAPC.predictors(dapc.results = DAPC_results_short_names,
                                    width = 16,
                                    height = 10)
 ```
+Here is an example output from the two variable-contribution plotting functions above (figure 5 from Schönberger et al preprint). The figure summarizes which environmental variables contribute most strongly to the DAPC-based separation of the two taxa in multivariate niche space. Panel A shows the relative contribution of each predictor to the discriminant axis and indicates which species has higher values for each variable. Panel B shows the distributions of the strongest contributing predictors, illustrating how univariate differences in these variables drive the estimated niche divergence. 
+
+![NicheDiv example result](man/figures/README-schoenberger-etal-figure-5.png)
+
 
 Plot occurrences and background points
 
@@ -493,11 +501,9 @@ NicheDiv::plot.occurrences.map(coordinates = Sp1_Sp2_analogous,
                                width = 16,
                                height = 12)
 ```
-Here an example:
+Here an example map (figure 3 from Schönberger et al preprint); the large points represent occurrence records and the small points background records:
 
 ![NicheDiv example result](man/figures/README-schoenberger-etal-figure-3.png)
-
-Figure from Schönberger, MacDonald, Tuttle, Schmidt & Dupuis (2026), bioRxiv, licensed under CC-BY 4.0.
 
 ## Optional: Brown and Carnaval-style analogous trimming
 
