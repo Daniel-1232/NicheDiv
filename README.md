@@ -263,7 +263,7 @@ Sp2_background_data <- sample.down(Sp2_background_data, N.rows = 10000)
 
 ## 4. Spatially thin and balance occurrence records
 
-To reduce spatial autocorrelation, we thin our occurrence records. A thinning distance (`thinning.dist.km`) of one kilometer is usually an appropriate value, as set below. 
+To reduce spatial autocorrelation, we thin our occurrence records. A thinning distance (`thinning.dist.km`) of one kilometer is usually an appropriate value, as set below. If hundreds of occurrence records remain after thinning, you can consider increasing the thinning distance threshold to reduce spatial autocorrelation. 
 We also downsample both groups to the same number of occurrences (to avoid bias in the discriminant analysis caused by unequal sample sizes).
 
 ```r
@@ -556,8 +556,10 @@ Niche_divergence_metrics_no_analogy <- calc.niche.divergence.metrics(DAPC_result
 
 ## Optional: Brown and Carnaval-style analogous trimming
 
-In addition to variable-level analogy filtering above (`filter.analogous.variables()`), *NicheDiv* includes `trim.to.analogous.environments()` to remove occurrence records from non-analogous environmental conditions following the logic of Brown and Carnaval-style environmental analogy correction (Brown & Carnaval 2019).
-This might be especially desired if the variable-level analogy filtering removes most variables, limiting the inference of the most important variables.
+In addition to variable-level analogy filtering (`filter.analogous.variables()`), *NicheDiv* includes `trim.to.analogous.environments()` to remove occurrence records from non-analogous environmental conditions following the logic of Brown and Carnaval-style environmental analogy correction (Brown & Carnaval 2019).
+
+This occurrence record-based analogy filtering (`trim.to.analogous.environments()`) may be preferred over variable-based analogy filtering if the latter removes many variables and therefore limits inference about the environmental variables contributing most to niche separation. However, if occurrence record-based trimming removes many records, DAPC inference may become less stable because of reduced sample size. In that case, variable-based analogy filtering may be preferred.
+
 
 ```r
 #### Optional Brown and Carnaval-style correction ##############################
@@ -581,8 +583,15 @@ If you have multiple taxa (e.g., all members of a species group), you can compar
 
 ## Further recommendations
 
-* We recommend first running the DAPC niche divergence test using only analogous environmental variables. Strong and significant divergence in this analysis suggests that the groups differ within shared accessible environmental space (Brown & Carnaval, 2019). If no analogous variables remain after filtering, this also provides evidence that the groups occupy strongly different accessible environments. If divergence is weak and non-significant in the analogous-only analysis, repeat the DAPC analysis using the full environmental dataset, including both analogous and non-analogous variables. Strong and significant separation in the full dataset indicates that the groups occupy different environments, but this result alone should not be interpreted as evidence of adaptive niche divergence because the separation may be driven by environments that are not jointly available to both groups. Running the full-dataset analysis can also be useful even when the analogous-only analysis shows strong divergence, because analogous filtering can remove environmental axes along which divergence occurs. In such cases, using only analogous variables may reduce discriminatory power and increase the risk of false negatives. If separation is weak and non-significant in both analyses, the background permutation test can be used to evaluate whether the non-significant result reflects true niche similarity or limited statistical power given the available environmental conditions.
-* *NicheDiv* currently only supports continuous environmental variables. Because DAPC is widely used with biallelic genetic markers (Jombart et al. 2010, Miller et al. 2020), the framework could potentially be extended to binary or categorical ecological predictors in the future. If you want to include binary or categorical data (e.g., host presence/absence, habitat classes, symbionts, or pollinator types), running a SOM (self-organizing map) model may be useful (Pyron et al. 2023; see https://github.com/rpyron/delim-SOM).
+* We recommend first running the DAPC niche divergence test using only analogous environmental variables. Strong and significant divergence in this analysis suggests that the groups differ within shared accessible environmental space (Brown & Carnaval, 2019). If no analogous variables remain after filtering, this also provides evidence that the groups occupy strongly different accessible environments.
+
+* Interpret permutation-test significance together with the divergence metrics and discriminant density plots. The permutation test can be highly sensitive and may become significant at low to moderate levels of divergence. Conversely, a non-significant result can reflect either true niche similarity or limited statistical power given the available environmental conditions and sample sizes.
+
+* Interpret environmental variable contributions as hypothesis-generating rather than causal. Variable contributions identify predictors that contribute to multivariate separation along the discriminant axis, but they do not prove that these variables independently drive divergence. High contributions may reflect correlated sets of predictors, while low contributions do not rule out biological importance if the signal is absorbed by correlated variables.
+
+* Ecological divergence should not by itself be interpreted as evidence of ecological speciation. NicheDiv tests realized niche divergence under current environmental and distributional conditions. Inferring the timing, mechanism, or evolutionary cause of divergence requires additional evidence, such as natural-history data, experiments, demographic analyses, or phylogeographic analyses.
+
+* NicheDiv currently only supports continuous environmental variables. Because DAPC is widely used with biallelic genetic markers (Jombart et al. 2010, Miller et al. 2020), the framework could potentially be extended to binary or categorical ecological predictors in the future. If you want to include binary or categorical data (e.g., host presence/absence, habitat classes, symbionts, or pollinator types), running a SOM (self-organizing map) model may be useful (Pyron et al. 2023; see https://github.com/rpyron/delim-SOM).
 
 
 ## Main functions
