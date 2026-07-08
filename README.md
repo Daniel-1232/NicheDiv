@@ -2,7 +2,7 @@
 
 NicheDiv is an R package for testing pairwise niche divergence across highly multivariate environmental space.
 
-This is done by adapting discriminant analysis of principal components (DAPC) to environmental niche data. DAPC was originally developed for population genetics (Jombart et al. 2010) but is also well suited for numerous correlated environmental variables. Environmental variables are first transformed into principal components (PCs) to reduce dimensionality and collinearity. Discriminant analysis (Lachenbruch & Goldstein, 1979) is then used to identify the axis that best separates the two groups. NicheDiv summarizes niche divergence with easily interpretable metrics and density plots.
+This is done by adapting discriminant analysis of principal components (DAPC) to environmental niche data. DAPC was originally developed for population genetics (Jombart et al. 2010) but is also well suited for numerous correlated environmental variables. Environmental variables are first transformed into principal components (PCs) to reduce dimensionality and collinearity. Discriminant analysis (Fisher 1936, Lachenbruch & Goldstein 1979) is then used to identify the axis that best separates the two groups. NicheDiv summarizes niche divergence with easily interpretable metrics and density plots.
 
 The idea behind our approach is that ecological niches are highly multidimensional (Hutchinson, 1957) and are rarely captured fully by commonly used annual climate variables alone (Elith & Leathwick 2009; Kearney & Porter 2009; Soberón, 2007), such as WorldClim’s BIO1–BIO19 variables (Hijmans et al. 2005). Seasonal and monthly variables are often required to capture phenology, resource availability, physiological stress, and other time-dependent ecological processes that may be obscured by annual averages (Prajzlerová et al. 2025; Zimmermann et al. 2009). NicheDiv tackles this problem in two ways: first, by automatically extracting environmental values from a broad set of implemented GIS layers covering both abiotic and biotic environmental dimensions; and second, by making it possible to test niche divergence across this high-dimensional and correlated environmental space using our DAPC-based framework.
 
@@ -20,6 +20,8 @@ The idea behind our approach is that ecological niches are highly multidimension
 ## Development status
 The framework is described in a preprint (https://doi.org/10.64898/2026.06.19.733388) and the manuscript is currently in review.  
 
+Current R package version: 0.1.0
+
 For bug reports, feedback, or questions, please contact me: daniel.schoenberger@uky.edu.
 
 
@@ -34,6 +36,8 @@ if (!requireNamespace("remotes", quietly = TRUE)) install.packages("remotes")
 remotes::install_github("Daniel-1232/NicheDiv")
 
 library(NicheDiv)
+packageVersion("NicheDiv
+")
 ```
 
 
@@ -70,7 +74,7 @@ The dataframe can also include multiple species if you want to perform multiple 
 
 The NicheDiv workflow has several major steps. The code below describes the full workflow using recommended default parameters throughout. Parameters that may require tuning are discussed explicitly.
 
-Below is an schematic overview of the niche divergence framework, using two theoretical taxon pairs and three environmental layers as example (figure 1 from Schönberger et al preprint):
+Below is a schematic overview of the niche divergence framework, using two theoretical taxon pairs and three environmental layers as example (figure 1 from Schönberger et al. preprint):
 
 ![NicheDiv workflow](man/figures/README-schoenberger-etal-figure-1.png)
 
@@ -92,7 +96,7 @@ intermediate_files_dir_name <- "Intermediate_files"
 occurrence_data_file <- file.path(base_dir, "Data/occurrences.csv")
 
 
-# Set output occurrence files with enviromental data
+# Set output occurrence files with environmental data
 csv_occurrence_out_file <- "Occurrences_env.csv"
 csv_background_out_file <- "Background_env.csv"
 
@@ -104,6 +108,7 @@ Sp1_label <- "Group 1"
 Sp2_label <- "Group 2"
 
 Species_col <- "Species"
+ID_col <- "ID"
 
 Longitude_col <- "Longitude"
 Latitude_col <- "Latitude"
@@ -111,7 +116,7 @@ CRS_all <- "EPSG:4326"
 
 buffer_km <- 5
 base_colors <- c("#A331A3", "#6CB3A5")
-exclude_cols <- c("ID", "Locality", "CollectionDate")
+exclude_cols <- c(ID_col, "Locality", "CollectionDate")
 ```
 
 
@@ -123,20 +128,22 @@ Use `exclude_cols` to list columns that should be excluded from environmental pr
 
 `CRS_all` defines the coordinate reference system of the occurrence coordinates. Use `"EPSG:4326"` when your longitude and latitude columns are in decimal degrees, which is the most common format for occurrence data. If your coordinates are already projected, provide the corresponding projected CRS instead.
 
-## 1. Extract environmental data and generate background points
+## 1. Extract environmental data and generating background points
 
 We start by extracting environmental values for occurrence records and generate background points within the accessible area.
-This is the step which usually takes most time since we need to download all the environmental layers. Fortunately, our approach has minimal GIS layer processing/projecting, saving hours of time and a lot of memory.
+This the step usually takes most time since we need to download all the environmental layers. Fortunately, our approach has minimal GIS layer processing/projecting, saving hours of time and a lot of memory.
 In the example below, all implemented environmental datasets are used, which can take several hours. Using all datasets is typically a good approach to describe the niche as comprehensively as possible, but your study system may require excluding datasets that are biologically less relevant.
 Furthermore, some datasets are only available for North America (namely, "ClimateNA", "daylength", "snow_water_equivalent").
 
-For terrestrial taxa, we recommend to set `remove.hydrolakes.background = TRUE` which avoids that the background environment includes.
+For terrestrial taxa, we recommend to set `remove.hydrolakes.background = TRUE`, which prevents background points from being sampled from lakes and other major inland water bodies.
 
 ```r
 #### Extract environmental data ################################################
 
 ## Import occurrences
-occurrence_data <- read.csv(occurrence_data_file)
+occurrence_data <- read.csv(occurrence_data_file, check.names = FALSE)
+rownames(occurrence_data) <- occurrence_data[[ID_col]]
+if (anyDuplicated(rownames(occurrence_data)) > 0) stop("Occurrence IDs must be unique")
 
 ## Extract environmental data and background points
 NicheDiv::extract.env.and.background(occurrence.data = occurrence_data,
@@ -229,12 +236,16 @@ Available background geometries are `"hull"`, `"points"`, `"alpha"`, and `"bbox"
 ## Crop background to each group-specific accessible area
 Sp1_background_data <- NicheDiv::crop.background.buffered(occurrence.data = Sp1_occurrence_data,
                                                           background.data = Env_data_background,
+                                                          latitude.col = Latitude_col,
+                                                          longitude.col = Longitude_col,
                                                           CRS = CRS_all,
                                                           buffer.method = "hull",
                                                           buffer.dist.meters = buffer_km * 1000)
 
 Sp2_background_data <- NicheDiv::crop.background.buffered(occurrence.data = Sp2_occurrence_data,
                                                           background.data = Env_data_background,
+                                                          latitude.col = Latitude_col,
+                                                          longitude.col = Longitude_col,
                                                           CRS = CRS_all,
                                                           buffer.method = "hull",
                                                           buffer.dist.meters = buffer_km * 1000)
@@ -255,8 +266,12 @@ We also downsample both groups to the same number of occurrences (to avoid bias 
 
 ## Thin occurrence records
 Sp1_occurrence_thinned <- NicheDiv::thin.occurrence(Sp1_occurrence_data,
+                                                    latitude.col = Latitude_col,
+                                                    longitude.col = Longitude_col,
                                                     thinning.dist.km = 1)
 Sp2_occurrence_thinned <- NicheDiv::thin.occurrence(Sp2_occurrence_data,
+                                                    latitude.col = Latitude_col,
+                                                    longitude.col = Longitude_col,
                                                     thinning.dist.km = 1)
 
 
@@ -285,7 +300,7 @@ Sp1_Sp2_background_data <- rbind(Sp1_background_data, Sp2_background_data)
 
 ## Transform skewed variables
 transformation_results <- NicheDiv::transform.skewed.variables(data.frame = Sp1_Sp2_occurrence_thinned,
-                                                               exclude.cols = c(Latitude_col, Longitude_col, Species_col, "ID"),
+                                                               exclude.cols = c(Latitude_col, Longitude_col, Species_col, ID_col),
                                                                background.dataframe = Sp1_Sp2_background_data)
 Sp1_Sp2_occurrence_transformed <- transformation_results$transformed
 Sp1_Sp2_background_transformed <- transformation_results$background.transformed
@@ -305,7 +320,7 @@ CV_removal_results <- NicheDiv::remove.low.CV.vars(Sp1.occurrence.data = Sp1_occ
                                                    Sp2.occurrence.data = Sp2_occurrence_transformed,
                                                    Sp1.background.data = Sp1_background_transformed,
                                                    Sp2.background.data = Sp2_background_transformed,
-                                                   exclude.cols = c(Latitude_col, Longitude_col, Species_col, "ID"),
+                                                   exclude.cols = c(Latitude_col, Longitude_col, Species_col, ID_col),
                                                    CV.threshold = 0.01)
 
 Sp1_occurrence_filtered <- CV_removal_results$occurrence_Sp1
@@ -331,7 +346,7 @@ Sp1_Sp2_analogous <- NicheDiv::filter.analogous.variables(Sp1.Sp2.occurrence.dat
 ```
 
 
-## 6. Run DAPC and evaluate results
+## 7. Run DAPC and evaluate results
 
 Finally, we run the main niche divergence analysis by applying DAPC to the filtered environmental data. The function first performs a PCA to reduce dimensionality and collinearity, and then uses discriminant analysis to identify the axis that best separates the two groups in multivariate environmental space.
 
@@ -374,14 +389,13 @@ The most important summary metrics are `D` and `ND`. Stronger niche divergence i
 
 ```r
 #### Calculate niche divergence metrics ########################################
-
 Niche_divergence_metrics <- NicheDiv::calc.niche.divergence.metrics(DAPC_results,
                                                                     group.assignment = Sp1_Sp2_species_assignment)
 
 Niche_divergence_metrics
 ```
 
-Optionally, calculate background-corrected metrics. Following Brown and Carnaval (2019), unequal environmental availability is corrected by up-weighting rare and down-weighting common environments along the discriminant axis.
+Optionally, calculate background-corrected metrics (Following Brown and Carnaval 2019) by up-weighting rare and down-weighting common environments along the discriminant axis to account for unequal environmental availability.
 
 ```r
 Niche_divergence_metrics_weighted <- NicheDiv::calc.niche.divergence.metrics(DAPC_results,
@@ -396,11 +410,10 @@ Niche_divergence_metrics_weighted
 
 ## Plot DAPC results
 
-Plot the discriminant-axis density distributions:
+Plot the discriminant-axis density distributions. In general, all plot functions include a built-in saving option, allowing figures to be exported directly as SVG, PNG, or JPEG files with user-defined dimensions.
 
 ```r
 #### Plot DAPC niche divergence ################################################
-
 NicheDiv::plot.DAPC.niche.divergence(DAPC_results,
                                      group.colors = Sp1_Sp2_species_colors,
                                      save = TRUE,
@@ -416,7 +429,6 @@ Plot the permutation null distribution of classification accuracy (observed valu
 
 ```r
 #### Plot permutation test #####################################################
-
 NicheDiv::plot.DAPC.permutation(DAPC_results,
                                 save = TRUE,
                                 overwrite = TRUE,
@@ -427,15 +439,15 @@ NicheDiv::plot.DAPC.permutation(DAPC_results,
                                 height = 9)
 ```
 
-Here an example output from the two functions above showing strong multivariate niche divergence (figure 4 from Schönberger et al preprint):
+Here an example output from the two functions above showing strong multivariate niche divergence in this *Hemileuca maia* buck moth group (figure 4 from Schönberger et al. preprint):
 
 ![NicheDiv example result](man/figures/README-schoenberger-etal-figure-4.png)
 
-Plot environmental variable contributions:
+Plot environmental variable contributions to the discriminant axis. These values show which original environmental variables contribute most to the DAPC separation between the two groups. Contributions are calculated by back-transforming the discriminant axis from retained PCs to the original environmental variables. Higher values indicate variables that contribute more strongly to group separation, but they should not be interpreted as independent causal effects because correlated predictors can share the same signal.
+
 
 ```r
 #### Plot variable contributions ##############################################
-
 DAPC_results_short_names <- DAPC_results
 DAPC_results_short_names$dapc_results$var.contr <- NicheDiv::map.env.variable.names(DAPC_results_short_names$dapc_results$var.contr, "short")
 DAPC_results_short_names$dapc_results$var.load <- NicheDiv::map.env.variable.names(DAPC_results_short_names$dapc_results$var.load, "short")
@@ -457,7 +469,6 @@ Plot raw distributions of the top contributing predictors:
 
 ```r
 #### Plot top predictors #######################################################
-
 Sp1_Sp2_analogous_short_names <- NicheDiv::map.env.variable.names(Sp1_Sp2_analogous, "short")
 
 NicheDiv::plot.top.DAPC.predictors(dapc.results = DAPC_results_short_names,
@@ -472,16 +483,17 @@ NicheDiv::plot.top.DAPC.predictors(dapc.results = DAPC_results_short_names,
                                    width = 16,
                                    height = 10)
 ```
-Here is an example output from the two variable-contribution plotting functions above (figure 5 from Schönberger et al preprint). The figure summarizes which environmental variables contribute most strongly to the DAPC-based separation of the two taxa in multivariate niche space. Panel A shows the relative contribution of each predictor to the discriminant axis and indicates which species has higher values for each variable. Panel B shows the distributions of the strongest contributing predictors, illustrating how univariate differences in these variables drive the estimated niche divergence. 
+Here is an example output from the two variable-contribution plotting functions above (figure 5 from Schönberger et al. preprint). The figure summarizes which environmental variables contribute most strongly to the DAPC-based separation of the two taxa in multivariate niche space. Panel A shows the relative contribution of each predictor to the discriminant axis and indicates which species has higher values for each variable. Panel B shows the distributions of the strongest contributing predictors, illustrating how univariate differences in these variables drive the estimated niche divergence. 
 
 ![NicheDiv example result](man/figures/README-schoenberger-etal-figure-5.png)
 
 
-Plot occurrences and background points
+Plot occurrences and background points. This map is useful for checking the geographic distribution of the two groups, the sampled background environments, and whether the accessible areas are biologically reasonable.
+
+Some map elements may need to be adjusted depending on the study area, map extent, and figure size. In particular, the arguments `north.arrow.length`, `north.arrow.N.position`, `north.arrow.position`, `scale.position`, `longitude.buffer.range`, `latitude.buffer.range`, and `north.arrow.lwd` may need manual tuning to avoid overlap with points or map boundaries.
 
 ```r
 #### Plot occurrence and background map ########################################
-
 background_labels <- factor(c(rep(levels(Sp1_Sp2_species_assignment)[1], nrow(Sp1_background_data)),
                               rep(levels(Sp1_Sp2_species_assignment)[2], nrow(Sp2_background_data))),
                             levels = levels(Sp1_Sp2_species_assignment))
@@ -503,7 +515,7 @@ NicheDiv::plot.occurrences.map(coordinates = Sp1_Sp2_analogous,
                                width = 16,
                                height = 12)
 ```
-Here an example map (figure 3 from Schönberger et al preprint); the large points represent occurrence records and the small points background records:
+Here an example map (figure 3 from Schönberger et al. preprint); the large points represent occurrence records and the small points background records:
 
 ![NicheDiv example result](man/figures/README-schoenberger-etal-figure-3.png)
 
@@ -513,7 +525,6 @@ For comparison, users may also run the DAPC test on the filtered occurrence data
 
 ```r
 #### Optional DAPC without analogous-variable filtering ########################
-
 Sp1_Sp2_species_assignment_no_analogy <- factor(Sp1_Sp2_occurrence_filtered[[Species_col]])
 
 Sp1_Sp2_species_colors_no_analogy <- setNames(base_colors[seq_along(levels(Sp1_Sp2_species_assignment_no_analogy))],
@@ -539,7 +550,6 @@ This might be especially desired if the variable-level analogy filtering removes
 
 ```r
 #### Optional Brown and Carnaval-style correction ##############################
-
 Sp1_Sp2_analogous_trimmed <- NicheDiv::trim.to.analogous.environments(Sp1.occurrence.data = Sp1_occurrence_filtered,
                                                                       Sp2.occurrence.data = Sp2_occurrence_filtered,
                                                                       Sp1.background.data = Sp1_background_filtered,
@@ -553,10 +563,15 @@ The trimmed dataset can then be passed to `run.DAPC.crossval.permutation()` usin
 ## Optional: run DAPC without analogous-variable filtering
 
 
+## How to include multiple pairwise comparisons
+
+
+
 ## Further recommendations
 
 * We recommend first running the DAPC niche divergence test using only analogous environmental variables. Strong and significant divergence in this analysis suggests that the groups differ within shared accessible environmental space (Brown & Carnaval, 2019). If no analogous variables remain after filtering, this also provides evidence that the groups occupy strongly different accessible environments. If divergence is weak and non-significant in the analogous-only analysis, repeat the DAPC analysis using the full environmental dataset, including both analogous and non-analogous variables. Strong and significant separation in the full dataset indicates that the groups occupy different environments, but this result alone should not be interpreted as evidence of adaptive niche divergence because the separation may be driven by environments that are not jointly available to both groups. Running the full-dataset analysis can also be useful even when the analogous-only analysis shows strong divergence, because analogous filtering can remove environmental axes along which divergence occurs. In such cases, using only analogous variables may reduce discriminatory power and increase the risk of false negatives. If separation is weak and non-significant in both analyses, the background permutation test can be used to evaluate whether the non-significant result reflects true niche similarity or limited statistical power given the available environmental conditions.
 * NicheDiv currently only supports continuous environmental variables. Because DAPC is widely used with biallelic genetic markers (Jombart et al. 2010, Miller et al. 2020), the framework could potentially be extended to binary or categorical ecological predictors in the future. If you want to include binary or categorical data (e.g., host presence/absence, habitat classes, symbionts, or pollinator types), running a SOM (self-organizing map) model may be useful (Pyron et al. 2023; see https://github.com/rpyron/delim-SOM).
+
 
 ## Main functions
 
@@ -580,6 +595,9 @@ The trimmed dataset can then be passed to `run.DAPC.crossval.permutation()` usin
 | `plot.occurrences.map()`           | Plot occurrence and background records on a map.                                 |
 | `map.env.variable.names()`         | Convert environmental variable names to shorter or more readable labels.         |
 
+
+## References
+
 ## References
 
 * Ascanio, A., Bracken, J. T., Stevens, M. H. H., & Jezkova, T. (2024). New theoretical and analytical framework for quantifying and classifying ecological niche differentiation. *Ecological Monographs, 94*(4). https://doi.org/10.1002/ecm.1622
@@ -590,19 +608,29 @@ The trimmed dataset can then be passed to `run.DAPC.crossval.permutation()` usin
 
 * Dormann, C. F., McPherson, J. M., Araújo, M. B., Bivand, R., Bolliger, J., Carl, G., Davies, R. G., Hirzel, A., Jetz, W., Kissling, W. D., Kühn, I., Ohlemüller, R., Peres-Neto, P. R., Reineking, B., Schröder, B., Schurr, F. M., & Wilson, R. (2007). Methods to account for spatial autocorrelation in the analysis of species distributional data: A review. *Ecography, 30*(5), 609–628. https://doi.org/10.1111/j.2007.0906-7590.05171.x
 
+* Elith, J., & Leathwick, J. R. (2009). Species distribution models: Ecological explanation and prediction across space and time. *Annual Review of Ecology, Evolution, and Systematics, 40*, 677–697. https://doi.org/10.1146/annurev.ecolsys.110308.120159
+
+* Fisher, R. A. (1936). The use of multiple measurements in taxonomic problems. *Annals of Eugenics, 7*(2), 179–188. https://doi.org/10.1111/j.1469-1809.1936.tb02137.x
+
+* Hijmans, R. J., Cameron, S. E., Parra, J. L., Jones, P. G., & Jarvis, A. (2005). Very high resolution interpolated climate surfaces for global land areas. *International Journal of Climatology, 25*(15), 1965–1978. https://doi.org/10.1002/joc.1276
+
+* Hutchinson, G. E. (1957). Concluding remarks. *Cold Spring Harbor Symposia on Quantitative Biology, 22*, 415–427. https://doi.org/10.1101/SQB.1957.022.01.039
+
 * Jombart, T., Devillard, S., & Balloux, F. (2010). Discriminant analysis of principal components: A new method for the analysis of genetically structured populations. *BMC Genetics, 11*, 94. https://doi.org/10.1186/1471-2156-11-94
+
+* Kearney, M., & Porter, W. (2009). Mechanistic niche modelling: Combining physiological and spatial data to predict species’ ranges. *Ecology Letters, 12*(4), 334–350. https://doi.org/10.1111/j.1461-0248.2008.01277.x
 
 * Lachenbruch, P. A., & Goldstein, M. (1979). Discriminant analysis. *Biometrics, 35*(1), 69–85. https://doi.org/10.2307/2529937
 
 * Miller, J. M., Cullingham, C. I., & Peery, R. M. (2020). The influence of a priori grouping on inference of genetic clusters: Simulation study and literature review of the DAPC method. *Heredity, 125*(5), 269–280. https://doi.org/10.1038/s41437-020-0348-2
-
-* Potapov, P., Li, X., Hernandez-Serna, A., Tyukavina, A., Hansen, M. C., Kommareddy, A., Pickens, A., Turubanova, S., Tang, H., Silva, C. E., Armston, J., Dubayah, R., Blair, J. B., & Hofton, M. (2021). Mapping global forest canopy height through integration of GEDI and Landsat data. *Remote Sensing of Environment, 253*, 112165. https://doi.org/10.1016/j.rse.2020.112165
 
 * Prajzlerová, D., Barták, V., Balej, P., Moudrý, V., & Šímová, P. (2025). The time of acquisition of multispectral predictors matters: The role of seasonality in bird species distribution models. *Ecography*. https://doi.org/10.1002/ecog.07935
 
 * Pyron, R. A., O’Connell, K. A., Duncan, S. C., Burbrink, F. T., & Beamer, D. A. (2023). Speciation hypotheses from phylogeographic delimitation yield an integrative taxonomy for Seal Salamanders (*Desmognathus monticola*). *Systematic Biology, 72*(1), 179–197. https://doi.org/10.1093/sysbio/syac065
 
 * Schoener, T. W. (1968). The Anolis lizards of Bimini: Resource partitioning in a complex fauna. *Ecology, 49*(4), 704–726. https://doi.org/10.2307/1935534
+
+* Soberón, J. (2007). Grinnellian and Eltonian niches and geographic distributions of species. *Ecology Letters, 10*(12), 1115–1123. https://doi.org/10.1111/j.1461-0248.2007.01107.x
 
 * Zimmermann, N. E., Yoccoz, N. G., Edwards, T. C., Meier, E. S., Thuiller, W., Guisan, A., Schmatz, D. R., & Pearman, P. B. (2009). Climatic extremes improve predictions of spatial patterns of tree species. *Proceedings of the National Academy of Sciences, 106*, 19723–19728. https://doi.org/10.1073/pnas.0901643106
 
@@ -612,7 +640,6 @@ The trimmed dataset can then be passed to `run.DAPC.crossval.permutation()` usin
 Please cite the NicheDiv framework as follows:
 
 Schönberger, D., MacDonald, Z. G., Schmidt, B. C., & Dupuis, J. R. NicheDiv: A DAPC framework to quantify niche divergence across highly multivariate environmental space. bioRxiv. https://doi.org/10.64898/2026.06.19.733388 
-
 
 
 ## License
