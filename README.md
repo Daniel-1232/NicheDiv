@@ -8,7 +8,7 @@ The idea behind our approach is that ecological niches are highly multidimension
 
 ## Main advantages of the approach
 
-- Requires only occurrence data as input
+- Requires only occurrence data as input.
 - Automatically extracts environmental values for occurrence records and background points from implemented and user-supplied environmental GIS layers. Implemented GIS layers cover monthly to seasonal climate, topography, phenology, hydrology, vegetation, soil, land cover, and anthropogenic variables (most at global extent).
 - Implements a preprocessing pipeline that reduces common biases: delimiting accessible background space, spatially thinning occurrences, balancing sample sizes, filtering low-information variables, and screening predictors for between-group environmental analogy.
 - Can handle hundreds of correlated environmental variables.
@@ -27,16 +27,12 @@ For bug reports, feedback, or questions, please contact me: daniel.schoenberger@
 
 ## Installation
 
-Install the R package from GitHub:
+Install the R package from GitHub and load:
 
 ```r
 if (!requireNamespace("remotes", quietly = TRUE)) install.packages("remotes")
 remotes::install_github("Daniel-1232/NicheDiv")
-```
 
-Load the package:
-
-```r
 library(NicheDiv)
 ```
 
@@ -72,9 +68,9 @@ The dataframe can also include multiple species if you want to perform multiple 
 
 ## Recommended workflow
 
-The typical NicheDiv workflow has seven major steps. The code below describes the full workflow using recommended default parameters throughout. Parameters that may require tuning are discussed explicitly.
+The NicheDiv workflow has several major steps. The code below describes the full workflow using recommended default parameters throughout. Parameters that may require tuning are discussed explicitly.
 
-Schematic overview of niche divergence framework, using two theoretical taxon pairs and three environmental layers as example (figure 1 from Schönberger et al preprint):
+Below is an schematic overview of the niche divergence framework, using two theoretical taxon pairs and three environmental layers as example (figure 1 from Schönberger et al preprint):
 
 ![NicheDiv workflow](man/figures/README-schoenberger-etal-figure-1.png)
 
@@ -119,11 +115,13 @@ exclude_cols <- c("ID", "Locality", "CollectionDate")
 ```
 
 
-Use `Sp1_name` and `Sp2_name` for the group names exactly as they appear in the grouping column of your input data frame, and use `Sp1_label` and `Sp2_label` for the labels displayed in plots.
+Use `Sp1_name` and `Sp2_name` for the group names exactly as they appear in the grouping column of your input data frame (e.g., "Hemileuca_nevadensis"), and use `Sp1_label` and `Sp2_label` for the labels displayed in plots (e.g., "H. nevadensis").
 
 `buffer_km` should be chosen to reflect the estimated approximate dispersal distance of the species group.
 
 Use `exclude_cols` to list columns that should be excluded from environmental predictor variables throughout the workflow, such as IDs, locality names, or collection dates.
+
+`CRS_all` defines the coordinate reference system of the occurrence coordinates. Use `"EPSG:4326"` when your longitude and latitude columns are in decimal degrees, which is the most common format for occurrence data. If your coordinates are already projected, provide the corresponding projected CRS instead.
 
 ## 1. Extract environmental data and generate background points
 
@@ -185,7 +183,7 @@ NicheDiv::extract.env.and.background(occurrence.data = occurrence_data,
 
 ## 2. Import and prepare extracted data
 
-Next, we import and process the extracted environmental data. Here, no changes in parameters are needed.
+Next, we import and process the extracted environmental data. In this section, no changes in parameters are needed.
 
 ```r
 #### Import and prepare extracted data #########################################
