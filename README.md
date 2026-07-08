@@ -577,25 +577,25 @@ If you have multiple taxa (e.g., all members of a species group), you can compar
 
 ## Main functions
 
-| Function                           | Description                                                                      |
-| ---------------------------------- | -------------------------------------------------------------------------------- |
-| `extract.env.and.background()`     | Extract environmental variables and generate background data.                    |
-| `convert.integer.to.numeric()`     | Convert integer columns to numeric.                                              |
-| `crop.background.buffered()`       | Crop background points to buffered accessible areas.                             |
-| `sample.down()`                    | Downsample occurrence or background records.                                     |
-| `thin.occurrence()`                | Spatially thin occurrence records and evaluate residual spatial autocorrelation. |
-| `transform.skewed.variables()`     | Transform skewed environmental variables.                                        |
-| `remove.low.CV.vars()`             | Remove variables with low coefficient of variation.                              |
-| `filter.analogous.variables()`     | Retain predictors with analogous background distributions.                       |
-| `trim.to.analogous.environments()` | Remove occurrence records from non-analogous environmental conditions.           |
-| `run.DAPC.crossval.permutation()`  | Run cross-validated DAPC and permutation testing.                                |
-| `calc.niche.divergence.metrics()`  | Calculate Schoener’s D and niche divergence plane metrics.                       |
-| `plot.DAPC.niche.divergence()`     | Plot density distributions along the DAPC discriminant axis.                     |
-| `plot.DAPC.permutation()`          | Plot the permutation null distribution.                                          |
-| `plot.DAPC.var.contributions()`    | Plot variable contributions to the discriminant axis.                            |
-| `plot.top.DAPC.predictors()`       | Plot raw distributions of top contributing predictors.                           |
-| `plot.occurrences.map()`           | Plot occurrence and background records on a map.                                 |
-| `map.env.variable.names()`         | Convert environmental variable names to shorter or more readable labels.         |
+| Function                           | Description                                                                     |
+| ---------------------------------- | ------------------------------------------------------------------------------- |
+| `extract.env.and.background()`     | Extract environmental variables and generate background data                    |
+| `convert.integer.to.numeric()`     | Convert integer columns to numeric                                              |
+| `crop.background.buffered()`       | Crop background points to buffered accessible areas                             |
+| `sample.down()`                    | Downsample occurrence or background records                                     |
+| `thin.occurrence()`                | Spatially thin occurrence records and evaluate residual spatial autocorrelation |
+| `transform.skewed.variables()`     | Transform skewed environmental variables                                        |
+| `remove.low.CV.vars()`             | Remove variables with low coefficient of variation                              |
+| `filter.analogous.variables()`     | Retain predictors with analogous background distributions                       |
+| `trim.to.analogous.environments()` | Remove occurrence records from non-analogous environmental conditions           |
+| `run.DAPC.crossval.permutation()`  | Run cross-validated DAPC and permutation testing                                |
+| `calc.niche.divergence.metrics()`  | Calculate Schoener’s D and niche divergence plane metrics                       |
+| `plot.DAPC.niche.divergence()`     | Plot density distributions along the DAPC discriminant axis                     |
+| `plot.DAPC.permutation()`          | Plot the permutation null distribution                                          |
+| `plot.DAPC.var.contributions()`    | Plot variable contributions to the discriminant axis                            |
+| `plot.top.DAPC.predictors()`       | Plot raw distributions of top contributing predictors                           |
+| `plot.occurrences.map()`           | Plot occurrence and background records on a map                                 |
+| `map.env.variable.names()`         | Convert environmental variable names to shorter or more readable labels         |
 
 
 ## References
@@ -636,12 +636,10 @@ If you have multiple taxa (e.g., all members of a species group), you can compar
 
 
 ## Citation
-
 Please cite the *NicheDiv* framework as follows:
 
-Schönberger, D., MacDonald, Z. G., Schmidt, B. C., & Dupuis, J. R. NicheDiv: A DAPC framework to quantify niche divergence across highly multivariate environmental space. bioRxiv. https://doi.org/10.64898/2026.06.19.733388 
+Schönberger, D., MacDonald, Z. G., Schmidt, B. C., & Dupuis, J. R. *NicheDiv*: A DAPC framework to quantify niche divergence across highly multivariate environmental space. bioRxiv. https://doi.org/10.64898/2026.06.19.733388 
 
 
 ## License
-
 *NicheDiv* is released under the MIT License. See the `LICENSE` file for details.
