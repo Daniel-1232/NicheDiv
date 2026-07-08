@@ -4,7 +4,7 @@
 
 This is done by adapting discriminant analysis of principal components (DAPC) to environmental niche data. DAPC was originally developed for population genetics (Jombart et al. 2010) but is well suited for numerous correlated environmental variables. Environmental variables are first transformed into principal components (PCs) to reduce dimensionality and collinearity. Discriminant analysis (Fisher 1936, Lachenbruch & Goldstein 1979) is then used to identify the axis that best separates the two groups. Our method summarizes niche divergence with easily interpretable metrics and density plots.
 
-The idea behind our approach is that ecological niches are highly multidimensional (Hutchinson, 1957) and are rarely captured completely by the commonly used annual climate variables alone (Elith & Leathwick 2009; Kearney & Porter 2009; Soberón, 2007), such as WorldClim’s BIO1–BIO19 variables (Hijmans et al. 2005). Seasonal and monthly variables are often required to capture phenology, resource availability, physiological stress, and other time-dependent ecological processes that may be obscured by annual averages (Prajzlerová et al. 2025; Zimmermann et al. 2009). *NicheDiv* tackles this problem in two ways: first, by automatically extracting environmental values from a broad set of implemented GIS layers covering both abiotic and biotic environmental dimensions; and second, by making it possible to test niche divergence across this high-dimensional and correlated environmental space using our DAPC-based framework.
+The motivation behind our approach is that ecological niches are highly multidimensional (Hutchinson, 1957) and are rarely captured completely by the commonly used annual climate variables alone (Elith & Leathwick 2009; Kearney & Porter 2009; Soberón, 2007), such as WorldClim’s BIO1–BIO19 variables (Hijmans et al. 2005). Seasonal and monthly variables are often required to capture phenology, resource availability, physiological stress, and other time-dependent ecological processes that may be obscured by annual averages (Prajzlerová et al. 2025; Zimmermann et al. 2009). *NicheDiv* tackles this problem in two ways: first, by automatically extracting environmental values from a broad set of implemented GIS layers covering both abiotic and biotic environmental dimensions; and second, by making it possible to test niche divergence across this high-dimensional and correlated environmental space using our DAPC-based framework.
 
 ## Main advantages of the approach
 
@@ -79,7 +79,7 @@ Below is a schematic overview of the niche divergence framework, using two theor
 
 ## Set working environment and input parameters
 
-Before starting, we need to define all directories, file names and parameters
+Before starting, we need to define all directories, file names and parameters:
 
 ```r
 #### Set working environment and input #########################################
