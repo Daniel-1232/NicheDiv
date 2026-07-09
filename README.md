@@ -73,7 +73,7 @@ The dataframe can also include multiple species if you want to perform multiple 
 
 The NicheDiv workflow has several major steps. The code below describes the full workflow using recommended default parameters throughout. Parameters that may require tuning are discussed explicitly.
 
-Below is a schematic overview of the niche divergence framework, using two theoretical taxon pairs and three environmental layers as an example (figure 1 from Schönberger et al. preprint):
+Below is a schematic overview of the niche divergence framework, using two theoretical taxon pairs and three environmental layers as an example (figure 1 from Schönberger et al. preprint).
 
 ![NicheDiv workflow](man/figures/README-schoenberger-etal-figure-1.png)
 
@@ -135,6 +135,7 @@ Use `exclude_cols` to list columns that should be excluded from environmental pr
 
 We start by extracting environmental values for occurrence records and generating background points within the accessible area.
 This step usually takes the most time because the environmental layers need to be downloaded. Fortunately, our approach uses minimal GIS layer processing/projection, saving hours of time and a lot of memory.
+
 In the example below, all implemented environmental datasets are used, which can take several hours. Using all datasets is typically a good approach to describe the niche as comprehensively as possible, but your study system may require excluding datasets that are biologically less relevant.
 Furthermore, some datasets are only available for North America (namely, `"ClimateNA"`, `"daylength"`, and `"snow_water_equivalent"`). If your study system is outside North America, remove these datasets from `env.datasets`.
 
@@ -168,7 +169,7 @@ extract.env.and.background(occurrence.data = occurrence_data,
                                             "daylength", "soil_moisture"))
 ```
 
-Optional custom rasters can also be supplied by the user as one or more GeoTIFF files:
+Optional custom rasters can also be supplied by the user as one or more GeoTIFF files.
 
 ```r
 custom_raster_path <- file.path(base_dir, "Data/custom_environmental_layers.tif")
@@ -193,7 +194,7 @@ extract.env.and.background(occurrence.data = occurrence_data,
 
 ## 2. Import and prepare extracted data
 
-Next, we import and process the extracted environmental data. In this section, no changes in parameters are needed.
+Next, we import and process the occurrence and extracted environmental data. In this section, no changes in parameters are needed.
 
 ```r
 #### Import and prepare extracted data #########################################
@@ -201,7 +202,7 @@ Next, we import and process the extracted environmental data. In this section, n
 ## Import extracted occurrence and background data
 Env_data_occurrences <- read.csv(file.path(results_dir, csv_occurrence_out_file))
 dim(Env_data_occurrences)
-Env_data_background <- read.csv(file.path(results_dir, csv_background_out_file), check.names = FALSE)
+Env_data_background <- read.csv(file.path(results_dir, csv_background_out_file))
 dim(Env_data_background)
 
 
@@ -232,8 +233,10 @@ Sp2_occurrence_data <- Env_data_occurrences[Env_data_occurrences[[Species_col]] 
 
 ## 3. Crop and downsample background data
 
-The next step crops the shared background to a buffered convex hull around each group’s occurrence records and then downsamples each background to the same target size. Only the `buffer.method` argument needs to be considered in this section. This argument defines how the accessible area is buffered around each group’s occurrence records, with larger or more inclusive buffers retaining more background environments and smaller or stricter buffers focusing the comparison on environments closer to the observed occurrences.
-Available background geometries are `"hull"`, `"points"`, `"alpha"`, and `"bbox"`. Below, we use the convex hull which is usually a robust default. Point buffers or alpha hulls may be useful for fragmented or spatially complex distributions.
+The next step crops the shared background to a buffered convex hull around each group’s occurrence records and then downsamples each background to the same target size. 
+
+Only the `buffer.method` argument may need to be considered in this section. This argument defines how the accessible area is buffered around each group’s occurrence records, with larger or more inclusive buffers retaining more background environments and smaller or stricter buffers focusing the comparison on environments closer to the observed occurrences.
+Available background geometries are `"hull"`, `"points"`, `"alpha"`, and `"bbox"`. Below, we use the convex hull which is usually a robust default for most cases. Point buffers or alpha hulls may be useful for fragmented or spatially complex distributions.
 
 ```r
 #### Prepare background data ###################################################
@@ -263,7 +266,7 @@ Sp2_background_data <- sample.down(Sp2_background_data, N.rows = 10000)
 
 ## 4. Spatially thin and balance occurrence records
 
-To reduce spatial autocorrelation, we thin our occurrence records. A thinning distance (`thinning.dist.km`) of one kilometer is usually an appropriate value, as set below. If hundreds of occurrence records remain after thinning, you can consider increasing the thinning distance threshold to reduce spatial autocorrelation. 
+To reduce spatial autocorrelation (Dormann et al. 2007), we thin our occurrence records. A thinning distance (`thinning.dist.km`) of one kilometer is usually an appropriate value, as set below. If hundreds of occurrence records remain after thinning, you can consider increasing the thinning distance threshold to reduce spatial autocorrelation. 
 We also downsample both groups to the same number of occurrences (to avoid bias in the discriminant analysis caused by unequal sample sizes).
 
 ```r
@@ -390,7 +393,8 @@ Based on the DAPC results, we can calculate the following five niche divergence 
 * `Niche_divergence_magnitude (ND)`: combined divergence magnitude in the niche divergence plane. Values range from 0 to 1.41, where 0 indicates no divergence and 1.41 indicates maximum combined density-based and range-based divergence (Ascanio et al. 2024).
 * `Niche_divergence_angle (θ)`: relative contribution of density-based versus range-based divergence. Values range from 0° to 90°, where values near 0° indicate divergence mainly driven by range exclusivity, values near 90° indicate divergence mainly driven by density differences within shared space, and intermediate values indicate mixed contributions (Ascanio et al. 2024).
 
-The most important summary metrics are `D` and `ND`. Stronger niche divergence is indicated by lower `D` values and higher `ND` values. As a general rule of thumb: `D` values below 0.4 and `ND` values above 0.9 indicate strong divergence in the current framework.
+The most important metrics to evaluate and report are `D` and `ND`. Stronger niche divergence is indicated by lower `D` values and higher `ND` values. As a general rule of thumb: `D` values below around 0.4 and `ND` values above around 0.9 indicate strong divergence in the current framework.
+
 
 ```r
 #### Calculate niche divergence metrics ########################################
@@ -411,7 +415,7 @@ Niche_divergence_metrics_weighted <- calc.niche.divergence.metrics(DAPC_results,
 ## 8. Plot results
 In general, all plot functions include built-in saving options (`save`) to export figures directly as SVG, PNG, or JPEG files (`type`). Figure dimensions can be adjusted with `width` and `height`. Set `save = FALSE` if you do not want to save the figures. The `overwrite` argument controls whether existing plot files are overwritten. Many plot functions also include additional arguments for adjusting font sizes and other plotting parameters.
 
-We start by plotting the discriminant-axis density distributions, followed by visualizing the permutation null distribution of classification accuracy (observed value shown as red line)
+We start by plotting the discriminant-axis density distributions, followed by visualizing the permutation null distribution of classification accuracy (observed value shown as red line).
 
 ```r
 #### Plot DAPC niche divergence ################################################
@@ -437,15 +441,12 @@ plot.DAPC.permutation(DAPC_results,
                       height = 9)
 ```
 
-Here is an example output from the two functions above, showing strong multivariate niche divergence in this *Hemileuca maia* buck moth group (figure 4 from Schönberger et al. preprint):
+Here is an example output from the two functions above, showing strong multivariate niche divergence between two taxa from this *Hemileuca maia* buck moth species group (Saturniidae) (figure 4 from Schönberger et al. preprint).
 
 ![NicheDiv example result](man/figures/README-schoenberger-etal-figure-4.png)
 
 
-Next, we plot the environmental variable contributions to the discriminant axis.
-
-These values show which original environmental variables contribute most to the DAPC separation between the two groups. Contributions are calculated by back-transforming the discriminant axis from retained PCs to the original environmental variables. Higher values indicate variables that contribute more strongly to group separation, but they should not be interpreted as independent causal effects because correlated predictors can share the same signal.
-
+Next, we plot the environmental variable contributions to the discriminant axis:
 
 ```r
 #### Plot variable contributions ##############################################
@@ -466,7 +467,7 @@ DAPC_var_contr <- plot.DAPC.var.contributions(DAPC_results_short_names,
 head(DAPC_var_contr)
 ```
 
-We can also examine the raw distributions of the top contributing predictors. The number of variable to show can be adjusted via `N.top.variables` (6 is usually working well in this plot layout).
+We can also examine the raw distributions of the top contributing predictors. The number of shown variables can be adjusted via `N.top.variables` (6 is usually working well in this plot layout).
 
 ```r
 #### Plot top predictors #######################################################
@@ -491,8 +492,6 @@ Here is an example output from the two variable-contribution plotting functions 
 
 
 Lastly, we can plot the occurrences and background points on a map.
-
-This is useful for checking the geographic distribution of the two groups, the sampled background environments, and whether the accessible areas are biologically reasonable. 
 
 Some map elements may need to be adjusted depending on the study area, map extent, and figure size. In particular, the arguments `north.arrow.length`, `north.arrow.N.position`, `north.arrow.position`, `scale.position`, `longitude.buffer.range`, `latitude.buffer.range`, and `north.arrow.lwd` may need manual tuning to avoid overlap with points or map boundaries.
 
@@ -519,7 +518,7 @@ plot.occurrences.map(coordinates = Sp1_Sp2_analogous,
                      width = 16,
                      height = 12)
 ```
-Here is an example map (figure 3 from Schönberger et al. preprint): the large points represent occurrence records and the small points represent background records
+Here is an example map (figure 3 from Schönberger et al. preprint), with the large points representing occurrence records and the small points representing background records.
 
 ![NicheDiv example result](man/figures/README-schoenberger-etal-figure-3.png)
 
