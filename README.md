@@ -446,7 +446,7 @@ Here is an example output from the two functions above, showing strong multivari
 ![NicheDiv example result](man/figures/README-schoenberger-etal-figure-4.png)
 
 
-Next, we plot the environmental variable contributions to the discriminant axis:
+Next, we plot the environmental variable contributions to the discriminant axis.
 
 ```r
 #### Plot variable contributions ##############################################
