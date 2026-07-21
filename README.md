@@ -446,7 +446,10 @@ Here is an example output from the two functions above, showing strong multivari
 ![NicheDiv example result](man/figures/README-schoenberger-etal-figure-4.png)
 
 
-Next, we plot the environmental variable contributions to the discriminant axis.
+Next, we plot the environmental variable contributions to the discriminant axis. 
+Bar length represents the relative contribution of each variable to the discriminant axis. 
+Bar color indicates the group associated with higher values of each variable along the discriminant axis.
+
 
 ```r
 #### Plot variable contributions ##############################################
@@ -467,7 +470,8 @@ DAPC_var_contr <- plot.DAPC.var.contributions(DAPC_results_short_names,
 head(DAPC_var_contr)
 ```
 
-We can also examine the raw distributions of the top contributing predictors. The number of shown variables can be adjusted via `N.top.variables` (6 is usually working well in this plot layout).
+We can also examine the raw distributions of the top contributing predictors. 
+The number of shown variables can be adjusted via `N.top.variables` (6 or 9 is usually working well in this plot layout).
 
 ```r
 #### Plot top predictors #######################################################
