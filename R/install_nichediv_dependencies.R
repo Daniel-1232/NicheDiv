@@ -16,7 +16,7 @@
 install_nichediv_dependencies <- function(install_climatena = TRUE,
                                           install_whitebox = TRUE,
                                           install_data_table = TRUE,
-                                          climatena_url = "https://zenodo.org/records/17401570/files/ClimateNAr.zip?download=1",
+                                          climatena_url = "https://zenodo.org/records/23327283/files/ClimateNAr.zip?download=1",
                                           timeout = 800,
                                           force = FALSE,
                                           verbose = TRUE) {
