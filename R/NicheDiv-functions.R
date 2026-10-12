@@ -7106,9 +7106,8 @@ extract.env.and.background <- function(occurrence.data, #input data.frame with c
                                   install_data_table = TRUE,
                                   force = FALSE,
                                   verbose = verbose)
-    system_info <- Sys.info()[["sysname"]]
-    if (!grepl("Windows", system_info, ignore.case = TRUE)) stop("ClimateNAr package is only available for Windows!")
-    if (!("ClimateNAr" %in% rownames(utils::installed.packages()))) stop("Package 'ClimateNAr' is required for ClimateNA extraction, but installation failed.")
+    if (!requireNamespace("ClimateNAr", quietly = TRUE)) stop("Package 'ClimateNAr' is required for ClimateNA extraction, but installation failed")
+    if (utils::compareVersion(as.character(utils::packageVersion("ClimateNAr")), "3.2.0") < 0L) stop("ClimateNA cross-platform test requires ClimateNAr >= 3.2.0; install the local 3.2.0 ZIP first")
     if (!requireNamespace("data.table", quietly = TRUE)) stop("Package 'data.table' is required for ClimateNA extraction, but installation failed")
   }
 
@@ -7301,9 +7300,18 @@ extract.env.and.background <- function(occurrence.data, #input data.frame with c
     ClimateNAr_env$as.data.table <- data.table::as.data.table
     ClimateNAr_env$fread <- data.table::fread
     ClimateNAr.replicate <- eval(parse(text = ClimateNAr_clean_src), envir = ClimateNAr_env)
+    run_climatena <- function(input_csv) {
+      oldwd <- getwd()
+      on.exit(setwd(oldwd), add = TRUE)
+      setwd(find.package("ClimateNAr"))
+      ClimateNAr.replicate(inputFile = normalizePath(input_csv, winslash = "/", mustWork = TRUE),
+                           varList = "YM",
+                           periodList = "Decade_2011_2020.dcd",
+                           outDir = paste0(ClimateNA_dir_abs, "/"))
+    }
     ClimateNA_dir <- file.path(rasters.dir, "ClimateNA")
     if (!dir.exists(ClimateNA_dir)) dir.create(ClimateNA_dir, recursive = TRUE)
-    ClimateNA_dir_abs <- normalizePath(ClimateNA_dir, winslash = "\\", mustWork = FALSE)
+    ClimateNA_dir_abs <- normalizePath(ClimateNA_dir, winslash = "/", mustWork = TRUE)
     climatena_occ_file <- file.path(intermediate_files_dir, "ClimateNA_extracted_occurrence.csv")
     climatena_bg_file <- file.path(intermediate_files_dir, "ClimateNA_extracted_background.csv")
     climatena_variable_names <- c("MAT", "MWMT", "MCMT", "TD", "MAP", "MSP",
@@ -7335,14 +7343,7 @@ extract.env.and.background <- function(occurrence.data, #input data.frame with c
                            el = as.numeric(environmental_dataset$Elevation)),
                 in_csv,
                 row.names = FALSE)
-      pkg_path <- find.package("ClimateNAr")
-      oldwd <- getwd()
-      setwd(pkg_path)
-      ClimateNAr.replicate(inputFile = normalizePath(in_csv, winslash = "\\"),
-                           varList = "YM",
-                           periodList = "Decade_2011_2020.dcd",
-                           outDir = "")
-      setwd(oldwd)
+      run_climatena(in_csv)
       occurrences_output_candidates <- c(file.path(ClimateNA_dir_abs, "ClimateNALat_Long_Elev_Decade_2011_2020.csv"),
                                          file.path(ClimateNA_dir_abs, "Lat_Long_Elev_Decade_2011_2020.csv"))
       occurrences_output <- occurrences_output_candidates[file.exists(occurrences_output_candidates)]
@@ -7383,14 +7384,7 @@ extract.env.and.background <- function(occurrence.data, #input data.frame with c
                              el = as.numeric(background.data$Elevation)),
                   bg_csv,
                   row.names = FALSE)
-        pkg_path <- find.package("ClimateNAr")
-        oldwd <- getwd()
-        setwd(pkg_path)
-        ClimateNAr.replicate(inputFile = normalizePath(bg_csv, winslash = "\\"),
-                             varList = "YM",
-                             periodList = "Decade_2011_2020.dcd",
-                             outDir = "")
-        setwd(oldwd)
+        run_climatena(bg_csv)
         bg_output_candidates <- c(file.path(ClimateNA_dir_abs, "ClimateNALat_Long_Elev_background_Decade_2011_2020.csv"),
                                   file.path(ClimateNA_dir_abs, "Lat_Long_Elev_background_Decade_2011_2020.csv"))
         bg_output <- bg_output_candidates[file.exists(bg_output_candidates)]
@@ -7415,14 +7409,7 @@ extract.env.and.background <- function(occurrence.data, #input data.frame with c
                                el = as.numeric(extra_points_df$Elevation)),
                     two_csv,
                     row.names = FALSE)
-          pkg_path <- find.package("ClimateNAr")
-          oldwd <- getwd()
-          setwd(pkg_path)
-          ClimateNAr.replicate(inputFile = normalizePath(two_csv, winslash = "\\"),
-                               varList = "YM",
-                               periodList = "Decade_2011_2020.dcd",
-                               outDir = "")
-          setwd(oldwd)
+          run_climatena(two_csv)
           two_output_candidates <- c(file.path(ClimateNA_dir_abs, "ClimateNALat_Long_Elev_two_points_Decade_2011_2020.csv"),
                                      file.path(ClimateNA_dir_abs, "Lat_Long_Elev_two_points_Decade_2011_2020.csv"))
           two_output <- two_output_candidates[file.exists(two_output_candidates)]
