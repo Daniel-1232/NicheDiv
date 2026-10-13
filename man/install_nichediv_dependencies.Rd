@@ -8,7 +8,9 @@ install_nichediv_dependencies(
   install_climatena = TRUE,
   install_whitebox = TRUE,
   install_data_table = TRUE,
-  climatena_url = "https://zenodo.org/records/17401570/files/ClimateNAr.zip?download=1",
+  climatena_url = "https://zenodo.org/records/23327283/files/ClimateNAr.zip?download=1",
+  climatena_zip = NULL,
+  climatena_lib = NULL,
   timeout = 800,
   force = FALSE,
   verbose = TRUE
@@ -21,7 +23,11 @@ install_nichediv_dependencies(
 
 \item{install_data_table}{Logical; whether to install data.table.}
 
-\item{climatena_url}{Download URL for the ClimateNAr Windows binary zip.}
+\item{climatena_url}{Download URL for a ClimateNAr ZIP archive.}
+
+\item{climatena_zip}{Optional path to a local ClimateNAr ZIP (overrides climatena_url).}
+
+\item{climatena_lib}{Optional R library for an isolated ClimateNAr installation.}
 
 \item{timeout}{Download timeout in seconds.}
 

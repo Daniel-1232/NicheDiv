@@ -72,7 +72,7 @@ convert.integer.to.numeric <- function(dataframe) {
 #' @details
 #' The convex hull (`buffer.method = "hull"`) is the default geometry because it
 #' provides a robust, simple, and biologically meaningful approximation of the
-#' accessible area (`M`; Soberón & Peterson, 2005; Barve et al., 2011; Owens et
+#' accessible area (`M`; Soberon & Peterson, 2005; Barve et al., 2011; Owens et
 #' al., 2013). The convex hull traces the outer extent of occurrence records and
 #' can approximate the area that has likely been accessible to the species,
 #' especially when expanded by an ecologically informed dispersal buffer. Compared
@@ -83,14 +83,14 @@ convert.integer.to.numeric <- function(dataframe) {
 #' Three alternative geometries are also available. Concave hulls
 #' (`buffer.method = "alpha"`) can follow the detailed shape of occurrence
 #' distributions and may better approximate complex ranges, but they are
-#' sensitive to the concavity parameter (`alpha`; Edelsbrunner & Mücke, 1994;
-#' Pateiro-López & Rodríguez-Casal, 2010; Fourcade, 2016). Lower `alpha` values
+#' sensitive to the concavity parameter (`alpha`; Edelsbrunner & Mucke, 1994;
+#' Pateiro-Lopez & Rodriguez-Casal, 2010; Fourcade, 2016). Lower `alpha` values
 #' produce more concave outlines that fit the points more closely but may create
 #' holes, fragmentation, or unstable geometries. Higher `alpha` values produce
 #' smoother outlines that increasingly resemble the convex hull. The default
 #' `alpha = 3` is intended as a robust compromise that captures some range
 #' complexity while reducing over-fragmentation (Fourcade, 2016;
-#' Pateiro-López & Rodríguez-Casal, 2010).
+#' Pateiro-Lopez & Rodriguez-Casal, 2010).
 #'
 #' Per-point buffers (`buffer.method = "points"`) generate local circular buffers
 #' around each occurrence record and unite those buffers into a single clipping
@@ -122,13 +122,13 @@ convert.integer.to.numeric <- function(dataframe) {
 #'   in Venezuela. \emph{Journal of Biogeography}, 37(7), 1378-1393.
 #'   https://doi.org/10.1111/j.1365-2699.2010.02290.x
 #'
-#' Barve, N., Barve, V., Jiménez-Valverde, A., Lira-Noriega, A., Maher, S. P.,
-#'   Peterson, A. T., Soberón, J., & Villalobos, F. (2011). The crucial role of
+#' Barve, N., Barve, V., Jimenez-Valverde, A., Lira-Noriega, A., Maher, S. P.,
+#'   Peterson, A. T., Soberon, J., & Villalobos, F. (2011). The crucial role of
 #'   the accessible area in ecological niche modeling and species distribution
 #'   modeling. \emph{Ecological Modelling}, 222(11), 1810-1819.
 #'   https://doi.org/10.1016/j.ecolmodel.2011.02.011
 #'
-#' Edelsbrunner, H., & Mücke, E. P. (1994). Three-dimensional alpha shapes.
+#' Edelsbrunner, H., & Mucke, E. P. (1994). Three-dimensional alpha shapes.
 #'   \emph{ACM Transactions on Graphics}, 13(1), 43-72.
 #'   https://doi.org/10.1145/174462.156635
 #'
@@ -137,31 +137,31 @@ convert.integer.to.numeric <- function(dataframe) {
 #'   shifts with climate change. \emph{Ecological Informatics}, 36, 8-14.
 #'   https://doi.org/10.1016/j.ecoinf.2016.09.002
 #'
-#' Fourcade, Y., Engler, J. O., Rödder, D., & Secondi, J. (2014). Mapping species
+#' Fourcade, Y., Engler, J. O., Rodder, D., & Secondi, J. (2014). Mapping species
 #'   distributions with MAXENT using a geographically biased sample of presence
 #'   data: A performance assessment of methods for correcting sampling bias.
 #'   \emph{PLOS ONE}, 9(5), e97122.
 #'   https://doi.org/10.1371/journal.pone.0097122
 #'
 #' Owens, H. L., Campbell, L. P., Dornak, L. L., Saupe, E. E., Barve, N.,
-#'   Soberón, J., Ingenloff, K., Lira-Noriega, A., Hensz, C. M., Myers, C. E.,
+#'   Soberon, J., Ingenloff, K., Lira-Noriega, A., Hensz, C. M., Myers, C. E.,
 #'   & Peterson, A. T. (2013). Constraints on interpretation of ecological niche
 #'   models by limited environmental ranges on calibration areas.
 #'   \emph{Ecological Modelling}, 263, 10-18.
 #'   https://doi.org/10.1016/j.ecolmodel.2013.04.011
 #'
-#' Pateiro-López, B., & Rodríguez-Casal, A. (2010). Generalizing the convex hull
+#' Pateiro-Lopez, B., & Rodriguez-Casal, A. (2010). Generalizing the convex hull
 #'   of a sample: The R package alphahull. \emph{Journal of Statistical
 #'   Software}, 34(5).
 #'   https://doi.org/10.18637/jss.v034.i05
 #'
-#' Peterson, A. T., Papeş, T., & Eaton, M. (2007). Transferability and model
+#' Peterson, A. T., Papes, T., & Eaton, M. (2007). Transferability and model
 #'   evaluation in ecological niche modeling: A comparison of GARP and Maxent.
 #'   \emph{Ecography}, 30(4), 550-560.
 #'   https://doi.org/10.1111/j.0906-7590.2007.05102.x
 #'
-#' Peterson, A. T., Soberón, J., Pearson, R. G., Anderson, R. P.,
-#'   Martínez-Meyer, E., Nakamura, M., & Araújo, M. B. (2011). \emph{Ecological
+#' Peterson, A. T., Soberon, J., Pearson, R. G., Anderson, R. P.,
+#'   Martinez-Meyer, E., Nakamura, M., & Araujo, M. B. (2011). \emph{Ecological
 #'   niches and geographic distributions}. Princeton University Press.
 #'   https://doi.org/10.1515/9781400840670
 #'
@@ -170,7 +170,7 @@ convert.integer.to.numeric <- function(dataframe) {
 #'   190(3-4), 231-259.
 #'   https://doi.org/10.1016/j.ecolmodel.2005.03.026
 #'
-#' Soberón, J., & Peterson, A. T. (2005). Interpretation of models of fundamental
+#' Soberon, J., & Peterson, A. T. (2005). Interpretation of models of fundamental
 #'   ecological niches and species' distributional areas. \emph{Biodiversity
 #'   Informatics}, 2(0).
 #'   https://doi.org/10.17161/bi.v2i0.4
@@ -510,9 +510,9 @@ sample.down <- function(dataframe, #input dataframe to sample from
 #'   niche models. \emph{Ecological Modelling}, 275, 73-77.
 #'   https://doi.org/10.1016/j.ecolmodel.2013.12.012
 #'
-#' Dormann, C. F., M. McPherson, J., B. Araújo, M., Bivand, R., Bolliger, J.,
-#'   Carl, G., G. Davies, R., Hirzel, A., Jetz, W., Daniel Kissling, W., Kühn, I.,
-#'   Ohlemüller, R., R. Peres-Neto, P., Reineking, B., Schröder, B., M. Schurr,
+#' Dormann, C. F., M. McPherson, J., B. Araujo, M., Bivand, R., Bolliger, J.,
+#'   Carl, G., G. Davies, R., Hirzel, A., Jetz, W., Daniel Kissling, W., Kuhn, I.,
+#'   Ohlemuller, R., R. Peres-Neto, P., Reineking, B., Schroder, B., M. Schurr,
 #'   F., & Wilson, R. (2007). Methods to account for spatial autocorrelation in
 #'   the analysis of species distributional data: A review. \emph{Ecography},
 #'   30(5), 609-628. https://doi.org/10.1111/j.2007.0906-7590.05171.x
@@ -520,7 +520,7 @@ sample.down <- function(dataframe, #input dataframe to sample from
 #' Fortin, M.-J., & Dale, M. R. T. (2005). \emph{Spatial analysis: A guide for
 #'   ecologists}. Cambridge University Press.
 #'
-#' Fourcade, Y., Engler, J. O., Rödder, D., & Secondi, J. (2014). Mapping species
+#' Fourcade, Y., Engler, J. O., Rodder, D., & Secondi, J. (2014). Mapping species
 #'   distributions with MAXENT using a geographically biased sample of presence
 #'   data: A performance assessment of methods for correcting sampling bias.
 #'   \emph{PLOS ONE}, 9(5), e97122.
@@ -530,7 +530,7 @@ sample.down <- function(dataframe, #input dataframe to sample from
 #'   bias correction methods for species distribution modeling using virtual
 #'   species. \emph{Ecosphere}, 12(3). https://doi.org/10.1002/ecs2.3422
 #'
-#' Kramer-Schadt, S., Niedballa, J., Pilgrim, J. D., Schröder, B., Lindenborn,
+#' Kramer-Schadt, S., Niedballa, J., Pilgrim, J. D., Schroder, B., Lindenborn,
 #'   J., Reinfelder, V., Stillfried, M., Heckmann, I., Scharf, A. K., Augeri,
 #'   D. M., Cheyne, S. M., Hearn, A. J., Ross, J., Macdonald, D. W., Mathai, J.,
 #'   Eaton, J., Marshall, A. J., Semiadi, G., Rustam, R., et al. (2013). The
@@ -1365,22 +1365,22 @@ transform.skewed.variables <- function(data.frame, #input data frame containing 
 #'   `kept_variables` for the retained environmental predictors.
 #'
 #' @references
-#' Dormann, C. F., Elith, J., Bacher, S., Buchmann, C., Carl, G., Carré, G.,
-#'   Marquéz, J. R. G., Gruber, B., Lafourcade, B., Leitão, P. J.,
-#'   Münkemüller, T., McClean, C., Osborne, P. E., Reineking, B., Schröder, B.,
+#' Dormann, C. F., Elith, J., Bacher, S., Buchmann, C., Carl, G., Carre, G.,
+#'   Marquez, J. R. G., Gruber, B., Lafourcade, B., Leitao, P. J.,
+#'   Munkemuller, T., McClean, C., Osborne, P. E., Reineking, B., Schroder, B.,
 #'   Skidmore, A. K., Zurell, D., & Lautenbach, S. (2013). Collinearity: A
 #'   review of methods to deal with it and a simulation study evaluating their
 #'   performance. \emph{Ecography}, 36(1), 27-46.
 #'   https://doi.org/10.1111/j.1600-0587.2012.07348.x
 #'
 #' Greenacre, M., & Primicerio, R. (2014). \emph{Multivariate analysis of
-#'   ecological data}. Fundación BBVA.
+#'   ecological data}. Fundacion BBVA.
 #'
 #' Maronna, R. A., Martin, R. D., & Yohai, V. J. (2006). \emph{Robust
 #'   statistics}. Wiley. https://doi.org/10.1002/0470010940
 #'
 #' Pearson, K. (1896). VII. Mathematical contributions to the theory of
-#'   evolution.—III. Regression, heredity, and panmixia. \emph{Philosophical
+#'   evolution.-III. Regression, heredity, and panmixia. \emph{Philosophical
 #'   Transactions of the Royal Society of London. Series A, Containing Papers of
 #'   a Mathematical or Physical Character}, 187, 253-318.
 #'   https://doi.org/10.1098/rsta.1896.0007
@@ -1626,7 +1626,7 @@ remove.low.CV.vars <- function(Sp1.occurrence.data, #occurrence data for species
 #' likely to drive comparisons through extrapolation rather than shared
 #' environmental conditions. Overlap values are interpreted on the same general
 #' scale as Schoener's D, where larger values indicate greater similarity between
-#' environmental distributions (Schoener, 1968; Warren et al., 2008; Rödder &
+#' environmental distributions (Schoener, 1968; Warren et al., 2008; Rodder &
 #' Engler, 2011).
 #'
 #' Bivariate overlap screening is included because variables can appear
@@ -1644,7 +1644,7 @@ remove.low.CV.vars <- function(Sp1.occurrence.data, #occurrence data for species
 #' variables with poor analogy. Lower values allow greater environmental
 #' non-analogy and higher extrapolation risk, whereas stricter thresholds may
 #' remove biologically meaningful predictors and leave too few variables for
-#' downstream analyses (Barve et al., 2011; Warren et al., 2008; Rödder & Engler,
+#' downstream analyses (Barve et al., 2011; Warren et al., 2008; Rodder & Engler,
 #' 2011; Peterson et al., 2011).
 #'
 #' Screening is restricted to univariate and bivariate projections because
@@ -1660,8 +1660,8 @@ remove.low.CV.vars <- function(Sp1.occurrence.data, #occurrence data for species
 #'   `exclude.cols` that were present in the input occurrence table.
 #'
 #' @references
-#' Barve, N., Barve, V., Jiménez-Valverde, A., Lira-Noriega, A., Maher, S. P.,
-#'   Peterson, A. T., Soberón, J., & Villalobos, F. (2011). The crucial role of
+#' Barve, N., Barve, V., Jimenez-Valverde, A., Lira-Noriega, A., Maher, S. P.,
+#'   Peterson, A. T., Soberon, J., & Villalobos, F. (2011). The crucial role of
 #'   the accessible area in ecological niche modeling and species distribution
 #'   modeling. \emph{Ecological Modelling}, 222(11), 1810-1819.
 #'   https://doi.org/10.1016/j.ecolmodel.2011.02.011
@@ -1685,17 +1685,17 @@ remove.low.CV.vars <- function(Sp1.occurrence.data, #occurrence data for species
 #'   Distributions}, 20(10), 1147-1159. https://doi.org/10.1111/ddi.12209
 #'
 #' Pearson, K. (1896). VII. Mathematical contributions to the theory of
-#'   evolution.—III. Regression, heredity, and panmixia. \emph{Philosophical
+#'   evolution.-III. Regression, heredity, and panmixia. \emph{Philosophical
 #'   Transactions of the Royal Society of London. Series A, Containing Papers of
 #'   a Mathematical or Physical Character}, 187, 253-318.
 #'   https://doi.org/10.1098/rsta.1896.0007
 #'
-#' Peterson, A. T., Soberón, J., Pearson, R. G., Anderson, R. P.,
-#'   Martínez-Meyer, E., Nakamura, M., & Araújo, M. B. (2011). \emph{Ecological
+#' Peterson, A. T., Soberon, J., Pearson, R. G., Anderson, R. P.,
+#'   Martinez-Meyer, E., Nakamura, M., & Araujo, M. B. (2011). \emph{Ecological
 #'   niches and geographic distributions}. Princeton University Press.
 #'   https://doi.org/10.1515/9781400840670
 #'
-#' Rödder, D., & Engler, J. O. (2011). Quantitative metrics of overlaps in
+#' Rodder, D., & Engler, J. O. (2011). Quantitative metrics of overlaps in
 #'   Grinnellian niches: Advances and possible drawbacks. \emph{Global Ecology
 #'   and Biogeography}, 20(6), 915-927.
 #'   https://doi.org/10.1111/j.1466-8238.2011.00659.x
@@ -2202,8 +2202,8 @@ filter.analogous.variables <- function(Sp1.background.data, #input data.frame or
 #'   to linear models, logistic and ordinal regression, and survival analysis}
 #'   (2nd ed.). Springer.
 #'
-#' Peterson, A. T., Soberón, J., Pearson, R. G., Anderson, R. P.,
-#'   Martínez-Meyer, E., Nakamura, M., & Araújo, M. B. (2011). \emph{Ecological
+#' Peterson, A. T., Soberon, J., Pearson, R. G., Anderson, R. P.,
+#'   Martinez-Meyer, E., Nakamura, M., & Araujo, M. B. (2011). \emph{Ecological
 #'   niches and geographic distributions}. Princeton University Press.
 #'   https://doi.org/10.1515/9781400840670
 #'
@@ -5268,10 +5268,10 @@ map.env.variable.names <- function(input.data, #data frame or named numeric/vect
   variable.mapping.full <- c(
 
     # ClimateNA
-    "MAT" = "Mean annual temperature (°C)",
-    "MWMT" = "Mean warmest month temperature (°C)",
-    "MCMT" = "Mean coldest month temperature (°C)",
-    "TD" = "Temperature difference (°C)",
+    "MAT" = "Mean annual temperature (\u00B0C)",
+    "MWMT" = "Mean warmest month temperature (\u00B0C)",
+    "MCMT" = "Mean coldest month temperature (\u00B0C)",
+    "TD" = "Temperature difference (\u00B0C)",
     "MAP" = "Mean annual precipitation (mm)",
     "MSP" = "May to September precipitation (mm)",
     "AHM" = "Annual heat-moisture index",
@@ -5281,54 +5281,54 @@ map.env.variable.names <- function(input.data, #data frame or named numeric/vect
     "FFP" = "Frost-free period (days)",
     "CMD" = "Climatic moisture deficit (mm)",
     "CMI" = "Climatic moisture index",
-    "DD_0" = "Annual degree days < 0°C",
-    "DD5" = "Annual degree days > 5°C",
-    "DD_18" = "Annual degree days < 18°C",
-    "DD18" = "Annual degree days > 18°C",
-    "DD1040" = "Annual degree days 10-40°C",
-    "EMT" = "Extreme minimum temperature (°C)",
-    "EXT" = "Extreme maximum temperature (°C)",
+    "DD_0" = "Annual degree days < 0\u00B0C",
+    "DD5" = "Annual degree days > 5\u00B0C",
+    "DD_18" = "Annual degree days < 18\u00B0C",
+    "DD18" = "Annual degree days > 18\u00B0C",
+    "DD1040" = "Annual degree days 10-40\u00B0C",
+    "EMT" = "Extreme minimum temperature (\u00B0C)",
+    "EXT" = "Extreme maximum temperature (\u00B0C)",
     "Eref" = "Reference evaporation (mm)",
     "rsds" = "Mean solar radiation (MJ m^-^2 day^-^1)",
     "NFFD" = "Number of frost-free days (days)",
     "PAS" = "Precipitation as snow (mm)",
     "RH"  = "Mean relative humidity (%)",
-    "Tmax01" = "Maximum temperature (Jan; °C)",
-    "Tmax02" = "Maximum temperature (Feb; °C)",
-    "Tmax03" = "Maximum temperature (Mar; °C)",
-    "Tmax04" = "Maximum temperature (Apr; °C)",
-    "Tmax05" = "Maximum temperature (May; °C)",
-    "Tmax06" = "Maximum temperature (Jun; °C)",
-    "Tmax07" = "Maximum temperature (Jul; °C)",
-    "Tmax08" = "Maximum temperature (Aug; °C)",
-    "Tmax09" = "Maximum temperature (Sep; °C)",
-    "Tmax10" = "Maximum temperature (Oct; °C)",
-    "Tmax11" = "Maximum temperature (Nov; °C)",
-    "Tmax12" = "Maximum temperature (Dec; °C)",
-    "Tmin01" = "Minimum temperature (Jan; °C)",
-    "Tmin02" = "Minimum temperature (Feb; °C)",
-    "Tmin03" = "Minimum temperature (Mar; °C)",
-    "Tmin04" = "Minimum temperature (Apr; °C)",
-    "Tmin05" = "Minimum temperature (May; °C)",
-    "Tmin06" = "Minimum temperature (Jun; °C)",
-    "Tmin07" = "Minimum temperature (Jul; °C)",
-    "Tmin08" = "Minimum temperature (Aug; °C)",
-    "Tmin09" = "Minimum temperature (Sep; °C)",
-    "Tmin10" = "Minimum temperature (Oct; °C)",
-    "Tmin11" = "Minimum temperature (Nov; °C)",
-    "Tmin12" = "Minimum temperature (Dec; °C)",
-    "Tave01" = "Mean temperature (Jan; °C)",
-    "Tave02" = "Mean temperature (Feb; °C)",
-    "Tave03" = "Mean temperature (Mar; °C)",
-    "Tave04" = "Mean temperature (Apr; °C)",
-    "Tave05" = "Mean temperature (May; °C)",
-    "Tave06" = "Mean temperature (Jun; °C)",
-    "Tave07" = "Mean temperature (Jul; °C)",
-    "Tave08" = "Mean temperature (Aug; °C)",
-    "Tave09" = "Mean temperature (Sep; °C)",
-    "Tave10" = "Mean temperature (Oct; °C)",
-    "Tave11" = "Mean temperature (Nov; °C)",
-    "Tave12" = "Mean temperature (Dec; °C)",
+    "Tmax01" = "Maximum temperature (Jan; \u00B0C)",
+    "Tmax02" = "Maximum temperature (Feb; \u00B0C)",
+    "Tmax03" = "Maximum temperature (Mar; \u00B0C)",
+    "Tmax04" = "Maximum temperature (Apr; \u00B0C)",
+    "Tmax05" = "Maximum temperature (May; \u00B0C)",
+    "Tmax06" = "Maximum temperature (Jun; \u00B0C)",
+    "Tmax07" = "Maximum temperature (Jul; \u00B0C)",
+    "Tmax08" = "Maximum temperature (Aug; \u00B0C)",
+    "Tmax09" = "Maximum temperature (Sep; \u00B0C)",
+    "Tmax10" = "Maximum temperature (Oct; \u00B0C)",
+    "Tmax11" = "Maximum temperature (Nov; \u00B0C)",
+    "Tmax12" = "Maximum temperature (Dec; \u00B0C)",
+    "Tmin01" = "Minimum temperature (Jan; \u00B0C)",
+    "Tmin02" = "Minimum temperature (Feb; \u00B0C)",
+    "Tmin03" = "Minimum temperature (Mar; \u00B0C)",
+    "Tmin04" = "Minimum temperature (Apr; \u00B0C)",
+    "Tmin05" = "Minimum temperature (May; \u00B0C)",
+    "Tmin06" = "Minimum temperature (Jun; \u00B0C)",
+    "Tmin07" = "Minimum temperature (Jul; \u00B0C)",
+    "Tmin08" = "Minimum temperature (Aug; \u00B0C)",
+    "Tmin09" = "Minimum temperature (Sep; \u00B0C)",
+    "Tmin10" = "Minimum temperature (Oct; \u00B0C)",
+    "Tmin11" = "Minimum temperature (Nov; \u00B0C)",
+    "Tmin12" = "Minimum temperature (Dec; \u00B0C)",
+    "Tave01" = "Mean temperature (Jan; \u00B0C)",
+    "Tave02" = "Mean temperature (Feb; \u00B0C)",
+    "Tave03" = "Mean temperature (Mar; \u00B0C)",
+    "Tave04" = "Mean temperature (Apr; \u00B0C)",
+    "Tave05" = "Mean temperature (May; \u00B0C)",
+    "Tave06" = "Mean temperature (Jun; \u00B0C)",
+    "Tave07" = "Mean temperature (Jul; \u00B0C)",
+    "Tave08" = "Mean temperature (Aug; \u00B0C)",
+    "Tave09" = "Mean temperature (Sep; \u00B0C)",
+    "Tave10" = "Mean temperature (Oct; \u00B0C)",
+    "Tave11" = "Mean temperature (Nov; \u00B0C)",
+    "Tave12" = "Mean temperature (Dec; \u00B0C)",
     "PAS01" = "Precipitation as snow (Jan; mm)",
     "PAS02" = "Precipitation as snow (Feb; mm)",
     "PAS03" = "Precipitation as snow (Mar; mm)",
@@ -5365,54 +5365,54 @@ map.env.variable.names <- function(input.data, #data frame or named numeric/vect
     "rsds10" = "Surface downwelling shortwave radiation (Oct; MJ m^-^2 day^-^1)",
     "rsds11" = "Surface downwelling shortwave radiation (Nov; MJ m^-^2 day^-^1)",
     "rsds12" = "Surface downwelling shortwave radiation (Dec; MJ m^-^2 day^-^1)",
-    "DD_0_01" = "Degree days < 0°C (Jan)",
-    "DD_0_02" = "Degree days < 0°C (Feb)",
-    "DD_0_03" = "Degree days < 0°C (Mar)",
-    "DD_0_04" = "Degree days < 0°C (Apr)",
-    "DD_0_05" = "Degree days < 0°C (May)",
-    "DD_0_06" = "Degree days < 0°C (Jun)",
-    "DD_0_07" = "Degree days < 0°C (Jul)",
-    "DD_0_08" = "Degree days < 0°C (Aug)",
-    "DD_0_09" = "Degree days < 0°C (Sep)",
-    "DD_0_10" = "Degree days < 0°C (Oct)",
-    "DD_0_11" = "Degree days < 0°C (Nov)",
-    "DD_0_12" = "Degree days < 0°C (Dec)",
-    "DD5_01" = "Degree days > 5°C (Jan)",
-    "DD5_02" = "Degree days > 5°C (Feb)",
-    "DD5_03" = "Degree days > 5°C (Mar)",
-    "DD5_04" = "Degree days > 5°C (Apr)",
-    "DD5_05" = "Degree days > 5°C (May)",
-    "DD5_06" = "Degree days > 5°C (Jun)",
-    "DD5_07" = "Degree days > 5°C (Jul)",
-    "DD5_08" = "Degree days > 5°C (Aug)",
-    "DD5_09" = "Degree days > 5°C (Sep)",
-    "DD5_10" = "Degree days > 5°C (Oct)",
-    "DD5_11" = "Degree days > 5°C (Nov)",
-    "DD5_12" = "Degree days > 5°C (Dec)",
-    "DD_18_01" = "Degree days < 18°C (Jan)",
-    "DD_18_02" = "Degree days < 18°C (Feb)",
-    "DD_18_03" = "Degree days < 18°C (Mar)",
-    "DD_18_04" = "Degree days < 18°C (Apr)",
-    "DD_18_05" = "Degree days < 18°C (May)",
-    "DD_18_06" = "Degree days < 18°C (Jun)",
-    "DD_18_07" = "Degree days < 18°C (Jul)",
-    "DD_18_08" = "Degree days < 18°C (Aug)",
-    "DD_18_09" = "Degree days < 18°C (Sep)",
-    "DD_18_10" = "Degree days < 18°C (Oct)",
-    "DD_18_11" = "Degree days < 18°C (Nov)",
-    "DD_18_12" = "Degree days < 18°C (Dec)",
-    "DD18_01" = "Degree days > 18°C (Jan)",
-    "DD18_02" = "Degree days > 18°C (Feb)",
-    "DD18_03" = "Degree days > 18°C (Mar)",
-    "DD18_04" = "Degree days > 18°C (Apr)",
-    "DD18_05" = "Degree days > 18°C (May)",
-    "DD18_06" = "Degree days > 18°C (Jun)",
-    "DD18_07" = "Degree days > 18°C (Jul)",
-    "DD18_08" = "Degree days > 18°C (Aug)",
-    "DD18_09" = "Degree days > 18°C (Sep)",
-    "DD18_10" = "Degree days > 18°C (Oct)",
-    "DD18_11" = "Degree days > 18°C (Nov)",
-    "DD18_12" = "Degree days > 18°C (Dec)",
+    "DD_0_01" = "Degree days < 0\u00B0C (Jan)",
+    "DD_0_02" = "Degree days < 0\u00B0C (Feb)",
+    "DD_0_03" = "Degree days < 0\u00B0C (Mar)",
+    "DD_0_04" = "Degree days < 0\u00B0C (Apr)",
+    "DD_0_05" = "Degree days < 0\u00B0C (May)",
+    "DD_0_06" = "Degree days < 0\u00B0C (Jun)",
+    "DD_0_07" = "Degree days < 0\u00B0C (Jul)",
+    "DD_0_08" = "Degree days < 0\u00B0C (Aug)",
+    "DD_0_09" = "Degree days < 0\u00B0C (Sep)",
+    "DD_0_10" = "Degree days < 0\u00B0C (Oct)",
+    "DD_0_11" = "Degree days < 0\u00B0C (Nov)",
+    "DD_0_12" = "Degree days < 0\u00B0C (Dec)",
+    "DD5_01" = "Degree days > 5\u00B0C (Jan)",
+    "DD5_02" = "Degree days > 5\u00B0C (Feb)",
+    "DD5_03" = "Degree days > 5\u00B0C (Mar)",
+    "DD5_04" = "Degree days > 5\u00B0C (Apr)",
+    "DD5_05" = "Degree days > 5\u00B0C (May)",
+    "DD5_06" = "Degree days > 5\u00B0C (Jun)",
+    "DD5_07" = "Degree days > 5\u00B0C (Jul)",
+    "DD5_08" = "Degree days > 5\u00B0C (Aug)",
+    "DD5_09" = "Degree days > 5\u00B0C (Sep)",
+    "DD5_10" = "Degree days > 5\u00B0C (Oct)",
+    "DD5_11" = "Degree days > 5\u00B0C (Nov)",
+    "DD5_12" = "Degree days > 5\u00B0C (Dec)",
+    "DD_18_01" = "Degree days < 18\u00B0C (Jan)",
+    "DD_18_02" = "Degree days < 18\u00B0C (Feb)",
+    "DD_18_03" = "Degree days < 18\u00B0C (Mar)",
+    "DD_18_04" = "Degree days < 18\u00B0C (Apr)",
+    "DD_18_05" = "Degree days < 18\u00B0C (May)",
+    "DD_18_06" = "Degree days < 18\u00B0C (Jun)",
+    "DD_18_07" = "Degree days < 18\u00B0C (Jul)",
+    "DD_18_08" = "Degree days < 18\u00B0C (Aug)",
+    "DD_18_09" = "Degree days < 18\u00B0C (Sep)",
+    "DD_18_10" = "Degree days < 18\u00B0C (Oct)",
+    "DD_18_11" = "Degree days < 18\u00B0C (Nov)",
+    "DD_18_12" = "Degree days < 18\u00B0C (Dec)",
+    "DD18_01" = "Degree days > 18\u00B0C (Jan)",
+    "DD18_02" = "Degree days > 18\u00B0C (Feb)",
+    "DD18_03" = "Degree days > 18\u00B0C (Mar)",
+    "DD18_04" = "Degree days > 18\u00B0C (Apr)",
+    "DD18_05" = "Degree days > 18\u00B0C (May)",
+    "DD18_06" = "Degree days > 18\u00B0C (Jun)",
+    "DD18_07" = "Degree days > 18\u00B0C (Jul)",
+    "DD18_08" = "Degree days > 18\u00B0C (Aug)",
+    "DD18_09" = "Degree days > 18\u00B0C (Sep)",
+    "DD18_10" = "Degree days > 18\u00B0C (Oct)",
+    "DD18_11" = "Degree days > 18\u00B0C (Nov)",
+    "DD18_12" = "Degree days > 18\u00B0C (Dec)",
     "NFFD01" = "Frost-free days (Jan; days)",
     "NFFD02" = "Frost-free days (Feb; days)",
     "NFFD03" = "Frost-free days (Mar; days)",
@@ -5478,19 +5478,19 @@ map.env.variable.names <- function(input.data, #data frame or named numeric/vect
     "annualPET" = "Annual potential evapotranspiration (mm)",
     "aridityIndexThornthwaite" = "Thornthwaite aridity index",
     "climaticMoistureIndex" = "Climatic moisture index",
-    "continentality" = "Avg temperature of warmest month minus avg temperature of coldest (°C)",
+    "continentality" = "Avg temperature of warmest month minus avg temperature of coldest (\u00B0C)",
     "embergerQ" = "Emberger's pluviothermic quotient",
-    "growingDegDays0" = "Growing degree days > 0°C",
-    "growingDegDays5" = "Growing degree days > 5°C",
-    "maxTempColdest" = "Maximum temperature of coldest month (°C)",
-    "minTempWarmest" = "Minimum temperature of warmest month (°C)",
-    "monthCountByTemp10" = "Months with mean temperature > 10°C (months)",
+    "growingDegDays0" = "Growing degree days > 0\u00B0C",
+    "growingDegDays5" = "Growing degree days > 5\u00B0C",
+    "maxTempColdest" = "Maximum temperature of coldest month (\u00B0C)",
+    "minTempWarmest" = "Minimum temperature of warmest month (\u00B0C)",
+    "monthCountByTemp10" = "Months with mean temperature > 10\u00B0C (months)",
     "PETColdestQuarter" = "PET coldest quarter (mm)",
     "PETDriestQuarter" = "PET driest quarter (mm)",
     "PETseasonality" = "PET monthly variability",
     "PETWarmestQuarter" = "PET warmest quarter (mm)",
     "PETWettestQuarter" = "PET wettest quarter (mm)",
-    "thermicityIndex" = "Compensated thermicity index (°C)",
+    "thermicityIndex" = "Compensated thermicity index (\u00B0C)",
 
     # Urbanization (Venter et al. 2016)
     "Footprint" = "Human footprint",
@@ -5643,11 +5643,11 @@ map.env.variable.names <- function(input.data, #data frame or named numeric/vect
     "FFP" = "Annual frost-free period days",
     "CMD" = "Annual climatic moisture deficit",
     "CMI" = "Annual climatic moisture",
-    "DD_0" = "Annual degree days < 0°C",
-    "DD5" = "Annual degree days > 5°C",
-    "DD_18" = "Annual degree days < 18°C",
-    "DD18" = "Annual degree days > 18°C",
-    "DD1040" = "Annual degree days 10-40°C",
+    "DD_0" = "Annual degree days < 0\u00B0C",
+    "DD5" = "Annual degree days > 5\u00B0C",
+    "DD_18" = "Annual degree days < 18\u00B0C",
+    "DD18" = "Annual degree days > 18\u00B0C",
+    "DD1040" = "Annual degree days 10-40\u00B0C",
     "EMT" = "Extreme min temp",
     "EXT" = "Extreme max temp",
     "Eref" = "Annual reference evaporation",
@@ -5727,54 +5727,54 @@ map.env.variable.names <- function(input.data, #data frame or named numeric/vect
     "rsds10" = "Shortwave radiation Oct",
     "rsds11" = "Shortwave radiation Nov",
     "rsds12" = "Shortwave radiation Dec",
-    "DD_0_01" = "Degree days < 0°C Jan",
-    "DD_0_02" = "Degree days < 0°C Feb",
-    "DD_0_03" = "Degree days < 0°C Mar",
-    "DD_0_04" = "Degree days < 0°C Apr",
-    "DD_0_05" = "Degree days < 0°C May",
-    "DD_0_06" = "Degree days < 0°C Jun",
-    "DD_0_07" = "Degree days < 0°C Jul",
-    "DD_0_08" = "Degree days < 0°C Aug",
-    "DD_0_09" = "Degree days < 0°C Sep",
-    "DD_0_10" = "Degree days < 0°C Oct",
-    "DD_0_11" = "Degree days < 0°C Nov",
-    "DD_0_12" = "Degree days < 0°C Dec",
-    "DD5_01" = "Degree days > 5°C Jan",
-    "DD5_02" = "Degree days > 5°C Feb",
-    "DD5_03" = "Degree days > 5°C Mar",
-    "DD5_04" = "Degree days > 5°C Apr",
-    "DD5_05" = "Degree days > 5°C May",
-    "DD5_06" = "Degree days > 5°C Jun",
-    "DD5_07" = "Degree days > 5°C Jul",
-    "DD5_08" = "Degree days > 5°C Aug",
-    "DD5_09" = "Degree days > 5°C Sep",
-    "DD5_10" = "Degree days > 5°C Oct",
-    "DD5_11" = "Degree days > 5°C Nov",
-    "DD5_12" = "Degree days > 5°C Dec",
-    "DD_18_01" = "Degree days < 18°C Jan",
-    "DD_18_02" = "Degree days < 18°C Feb",
-    "DD_18_03" = "Degree days < 18°C Mar",
-    "DD_18_04" = "Degree days < 18°C Apr",
-    "DD_18_05" = "Degree days < 18°C May",
-    "DD_18_06" = "Degree days < 18°C Jun",
-    "DD_18_07" = "Degree days < 18°C Jul",
-    "DD_18_08" = "Degree days < 18°C Aug",
-    "DD_18_09" = "Degree days < 18°C Sep",
-    "DD_18_10" = "Degree days < 18°C Oct",
-    "DD_18_11" = "Degree days < 18°C Nov",
-    "DD_18_12" = "Degree days < 18°C Dec",
-    "DD18_01" = "Degree days > 18°C Jan",
-    "DD18_02" = "Degree days > 18°C Feb",
-    "DD18_03" = "Degree days > 18°C Mar",
-    "DD18_04" = "Degree days > 18°C Apr",
-    "DD18_05" = "Degree days > 18°C May",
-    "DD18_06" = "Degree days > 18°C Jun",
-    "DD18_07" = "Degree days > 18°C Jul",
-    "DD18_08" = "Degree days > 18°C Aug",
-    "DD18_09" = "Degree days > 18°C Sep",
-    "DD18_10" = "Degree days > 18°C Oct",
-    "DD18_11" = "Degree days > 18°C Nov",
-    "DD18_12" = "Degree days > 18°C Dec",
+    "DD_0_01" = "Degree days < 0\u00B0C Jan",
+    "DD_0_02" = "Degree days < 0\u00B0C Feb",
+    "DD_0_03" = "Degree days < 0\u00B0C Mar",
+    "DD_0_04" = "Degree days < 0\u00B0C Apr",
+    "DD_0_05" = "Degree days < 0\u00B0C May",
+    "DD_0_06" = "Degree days < 0\u00B0C Jun",
+    "DD_0_07" = "Degree days < 0\u00B0C Jul",
+    "DD_0_08" = "Degree days < 0\u00B0C Aug",
+    "DD_0_09" = "Degree days < 0\u00B0C Sep",
+    "DD_0_10" = "Degree days < 0\u00B0C Oct",
+    "DD_0_11" = "Degree days < 0\u00B0C Nov",
+    "DD_0_12" = "Degree days < 0\u00B0C Dec",
+    "DD5_01" = "Degree days > 5\u00B0C Jan",
+    "DD5_02" = "Degree days > 5\u00B0C Feb",
+    "DD5_03" = "Degree days > 5\u00B0C Mar",
+    "DD5_04" = "Degree days > 5\u00B0C Apr",
+    "DD5_05" = "Degree days > 5\u00B0C May",
+    "DD5_06" = "Degree days > 5\u00B0C Jun",
+    "DD5_07" = "Degree days > 5\u00B0C Jul",
+    "DD5_08" = "Degree days > 5\u00B0C Aug",
+    "DD5_09" = "Degree days > 5\u00B0C Sep",
+    "DD5_10" = "Degree days > 5\u00B0C Oct",
+    "DD5_11" = "Degree days > 5\u00B0C Nov",
+    "DD5_12" = "Degree days > 5\u00B0C Dec",
+    "DD_18_01" = "Degree days < 18\u00B0C Jan",
+    "DD_18_02" = "Degree days < 18\u00B0C Feb",
+    "DD_18_03" = "Degree days < 18\u00B0C Mar",
+    "DD_18_04" = "Degree days < 18\u00B0C Apr",
+    "DD_18_05" = "Degree days < 18\u00B0C May",
+    "DD_18_06" = "Degree days < 18\u00B0C Jun",
+    "DD_18_07" = "Degree days < 18\u00B0C Jul",
+    "DD_18_08" = "Degree days < 18\u00B0C Aug",
+    "DD_18_09" = "Degree days < 18\u00B0C Sep",
+    "DD_18_10" = "Degree days < 18\u00B0C Oct",
+    "DD_18_11" = "Degree days < 18\u00B0C Nov",
+    "DD_18_12" = "Degree days < 18\u00B0C Dec",
+    "DD18_01" = "Degree days > 18\u00B0C Jan",
+    "DD18_02" = "Degree days > 18\u00B0C Feb",
+    "DD18_03" = "Degree days > 18\u00B0C Mar",
+    "DD18_04" = "Degree days > 18\u00B0C Apr",
+    "DD18_05" = "Degree days > 18\u00B0C May",
+    "DD18_06" = "Degree days > 18\u00B0C Jun",
+    "DD18_07" = "Degree days > 18\u00B0C Jul",
+    "DD18_08" = "Degree days > 18\u00B0C Aug",
+    "DD18_09" = "Degree days > 18\u00B0C Sep",
+    "DD18_10" = "Degree days > 18\u00B0C Oct",
+    "DD18_11" = "Degree days > 18\u00B0C Nov",
+    "DD18_12" = "Degree days > 18\u00B0C Dec",
     "NFFD01" = "Frost-free days Jan",
     "NFFD02" = "Frost-free days Feb",
     "NFFD03" = "Frost-free days Mar",
@@ -5842,11 +5842,11 @@ map.env.variable.names <- function(input.data, #data frame or named numeric/vect
     "climaticMoistureIndex" = "Climatic moisture index",
     "continentality" = "Temp range warmest-coldest month",
     "embergerQ" = "Emberger's pluviothermic quotient",
-    "growingDegDays0" = "Growing degree days > 0°C",
-    "growingDegDays5" = "Growing degree days > 5°C",
+    "growingDegDays0" = "Growing degree days > 0\u00B0C",
+    "growingDegDays5" = "Growing degree days > 5\u00B0C",
     "maxTempColdest" = "Max temp of coldest month",
     "minTempWarmest" = "Min temp of warmest month",
-    "monthCountByTemp10" = "Months with avg temp > 10°C",
+    "monthCountByTemp10" = "Months with avg temp > 10\u00B0C",
     "PETColdestQuarter" = "PET coldest quarter",
     "PETDriestQuarter" = "PET driest quarter",
     "PETseasonality" = "PET monthly variability",
@@ -6126,12 +6126,12 @@ map.env.variable.names <- function(input.data, #data frame or named numeric/vect
 #' The function supports a broad suite of abiotic and biotic predictors because
 #' ecological niches are multidimensional and often shaped by climate,
 #' topography, hydrology, vegetation, soils, disturbance, land use, and biotic
-#' context rather than climate alone (Guisan & Zimmermann, 2000; Soberón, 2007;
+#' context rather than climate alone (Guisan & Zimmermann, 2000; Soberon, 2007;
 #' Elith & Leathwick, 2009; Kearney & Porter, 2009; Dormann et al., 2013; Title
 #' & Bemmels, 2018). Seasonal and monthly predictors are included because annual
 #' summaries can obscure phenological constraints, short-term physiological
 #' stress, and seasonal resource availability (Hufkens et al., 2018; Zimmermann
-#' et al., 2009; Prajzlerová et al., 2025).
+#' et al., 2009; Prajzlerova et al., 2025).
 #'
 #' Elevation (`env.datasets = "elevation"`; 1 variable) is based on the
 #' Copernicus Global Digital Elevation Model GLO-90 v.1.1
@@ -6160,7 +6160,7 @@ map.env.variable.names <- function(input.data, #data frame or named numeric/vect
 #' 2011). The topographic wetness index (TWI) represents soil-moisture potential
 #' based on upslope contributing area and slope, linking topography to drainage,
 #' hydrological accumulation, and local moisture availability (Beven & Kirkby,
-#' 1979; Sørensen et al., 2006). Together, these five terrain variables capture
+#' 1979; Sorensen et al., 2006). Together, these five terrain variables capture
 #' microclimatic buffering, exposure, drainage, and habitat heterogeneity relevant
 #' to species distributions (Bennie et al., 2008; Dobrowski, 2011).
 #'
@@ -6328,7 +6328,7 @@ map.env.variable.names <- function(input.data, #data frame or named numeric/vect
 #'   MODIS Fire_cci burned area pixel product, version 5.1.
 #'
 #' Conrad, O., Bechtel, B., Bock, M., Dietrich, H., Fischer, E., Gerlitz, L.,
-#'   Wehberg, J., Wichmann, V., & Böhner, J. (2015). System for Automated
+#'   Wehberg, J., Wichmann, V., & Bohner, J. (2015). System for Automated
 #'   Geoscientific Analyses (SAGA) v. 2.1.4. \emph{Geoscientific Model
 #'   Development}, 8, 1991-2007. https://doi.org/10.5194/gmd-8-1991-2015
 #'
@@ -6342,9 +6342,9 @@ map.env.variable.names <- function(input.data, #data frame or named numeric/vect
 #'   understanding: State-of-the art and future directions. \emph{Remote Sensing
 #'   of Environment}, 203, 185-215. https://doi.org/10.1016/j.rse.2017.07.001
 #'
-#' Dormann, C. F., Elith, J., Bacher, S., Buchmann, C., Carl, G., Carré, G.,
-#'   Marquéz, J. R. G., Gruber, B., Lafourcade, B., Leitão, P. J.,
-#'   Münkemüller, T., McClean, C., Osborne, P. E., Reineking, B., Schröder, B.,
+#' Dormann, C. F., Elith, J., Bacher, S., Buchmann, C., Carl, G., Carre, G.,
+#'   Marquez, J. R. G., Gruber, B., Lafourcade, B., Leitao, P. J.,
+#'   Munkemuller, T., McClean, C., Osborne, P. E., Reineking, B., Schroder, B.,
 #'   Skidmore, A. K., Zurell, D., & Lautenbach, S. (2013). Collinearity: A
 #'   review of methods to deal with it and a simulation study evaluating their
 #'   performance. \emph{Ecography}, 36(1), 27-46.
@@ -6439,7 +6439,7 @@ map.env.variable.names <- function(input.data, #data frame or named numeric/vect
 #'   \emph{Remote Sensing of Environment}, 253, 112165.
 #'   https://doi.org/10.1016/j.rse.2020.112165
 #'
-#' Prajzlerová, D., Barták, V., Balej, P., & Šímová, P. (2025). The time of
+#' Prajzlerova, D., Bartak, V., Balej, P., & Simova, P. (2025). The time of
 #'   acquisition of multispectral predictors matters: The role of seasonality in
 #'   bird species distribution models. \emph{Ecography}, 2025, e07935.
 #'   https://doi.org/10.1002/ecog.07935
@@ -6450,15 +6450,15 @@ map.env.variable.names <- function(input.data, #data frame or named numeric/vect
 #'   and Remote Sensing}, 59(4), 2845-2862.
 #'   https://doi.org/10.1109/TGRS.2020.3012896
 #'
-#' Soberón, J. (2007). Grinnellian and Eltonian niches and geographic
+#' Soberon, J. (2007). Grinnellian and Eltonian niches and geographic
 #'   distributions of species. \emph{Ecology Letters}, 10(12), 1115-1123.
 #'   https://doi.org/10.1111/j.1461-0248.2007.01107.x
 #'
-#' Soberón, J., & Peterson, A. T. (2005). Interpretation of models of fundamental
+#' Soberon, J., & Peterson, A. T. (2005). Interpretation of models of fundamental
 #'   ecological niches and species' distributional areas. \emph{Biodiversity
 #'   Informatics}, 2. https://doi.org/10.17161/bi.v2i0.4
 #'
-#' Sørensen, R., Zinko, U., & Seibert, J. (2006). On the calculation of the
+#' Sorensen, R., Zinko, U., & Seibert, J. (2006). On the calculation of the
 #'   topographic wetness index: Evaluation of different methods based on field
 #'   observations. \emph{Hydrology and Earth System Sciences}, 10, 101-112.
 #'   https://doi.org/10.5194/hess-10-101-2006
@@ -7106,9 +7106,8 @@ extract.env.and.background <- function(occurrence.data, #input data.frame with c
                                   install_data_table = TRUE,
                                   force = FALSE,
                                   verbose = verbose)
-    system_info <- Sys.info()[["sysname"]]
-    if (!grepl("Windows", system_info, ignore.case = TRUE)) stop("ClimateNAr package is only available for Windows!")
-    if (!("ClimateNAr" %in% rownames(utils::installed.packages()))) stop("Package 'ClimateNAr' is required for ClimateNA extraction, but installation failed.")
+    if (!requireNamespace("ClimateNAr", quietly = TRUE)) stop("Package 'ClimateNAr' is required for ClimateNA extraction, but installation failed")
+    if (utils::compareVersion(as.character(utils::packageVersion("ClimateNAr")), "3.2.0") < 0L) stop("ClimateNA cross-platform test requires ClimateNAr >= 3.2.0; install the local 3.2.0 ZIP first")
     if (!requireNamespace("data.table", quietly = TRUE)) stop("Package 'data.table' is required for ClimateNA extraction, but installation failed")
   }
 
@@ -7301,9 +7300,18 @@ extract.env.and.background <- function(occurrence.data, #input data.frame with c
     ClimateNAr_env$as.data.table <- data.table::as.data.table
     ClimateNAr_env$fread <- data.table::fread
     ClimateNAr.replicate <- eval(parse(text = ClimateNAr_clean_src), envir = ClimateNAr_env)
+    run_climatena <- function(input_csv) {
+      oldwd <- getwd()
+      on.exit(setwd(oldwd), add = TRUE)
+      setwd(find.package("ClimateNAr"))
+      ClimateNAr.replicate(inputFile = normalizePath(input_csv, winslash = "/", mustWork = TRUE),
+                           varList = "YM",
+                           periodList = "Decade_2011_2020.dcd",
+                           outDir = paste0(ClimateNA_dir_abs, "/"))
+    }
     ClimateNA_dir <- file.path(rasters.dir, "ClimateNA")
     if (!dir.exists(ClimateNA_dir)) dir.create(ClimateNA_dir, recursive = TRUE)
-    ClimateNA_dir_abs <- normalizePath(ClimateNA_dir, winslash = "\\", mustWork = FALSE)
+    ClimateNA_dir_abs <- normalizePath(ClimateNA_dir, winslash = "/", mustWork = TRUE)
     climatena_occ_file <- file.path(intermediate_files_dir, "ClimateNA_extracted_occurrence.csv")
     climatena_bg_file <- file.path(intermediate_files_dir, "ClimateNA_extracted_background.csv")
     climatena_variable_names <- c("MAT", "MWMT", "MCMT", "TD", "MAP", "MSP",
@@ -7335,14 +7343,7 @@ extract.env.and.background <- function(occurrence.data, #input data.frame with c
                            el = as.numeric(environmental_dataset$Elevation)),
                 in_csv,
                 row.names = FALSE)
-      pkg_path <- find.package("ClimateNAr")
-      oldwd <- getwd()
-      setwd(pkg_path)
-      ClimateNAr.replicate(inputFile = normalizePath(in_csv, winslash = "\\"),
-                           varList = "YM",
-                           periodList = "Decade_2011_2020.dcd",
-                           outDir = "")
-      setwd(oldwd)
+      run_climatena(in_csv)
       occurrences_output_candidates <- c(file.path(ClimateNA_dir_abs, "ClimateNALat_Long_Elev_Decade_2011_2020.csv"),
                                          file.path(ClimateNA_dir_abs, "Lat_Long_Elev_Decade_2011_2020.csv"))
       occurrences_output <- occurrences_output_candidates[file.exists(occurrences_output_candidates)]
@@ -7383,14 +7384,7 @@ extract.env.and.background <- function(occurrence.data, #input data.frame with c
                              el = as.numeric(background.data$Elevation)),
                   bg_csv,
                   row.names = FALSE)
-        pkg_path <- find.package("ClimateNAr")
-        oldwd <- getwd()
-        setwd(pkg_path)
-        ClimateNAr.replicate(inputFile = normalizePath(bg_csv, winslash = "\\"),
-                             varList = "YM",
-                             periodList = "Decade_2011_2020.dcd",
-                             outDir = "")
-        setwd(oldwd)
+        run_climatena(bg_csv)
         bg_output_candidates <- c(file.path(ClimateNA_dir_abs, "ClimateNALat_Long_Elev_background_Decade_2011_2020.csv"),
                                   file.path(ClimateNA_dir_abs, "Lat_Long_Elev_background_Decade_2011_2020.csv"))
         bg_output <- bg_output_candidates[file.exists(bg_output_candidates)]
@@ -7415,14 +7409,7 @@ extract.env.and.background <- function(occurrence.data, #input data.frame with c
                                el = as.numeric(extra_points_df$Elevation)),
                     two_csv,
                     row.names = FALSE)
-          pkg_path <- find.package("ClimateNAr")
-          oldwd <- getwd()
-          setwd(pkg_path)
-          ClimateNAr.replicate(inputFile = normalizePath(two_csv, winslash = "\\"),
-                               varList = "YM",
-                               periodList = "Decade_2011_2020.dcd",
-                               outDir = "")
-          setwd(oldwd)
+          run_climatena(two_csv)
           two_output_candidates <- c(file.path(ClimateNA_dir_abs, "ClimateNALat_Long_Elev_two_points_Decade_2011_2020.csv"),
                                      file.path(ClimateNA_dir_abs, "Lat_Long_Elev_two_points_Decade_2011_2020.csv"))
           two_output <- two_output_candidates[file.exists(two_output_candidates)]
