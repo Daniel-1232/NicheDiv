@@ -40,10 +40,27 @@ jobs:
       - name: Install NicheDiv dependencies
         uses: r-lib/actions/setup-r-dependencies@v2
         with:
-          dependencies: '"all"'
+          dependencies: '"hard"'
           extra-packages: |
             any::pkgload
             any::rcmdcheck
+            any::testthat
+            any::knitr
+            any::rmarkdown
+
+      - name: Install ClimateNAr 3.2.0 for package check
+        shell: Rscript {0}
+        run: |
+          source("R/install_nichediv_dependencies.R")
+          install_nichediv_dependencies(
+            install_climatena = TRUE,
+            install_whitebox = FALSE,
+            install_data_table = FALSE,
+            timeout = 1800,
+            force = FALSE,
+            verbose = TRUE
+          )
+          if (as.character(utils::packageVersion("ClimateNAr")) != "3.2.0") stop("Incorrect ClimateNAr version")
 
       - name: R CMD check whole package
         uses: r-lib/actions/check-r-package@v2
