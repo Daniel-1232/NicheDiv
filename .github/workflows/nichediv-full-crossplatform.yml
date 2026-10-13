@@ -4,6 +4,7 @@ on:
   workflow_dispatch:
   push:
     branches:
+      - main
       - climatena-crossplatform-test
     paths:
       - "R/**"
@@ -11,6 +12,10 @@ on:
       - "NAMESPACE"
       - "tests/**"
       - ".github/workflows/nichediv-full-crossplatform.yml"
+
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: read

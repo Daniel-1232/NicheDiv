@@ -59,7 +59,15 @@ install_nichediv_dependencies <- function(install_climatena = TRUE,
       }
     }
     installed_here <- file.exists(file.path(target_lib, "ClimateNAr", "DESCRIPTION"))
-    needs_install <- force || (!is.null(climatena_lib) && !installed_here) || !requireNamespace("ClimateNAr", quietly = TRUE)
+    existing_version <- if (requireNamespace("ClimateNAr", quietly = TRUE)) {
+      utils::packageVersion("ClimateNAr")
+    } else {
+      NULL
+    }
+    needs_install <- force ||
+      (!is.null(climatena_lib) && !installed_here) ||
+      is.null(existing_version) ||
+      existing_version < utils::package_version("3.2.0")
     if (needs_install) {
       if ("ClimateNAr" %in% loadedNamespaces()) stop("Restart R before reinstalling ClimateNAr: its namespace is already loaded")
       dest <- file.path(tempdir(), "ClimateNAr.zip")
