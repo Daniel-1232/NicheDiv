@@ -27,6 +27,7 @@ jobs:
           - ubuntu-24.04
           - macos-15
           - macos-15-intel
+          - windows-2025
 
     steps:
       - name: Checkout test branch
@@ -79,10 +80,30 @@ jobs:
         run: |
           source("tests/crossplatform/test_all_functions.R")
 
+      - name: Test native parallel backends
+        shell: Rscript {0}
+        run: |
+          source("tests/crossplatform/test_parallel_backends.R")
+
       - name: Test background generation with synthetic landmask and raster
         shell: Rscript {0}
         run: |
           source("tests/crossplatform/test_background.R")
+
+      - name: Verify complete exported function coverage
+        shell: Rscript {0}
+        run: |
+          pkgload::load_all(".", quiet = TRUE)
+          report_files <- list.files("tests/crossplatform/results", pattern = "^all_functions_.*[.]csv$", full.names = TRUE)
+          if (length(report_files) != 1L) stop("Expected exactly one function report")
+          report <- read.csv(report_files, stringsAsFactors = FALSE)
+          if (nrow(report) != 18L) stop("Expected 18 exported-function entries")
+          if (!setequal(report$function_name, getNamespaceExports("NicheDiv"))) stop("Incomplete exported-function coverage")
+          direct <- report$function_name != "extract.env.and.background"
+          if (!all(report$status[direct] == "PASS")) stop("At least one direct function test did not pass")
+          if (!identical(report$status[!direct], "SEPARATE")) stop("Extraction integration test was not recorded")
+          print(report[, c("function_name", "status")], row.names = FALSE)
+          message("PASS: All 18 exported functions accounted for")
 
       - name: Upload function test report
         if: always()

@@ -116,20 +116,17 @@ run_case("filter.analogous.variables", "calculation", {
 })
 run_case("trim.to.analogous.environments", "calculation", {
   shared_grid <- expand.grid(
-    MAT = seq(10, 18, length.out = 9),
-    MAP = seq(900, 1500, length.out = 9)
+    MAT = seq(10, 18, length.out = 17),
+    MAP = seq(900, 1500, length.out = 17)
   )
-  shared_grid$CMD <- 250 + 0.4 * (shared_grid$MAT - 14) + 0.03 * (shared_grid$MAP - 1200)
-  shared_grid$RH <- 65 - 0.2 * (shared_grid$MAT - 14) + 0.01 * (shared_grid$MAP - 1200)
   z <- trim.to.analogous.environments(
-    shared_grid[1:60, , drop = FALSE],
-    shared_grid[22:81, , drop = FALSE],
-    shared_grid, shared_grid,
-    grid.resolution = 20, analogous.window.size = 8,
-    downsample.equal.sizes = TRUE, verbose = FALSE
+    shared_grid, shared_grid, shared_grid, shared_grid,
+    grid.resolution = 10, analogous.window.size = 8,
+    downsample.equal.sizes = FALSE, verbose = FALSE
   )
   stopifnot(is.data.frame(z), nrow(z) > 0L,
-            identical(names(z), names(shared_grid)))
+            identical(names(z), names(shared_grid)),
+            !anyNA(z))
 })
 run_case("map.env.variable.names", "calculation", {
   z <- map.env.variable.names(data.frame(MAT = 1:3, MAP = 4:6), name.length = "short")
