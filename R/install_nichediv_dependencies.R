@@ -59,11 +59,10 @@ install_nichediv_dependencies <- function(install_climatena = TRUE,
       }
     }
     installed_here <- file.exists(file.path(target_lib, "ClimateNAr", "DESCRIPTION"))
-    existing_version <- if (requireNamespace("ClimateNAr", quietly = TRUE)) {
-      utils::packageVersion("ClimateNAr")
-    } else {
-      NULL
-    }
+    existing_version <- tryCatch(
+      utils::packageVersion("ClimateNAr"),
+      error = function(e) NULL
+    )
     needs_install <- force ||
       (!is.null(climatena_lib) && !installed_here) ||
       is.null(existing_version) ||
