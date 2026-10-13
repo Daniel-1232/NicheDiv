@@ -115,10 +115,21 @@ run_case("filter.analogous.variables", "calculation", {
   stopifnot(!is.null(z))
 })
 run_case("trim.to.analogous.environments", "calculation", {
-  z <- trim.to.analogous.environments(occurrence1, occurrence2, background1, background2,
-                                      grid.resolution = 20, analogous.window.size = 8,
-                                      downsample.equal.sizes = TRUE, verbose = FALSE)
-  stopifnot(!is.null(z))
+  shared_grid <- expand.grid(
+    MAT = seq(10, 18, length.out = 9),
+    MAP = seq(900, 1500, length.out = 9)
+  )
+  shared_grid$CMD <- 250 + 0.4 * (shared_grid$MAT - 14) + 0.03 * (shared_grid$MAP - 1200)
+  shared_grid$RH <- 65 - 0.2 * (shared_grid$MAT - 14) + 0.01 * (shared_grid$MAP - 1200)
+  z <- trim.to.analogous.environments(
+    shared_grid[1:60, , drop = FALSE],
+    shared_grid[22:81, , drop = FALSE],
+    shared_grid, shared_grid,
+    grid.resolution = 20, analogous.window.size = 8,
+    downsample.equal.sizes = TRUE, verbose = FALSE
+  )
+  stopifnot(is.data.frame(z), nrow(z) > 0L,
+            identical(names(z), names(shared_grid)))
 })
 run_case("map.env.variable.names", "calculation", {
   z <- map.env.variable.names(data.frame(MAT = 1:3, MAP = 4:6), name.length = "short")
