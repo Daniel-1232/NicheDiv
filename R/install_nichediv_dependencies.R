@@ -67,7 +67,7 @@ install_nichediv_dependencies <- function(install_climatena = TRUE,
     needs_install <- force ||
       (!is.null(climatena_lib) && !installed_here) ||
       is.null(existing_version) ||
-      existing_version < utils::package_version("3.2.0")
+      existing_version < base::package_version("3.2.0")
     if (needs_install) {
       if ("ClimateNAr" %in% loadedNamespaces()) stop("Restart R before reinstalling ClimateNAr: its namespace is already loaded")
       dest <- file.path(tempdir(), "ClimateNAr.zip")
