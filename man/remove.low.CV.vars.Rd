@@ -101,22 +101,22 @@ synchronized and prevents downstream analyses from using different predictor
 spaces for occurrence records and environmental backgrounds.
 }
 \references{
-Dormann, C. F., Elith, J., Bacher, S., Buchmann, C., Carl, G., Carré, G.,
-Marquéz, J. R. G., Gruber, B., Lafourcade, B., Leitão, P. J.,
-Münkemüller, T., McClean, C., Osborne, P. E., Reineking, B., Schröder, B.,
+Dormann, C. F., Elith, J., Bacher, S., Buchmann, C., Carl, G., Carre, G.,
+Marquez, J. R. G., Gruber, B., Lafourcade, B., Leitao, P. J.,
+Munkemuller, T., McClean, C., Osborne, P. E., Reineking, B., Schroder, B.,
 Skidmore, A. K., Zurell, D., & Lautenbach, S. (2013). Collinearity: A
 review of methods to deal with it and a simulation study evaluating their
 performance. \emph{Ecography}, 36(1), 27-46.
 https://doi.org/10.1111/j.1600-0587.2012.07348.x
 
 Greenacre, M., & Primicerio, R. (2014). \emph{Multivariate analysis of
-ecological data}. Fundación BBVA.
+ecological data}. Fundacion BBVA.
 
 Maronna, R. A., Martin, R. D., & Yohai, V. J. (2006). \emph{Robust
 statistics}. Wiley. https://doi.org/10.1002/0470010940
 
 Pearson, K. (1896). VII. Mathematical contributions to the theory of
-evolution.—III. Regression, heredity, and panmixia. \emph{Philosophical
+evolution.-III. Regression, heredity, and panmixia. \emph{Philosophical
 Transactions of the Royal Society of London. Series A, Containing Papers of
 a Mathematical or Physical Character}, 187, 253-318.
 https://doi.org/10.1098/rsta.1896.0007

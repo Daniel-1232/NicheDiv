@@ -131,7 +131,7 @@ This step removes variables that are individually non-analogous and therefore
 likely to drive comparisons through extrapolation rather than shared
 environmental conditions. Overlap values are interpreted on the same general
 scale as Schoener's D, where larger values indicate greater similarity between
-environmental distributions (Schoener, 1968; Warren et al., 2008; Rödder &
+environmental distributions (Schoener, 1968; Warren et al., 2008; Rodder &
 Engler, 2011).
 
 Bivariate overlap screening is included because variables can appear
@@ -149,7 +149,7 @@ practical compromise between retaining informative predictors and excluding
 variables with poor analogy. Lower values allow greater environmental
 non-analogy and higher extrapolation risk, whereas stricter thresholds may
 remove biologically meaningful predictors and leave too few variables for
-downstream analyses (Barve et al., 2011; Warren et al., 2008; Rödder & Engler,
+downstream analyses (Barve et al., 2011; Warren et al., 2008; Rodder & Engler,
 2011; Peterson et al., 2011).
 
 Screening is restricted to univariate and bivariate projections because
@@ -161,8 +161,8 @@ between computational feasibility and effective detection of environmental
 non-analogy (Silverman, 1986; Scott, 2015; Mesgaran et al., 2014).
 }
 \references{
-Barve, N., Barve, V., Jiménez-Valverde, A., Lira-Noriega, A., Maher, S. P.,
-Peterson, A. T., Soberón, J., & Villalobos, F. (2011). The crucial role of
+Barve, N., Barve, V., Jimenez-Valverde, A., Lira-Noriega, A., Maher, S. P.,
+Peterson, A. T., Soberon, J., & Villalobos, F. (2011). The crucial role of
 the accessible area in ecological niche modeling and species distribution
 modeling. \emph{Ecological Modelling}, 222(11), 1810-1819.
 https://doi.org/10.1016/j.ecolmodel.2011.02.011
@@ -186,17 +186,17 @@ when projecting species distribution models. \emph{Diversity and
 Distributions}, 20(10), 1147-1159. https://doi.org/10.1111/ddi.12209
 
 Pearson, K. (1896). VII. Mathematical contributions to the theory of
-evolution.—III. Regression, heredity, and panmixia. \emph{Philosophical
+evolution.-III. Regression, heredity, and panmixia. \emph{Philosophical
 Transactions of the Royal Society of London. Series A, Containing Papers of
 a Mathematical or Physical Character}, 187, 253-318.
 https://doi.org/10.1098/rsta.1896.0007
 
-Peterson, A. T., Soberón, J., Pearson, R. G., Anderson, R. P.,
-Martínez-Meyer, E., Nakamura, M., & Araújo, M. B. (2011). \emph{Ecological
+Peterson, A. T., Soberon, J., Pearson, R. G., Anderson, R. P.,
+Martinez-Meyer, E., Nakamura, M., & Araujo, M. B. (2011). \emph{Ecological
 niches and geographic distributions}. Princeton University Press.
 https://doi.org/10.1515/9781400840670
 
-Rödder, D., & Engler, J. O. (2011). Quantitative metrics of overlaps in
+Rodder, D., & Engler, J. O. (2011). Quantitative metrics of overlaps in
 Grinnellian niches: Advances and possible drawbacks. \emph{Global Ecology
 and Biogeography}, 20(6), 915-927.
 https://doi.org/10.1111/j.1466-8238.2011.00659.x

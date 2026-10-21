@@ -148,12 +148,12 @@ water bodies may be more appropriate.
 The function supports a broad suite of abiotic and biotic predictors because
 ecological niches are multidimensional and often shaped by climate,
 topography, hydrology, vegetation, soils, disturbance, land use, and biotic
-context rather than climate alone (Guisan & Zimmermann, 2000; Soberón, 2007;
+context rather than climate alone (Guisan & Zimmermann, 2000; Soberon, 2007;
 Elith & Leathwick, 2009; Kearney & Porter, 2009; Dormann et al., 2013; Title
 & Bemmels, 2018). Seasonal and monthly predictors are included because annual
 summaries can obscure phenological constraints, short-term physiological
 stress, and seasonal resource availability (Hufkens et al., 2018; Zimmermann
-et al., 2009; Prajzlerová et al., 2025).
+et al., 2009; Prajzlerova et al., 2025).
 
 Elevation (\code{env.datasets = "elevation"}; 1 variable) is based on the
 Copernicus Global Digital Elevation Model GLO-90 v.1.1
@@ -182,7 +182,7 @@ microclimatic exposure (McCune & Keon, 2002; Bennie et al., 2008; Dobrowski,
 2011). The topographic wetness index (TWI) represents soil-moisture potential
 based on upslope contributing area and slope, linking topography to drainage,
 hydrological accumulation, and local moisture availability (Beven & Kirkby,
-1979; Sørensen et al., 2006). Together, these five terrain variables capture
+1979; Sorensen et al., 2006). Together, these five terrain variables capture
 microclimatic buffering, exposure, drainage, and habitat heterogeneity relevant
 to species distributions (Bennie et al., 2008; Dobrowski, 2011).
 
@@ -345,7 +345,7 @@ Parellada, M. (2016). ESA Fire Climate Change Initiative (Fire_cci):
 MODIS Fire_cci burned area pixel product, version 5.1.
 
 Conrad, O., Bechtel, B., Bock, M., Dietrich, H., Fischer, E., Gerlitz, L.,
-Wehberg, J., Wichmann, V., & Böhner, J. (2015). System for Automated
+Wehberg, J., Wichmann, V., & Bohner, J. (2015). System for Automated
 Geoscientific Analyses (SAGA) v. 2.1.4. \emph{Geoscientific Model
 Development}, 8, 1991-2007. https://doi.org/10.5194/gmd-8-1991-2015
 
@@ -359,9 +359,9 @@ Kidd, R. (2017). ESA CCI Soil Moisture for improved Earth system
 understanding: State-of-the art and future directions. \emph{Remote Sensing
 of Environment}, 203, 185-215. https://doi.org/10.1016/j.rse.2017.07.001
 
-Dormann, C. F., Elith, J., Bacher, S., Buchmann, C., Carl, G., Carré, G.,
-Marquéz, J. R. G., Gruber, B., Lafourcade, B., Leitão, P. J.,
-Münkemüller, T., McClean, C., Osborne, P. E., Reineking, B., Schröder, B.,
+Dormann, C. F., Elith, J., Bacher, S., Buchmann, C., Carl, G., Carre, G.,
+Marquez, J. R. G., Gruber, B., Lafourcade, B., Leitao, P. J.,
+Munkemuller, T., McClean, C., Osborne, P. E., Reineking, B., Schroder, B.,
 Skidmore, A. K., Zurell, D., & Lautenbach, S. (2013). Collinearity: A
 review of methods to deal with it and a simulation study evaluating their
 performance. \emph{Ecography}, 36(1), 27-46.
@@ -456,7 +456,7 @@ forest canopy height through integration of GEDI and Landsat data.
 \emph{Remote Sensing of Environment}, 253, 112165.
 https://doi.org/10.1016/j.rse.2020.112165
 
-Prajzlerová, D., Barták, V., Balej, P., & Šímová, P. (2025). The time of
+Prajzlerova, D., Bartak, V., Balej, P., & Simova, P. (2025). The time of
 acquisition of multispectral predictors matters: The role of seasonality in
 bird species distribution models. \emph{Ecography}, 2025, e07935.
 https://doi.org/10.1002/ecog.07935
@@ -467,15 +467,15 @@ multisatellite climate data record. \emph{IEEE Transactions on Geoscience
 and Remote Sensing}, 59(4), 2845-2862.
 https://doi.org/10.1109/TGRS.2020.3012896
 
-Soberón, J. (2007). Grinnellian and Eltonian niches and geographic
+Soberon, J. (2007). Grinnellian and Eltonian niches and geographic
 distributions of species. \emph{Ecology Letters}, 10(12), 1115-1123.
 https://doi.org/10.1111/j.1461-0248.2007.01107.x
 
-Soberón, J., & Peterson, A. T. (2005). Interpretation of models of fundamental
+Soberon, J., & Peterson, A. T. (2005). Interpretation of models of fundamental
 ecological niches and species' distributional areas. \emph{Biodiversity
 Informatics}, 2. https://doi.org/10.17161/bi.v2i0.4
 
-Sørensen, R., Zinko, U., & Seibert, J. (2006). On the calculation of the
+Sorensen, R., Zinko, U., & Seibert, J. (2006). On the calculation of the
 topographic wetness index: Evaluation of different methods based on field
 observations. \emph{Hydrology and Earth System Sciences}, 10, 101-112.
 https://doi.org/10.5194/hess-10-101-2006

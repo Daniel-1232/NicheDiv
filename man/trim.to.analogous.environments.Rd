@@ -159,8 +159,8 @@ Harrell, F. E. (2015). \emph{Regression modeling strategies: With applications
 to linear models, logistic and ordinal regression, and survival analysis}
 (2nd ed.). Springer.
 
-Peterson, A. T., Soberón, J., Pearson, R. G., Anderson, R. P.,
-Martínez-Meyer, E., Nakamura, M., & Araújo, M. B. (2011). \emph{Ecological
+Peterson, A. T., Soberon, J., Pearson, R. G., Anderson, R. P.,
+Martinez-Meyer, E., Nakamura, M., & Araujo, M. B. (2011). \emph{Ecological
 niches and geographic distributions}. Princeton University Press.
 https://doi.org/10.1515/9781400840670
 

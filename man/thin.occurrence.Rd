@@ -133,9 +133,9 @@ filtering to reduce sampling bias can improve the performance of ecological
 niche models. \emph{Ecological Modelling}, 275, 73-77.
 https://doi.org/10.1016/j.ecolmodel.2013.12.012
 
-Dormann, C. F., M. McPherson, J., B. Araújo, M., Bivand, R., Bolliger, J.,
-Carl, G., G. Davies, R., Hirzel, A., Jetz, W., Daniel Kissling, W., Kühn, I.,
-Ohlemüller, R., R. Peres-Neto, P., Reineking, B., Schröder, B., M. Schurr,
+Dormann, C. F., M. McPherson, J., B. Araujo, M., Bivand, R., Bolliger, J.,
+Carl, G., G. Davies, R., Hirzel, A., Jetz, W., Daniel Kissling, W., Kuhn, I.,
+Ohlemuller, R., R. Peres-Neto, P., Reineking, B., Schroder, B., M. Schurr,
 F., & Wilson, R. (2007). Methods to account for spatial autocorrelation in
 the analysis of species distributional data: A review. \emph{Ecography},
 30(5), 609-628. https://doi.org/10.1111/j.2007.0906-7590.05171.x
@@ -143,7 +143,7 @@ the analysis of species distributional data: A review. \emph{Ecography},
 Fortin, M.-J., & Dale, M. R. T. (2005). \emph{Spatial analysis: A guide for
 ecologists}. Cambridge University Press.
 
-Fourcade, Y., Engler, J. O., Rödder, D., & Secondi, J. (2014). Mapping species
+Fourcade, Y., Engler, J. O., Rodder, D., & Secondi, J. (2014). Mapping species
 distributions with MAXENT using a geographically biased sample of presence
 data: A performance assessment of methods for correcting sampling bias.
 \emph{PLOS ONE}, 9(5), e97122.
@@ -153,7 +153,7 @@ Inman, R., Franklin, J., Esque, T., & Nussear, K. (2021). Comparing sample
 bias correction methods for species distribution modeling using virtual
 species. \emph{Ecosphere}, 12(3). https://doi.org/10.1002/ecs2.3422
 
-Kramer-Schadt, S., Niedballa, J., Pilgrim, J. D., Schröder, B., Lindenborn,
+Kramer-Schadt, S., Niedballa, J., Pilgrim, J. D., Schroder, B., Lindenborn,
 J., Reinfelder, V., Stillfried, M., Heckmann, I., Scharf, A. K., Augeri,
 D. M., Cheyne, S. M., Hearn, A. J., Ross, J., Macdonald, D. W., Mathai, J.,
 Eaton, J., Marshall, A. J., Semiadi, G., Rustam, R., et al. (2013). The
