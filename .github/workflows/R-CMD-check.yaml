@@ -42,9 +42,28 @@ jobs:
 
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
-          extra-packages: any::rcmdcheck
+          dependencies: '"hard"'
+          extra-packages: |
+            any::rcmdcheck
+            any::knitr
+            any::rmarkdown
+            any::testthat
           needs: check
 
+      - name: Install ClimateNAr 3.2.0 for package check
+        shell: Rscript {0}
+        run: |
+          source("R/install_nichediv_dependencies.R")
+          install_nichediv_dependencies(
+            install_climatena = TRUE,
+            install_whitebox = FALSE,
+            install_data_table = FALSE,
+            timeout = 1800,
+            force = FALSE,
+            verbose = TRUE
+          )
+          if (!requireNamespace("ClimateNAr", quietly = TRUE)) stop("ClimateNAr installation failed")
+          if (as.character(utils::packageVersion("ClimateNAr")) != "3.2.0") stop("Incorrect ClimateNAr version")
       - uses: r-lib/actions/check-r-package@v2
         with:
           upload-snapshots: true
