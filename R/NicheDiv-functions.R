@@ -59,13 +59,18 @@ convert.integer.to.numeric <- function(dataframe) {
 #'   projected in meters, geometric operations are performed directly in that CRS.
 #' @param buffer.dist.meters A single positive numeric value giving the buffer
 #'   distance, in meters, used to expand the occurrence-based geometry.
+#'   Not required when `buffer.method = "custom"`.
 #' @param buffer.method Character string specifying how the base geometry is
 #'   built before buffering. One of `"hull"` (default; convex hull of all
 #'   occurrences), `"points"` (union of per-point buffers), `"alpha"` (concave
-#'   hull built with `concaveman`), or `"bbox"` (bounding box around all
-#'   occurrences).
+#'   hull built with `concaveman`), `"bbox"` (bounding box around all
+#'   occurrences), or `"custom"` (user-defined accessible-area polygon).
 #' @param alpha A single positive numeric value controlling concavity when
 #'   `buffer.method = "alpha"`. Ignored for the other methods.
+#' @param custom.polygon User-defined accessible-area polygon supplied as
+#'   an `sf`, `sfc`, or `terra::SpatVector` object, or as a path to a spatial
+#'   polygon file readable by `sf::st_read`. Required when
+#'   `buffer.method = "custom"`. The polygon must have a defined CRS.
 #' @param verbose Logical; if `TRUE`, progress messages about dropped rows and
 #'   retained background points are printed.
 #'
@@ -110,8 +115,14 @@ convert.integer.to.numeric <- function(dataframe) {
 #' occurrence sample sizes or very small species distributions make the other
 #' methods too restrictive.
 #'
+#' Custom polygons (`buffer.method = "custom"`) define the accessible area
+#' independently of occurrence-based geometries. Polygons are automatically
+#' transformed to the working CRS and used without additional buffering.
+#' Multipolygons, disconnected regions, and interior holes are supported.
+#' Background points on polygon boundaries are retained.
+#'
 #' @return A filtered `data.frame` containing only the rows of
-#'   `background.data` whose coordinates fall within the buffered clipping
+#'   `background.data` whose coordinates fall within the accessible-area
 #'   geometry. Column structure and row order from the retained background rows
 #'   are preserved.
 #'
@@ -186,10 +197,11 @@ crop.background.buffered <- function(occurrence.data, #input data.frame or tibbl
                                      latitude.col = "Latitude", #name of latitude column
                                      longitude.col = "Longitude", #name of longitude column
                                      CRS = "EPSG:4326", #coordinate reference system (WKT or EPSG code)
-                                     buffer.dist.meters, #buffer distance in meters
-                                     buffer.method = c("hull", "points", "alpha", "bbox"), #buffer.method to build clipping geometry
+                                     buffer.dist.meters = NULL, #buffer distance in meters (not required for custom polygons)
+                                     buffer.method = c("hull", "points", "alpha", "bbox", "custom"), #method to build clipping geometry
                                      alpha = 3, #concavity parameter (only if buffer.method = "alpha")
-                                     verbose = TRUE #show output messages
+                                     verbose = TRUE, #show output messages
+                                     custom.polygon = NULL #user-defined accessible-area polygon
 ) {
 
   # Validate inputs
@@ -206,8 +218,12 @@ crop.background.buffered <- function(occurrence.data, #input data.frame or tibbl
   if (!is.numeric(background.data[[latitude.col]]) || !is.numeric(background.data[[longitude.col]])) stop("Latitude and longitude columns in background.data must be numeric")
   CRS <- tryCatch(sf::st_crs(CRS), error = function(e) sf::st_crs(NA))
   if (is.na(CRS)) stop("CRS must be a valid CRS accepted by sf::st_crs, for example 'EPSG:4326' or sf::st_crs(4326)")
-  if (!is.numeric(buffer.dist.meters) || length(buffer.dist.meters) != 1L || !is.finite(buffer.dist.meters) || buffer.dist.meters <= 0) stop("buffer.dist.meters must be a single positive number (meters)")
   buffer.method <- match.arg(buffer.method)
+  if (buffer.method != "custom") {
+    if (!is.numeric(buffer.dist.meters) || length(buffer.dist.meters) != 1L || !is.finite(buffer.dist.meters) || buffer.dist.meters <= 0) stop("buffer.dist.meters must be a single positive number (meters)")
+  }
+  if (buffer.method == "custom" && is.null(custom.polygon)) stop("custom.polygon must be supplied when buffer.method = 'custom'")
+  if (buffer.method != "custom" && !is.null(custom.polygon)) stop("custom.polygon requires buffer.method = 'custom'")
   if (!is.numeric(alpha) || length(alpha) != 1L || !is.finite(alpha) || alpha <= 0) stop("alpha must be a single positive number")
   if (!is.logical(verbose) || length(verbose) != 1L) stop("verbose must be TRUE or FALSE")
 
@@ -224,7 +240,7 @@ crop.background.buffered <- function(occurrence.data, #input data.frame or tibbl
   if (nrow(background.data) == 0) stop("No valid background rows after removing NA coords")
 
   # Warn on large buffer distances (>10,000 km)
-  if (buffer.dist.meters > 1e7) warning("buffer.dist.meters is very large (>10,000 km) - ensure units and CRS are correct")
+  if (buffer.method != "custom" && buffer.dist.meters > 1e7) warning("buffer.dist.meters is very large (>10,000 km) - ensure units and CRS are correct")
 
   # Convert to sf (x = Longitude, y = Latitude)
   occurrence_points_ll <- sf::st_as_sf(occurrence.data, coords = c(longitude.col, latitude.col), crs = CRS)
@@ -293,17 +309,36 @@ crop.background.buffered <- function(occurrence.data, #input data.frame or tibbl
   } else if (buffer.method == "bbox") {
     bbox_geometry <- sf::st_as_sfc(sf::st_bbox(occurrence_points_utm))
     buffer_geometry <- sf::st_buffer(bbox_geometry, dist = buffer.dist.meters)
+  } else if (buffer.method == "custom") {
+    if (is.character(custom.polygon) && length(custom.polygon) == 1L && !is.na(custom.polygon)) {
+      if (!file.exists(custom.polygon)) stop("custom.polygon file does not exist")
+      custom.polygon <- sf::st_read(custom.polygon, quiet = TRUE)
+    } else if (inherits(custom.polygon, "SpatVector")) {
+      custom.polygon <- sf::st_as_sf(custom.polygon)
+    }
+
+    if (!(inherits(custom.polygon, "sf") || inherits(custom.polygon, "sfc"))) stop("custom.polygon must be an sf, sfc, SpatVector, or polygon file")
+    if (is.na(sf::st_crs(custom.polygon))) stop("custom.polygon must have a defined CRS")
+
+    custom_geometry <- sf::st_geometry(custom.polygon)
+    if (length(custom_geometry) == 0 || any(sf::st_is_empty(custom_geometry))) stop("custom.polygon contains empty geometries")
+    if (!all(as.character(sf::st_geometry_type(custom_geometry)) %in% c("POLYGON", "MULTIPOLYGON"))) stop("custom.polygon must contain only polygon or multipolygon geometries")
+
+    custom_geometry <- sf::st_transform(custom_geometry, metric_crs)
+    suppressWarnings(custom_geometry <- sf::st_make_valid(custom_geometry))
+    if (!all(as.character(sf::st_geometry_type(custom_geometry)) %in% c("POLYGON", "MULTIPOLYGON"))) stop("custom.polygon is not a valid polygon after geometry repair")
+    buffer_geometry <- sf::st_union(custom_geometry)
   }
 
   # Repair invalid geometries
   suppressWarnings(buffer_geometry <- sf::st_make_valid(buffer_geometry))
-  if (all(sf::st_is_empty(buffer_geometry))) stop("Buffer geometry is empty - check inputs and buffer distance")
+  if (all(sf::st_is_empty(buffer_geometry))) stop("Accessible-area geometry is empty - check inputs")
 
   # Keep background points that intersect buffer
   background_intersects <- sf::st_intersects(background_points_utm, buffer_geometry) #sparse list
   keep_rows <- lengths(background_intersects) > 0
-  if (sum(keep_rows) == 0) stop("No background points fell within buffered region")
-  if (isTRUE(verbose)) message("Retained ", sum(keep_rows), " of ", nrow(background.data), " background points after buffering (buffer.method = ", buffer.method, ")")
+  if (sum(keep_rows) == 0) stop("No background points fell within the defined accessible area")
+  if (isTRUE(verbose)) message("Retained ", sum(keep_rows), " of ", nrow(background.data), " background points after accessible-area filtering (buffer.method = ", buffer.method, ")")
 
   # Return results
   return(background.data[keep_rows, , drop = FALSE])

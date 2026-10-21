@@ -10,10 +10,11 @@ crop.background.buffered(
   latitude.col = "Latitude",
   longitude.col = "Longitude",
   CRS = "EPSG:4326",
-  buffer.dist.meters,
-  buffer.method = c("hull", "points", "alpha", "bbox"),
+  buffer.dist.meters = NULL,
+  buffer.method = c("hull", "points", "alpha", "bbox", "custom"),
   alpha = 3,
-  verbose = TRUE
+  verbose = TRUE,
+  custom.polygon = NULL
 )
 }
 \arguments{
@@ -38,23 +39,29 @@ performed after internally projecting to a metric CRS. If the CRS is already
 projected in meters, geometric operations are performed directly in that CRS.}
 
 \item{buffer.dist.meters}{A single positive numeric value giving the buffer
-distance, in meters, used to expand the occurrence-based geometry.}
+distance, in meters, used to expand the occurrence-based geometry.
+Not required when \code{buffer.method = "custom"}.}
 
 \item{buffer.method}{Character string specifying how the base geometry is
 built before buffering. One of \code{"hull"} (default; convex hull of all
 occurrences), \code{"points"} (union of per-point buffers), \code{"alpha"} (concave
-hull built with \code{concaveman}), or \code{"bbox"} (bounding box around all
-occurrences).}
+hull built with \code{concaveman}), \code{"bbox"} (bounding box around all
+occurrences), or \code{"custom"} (user-defined accessible-area polygon).}
 
 \item{alpha}{A single positive numeric value controlling concavity when
 \code{buffer.method = "alpha"}. Ignored for the other methods.}
 
 \item{verbose}{Logical; if \code{TRUE}, progress messages about dropped rows and
 retained background points are printed.}
+
+\item{custom.polygon}{User-defined accessible-area polygon supplied as
+an \code{sf}, \code{sfc}, or \code{terra::SpatVector} object, or as a path to a spatial
+polygon file readable by \code{sf::st_read}. Required when
+\code{buffer.method = "custom"}. The polygon must have a defined CRS.}
 }
 \value{
 A filtered \code{data.frame} containing only the rows of
-\code{background.data} whose coordinates fall within the buffered clipping
+\code{background.data} whose coordinates fall within the accessible-area
 geometry. Column structure and row order from the retained background rows
 are preserved.
 }
@@ -105,6 +112,12 @@ conditions available to a species (Phillips et al., 2006; Peterson et al.,
 2007, 2011; VanDerWal et al., 2009). They should generally be avoided unless
 occurrence sample sizes or very small species distributions make the other
 methods too restrictive.
+
+Custom polygons (\code{buffer.method = "custom"}) define the accessible area
+independently of occurrence-based geometries. Polygons are automatically
+transformed to the working CRS and used without additional buffering.
+Multipolygons, disconnected regions, and interior holes are supported.
+Background points on polygon boundaries are retained.
 }
 \references{
 Anderson, R. P., & Raza, A. (2010). The effect of the extent of the study
