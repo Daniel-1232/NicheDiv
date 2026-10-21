@@ -1,0 +1,67 @@
+name: Custom polygon cross-platform tests
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "R/NicheDiv-functions.R"
+      - "tests/testthat/test-custom-polygon-cross-platform.R"
+      - ".github/workflows/custom-polygon-cross-platform.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  custom-polygon-tests:
+    name: Custom polygon - ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - windows-2025
+          - ubuntu-24.04
+          - macos-15-intel
+          - macos-15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: 'release'
+          use-public-rspm: true
+
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          packages: |
+            any::concaveman
+            any::sf
+            any::terra
+            any::testthat
+
+      - name: Run custom polygon regression tests
+        shell: Rscript {0}
+        run: |
+          required_packages <- c("concaveman", "sf", "terra", "testthat")
+          missing_packages <- required_packages[!vapply(required_packages, requireNamespace, logical(1), quietly = TRUE)]
+          if (length(missing_packages) > 0) stop("Missing packages: ", paste(missing_packages, collapse = ", "))
+
+          source_expressions <- parse(file = "R/NicheDiv-functions.R")
+          function_locations <- which(vapply(as.list(source_expressions), function(source_expression) {
+            is.call(source_expression) && identical(source_expression[[1]], as.name("<-")) &&
+              identical(source_expression[[2]], as.name("crop.background.buffered"))
+          }, logical(1)))
+          if (length(function_locations) != 1) stop("Expected exactly one crop.background.buffered definition")
+          eval(source_expressions[[function_locations]], envir = .GlobalEnv)
+
+          test_results <- testthat::test_file("tests/testthat/test-custom-polygon-cross-platform.R", reporter = "summary")
+          test_failures <- vapply(test_results, function(test_result) {
+            any(vapply(test_result$results, function(result) {
+              inherits(result, c("expectation_failure", "expectation_error"))
+            }, logical(1)))
+          }, logical(1))
+          if (any(test_failures)) stop("Custom polygon regression tests failed")
+          cat("All custom polygon tests passed on ", R.version$platform, "
+")

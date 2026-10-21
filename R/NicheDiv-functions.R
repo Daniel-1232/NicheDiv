@@ -69,8 +69,10 @@ convert.integer.to.numeric <- function(dataframe) {
 #'   `buffer.method = "alpha"`. Ignored for the other methods.
 #' @param custom.polygon User-defined accessible-area polygon supplied as
 #'   an `sf`, `sfc`, or `terra::SpatVector` object, or as a path to a spatial
-#'   polygon file readable by `sf::st_read`. Required when
-#'   `buffer.method = "custom"`. The polygon must have a defined CRS.
+#'   polygon file readable by `sf::st_read` (e.g., `.gpkg`, `.shp`, `.geojson`).
+#'   Required when `buffer.method = "custom"`. The polygon must have a defined
+#'   CRS and contain polygon or multipolygon geometries. It is automatically
+#'   reprojected and used without additional buffering to filter background points.
 #' @param verbose Logical; if `TRUE`, progress messages about dropped rows and
 #'   retained background points are printed.
 #'
@@ -294,18 +296,15 @@ crop.background.buffered <- function(occurrence.data, #input data.frame or tibbl
     occurrence_union <- sf::st_union(occurrence_points_utm)
     base_geometry <- sf::st_convex_hull(occurrence_union)
     buffer_geometry <- sf::st_buffer(base_geometry, dist = buffer.dist.meters)
-
   } else if (buffer.method == "points") {
     buffers_each_point <- sf::st_buffer(occurrence_points_utm, dist = buffer.dist.meters)
     buffer_geometry <- sf::st_union(buffers_each_point)
-
   } else if (buffer.method == "alpha") {
     coords_mat <- sf::st_coordinates(occurrence_points_utm)
     if (nrow(unique(coords_mat[, c("X", "Y"), drop = FALSE])) < 3) stop("Too few unique occurrence coordinates for alpha hull")
     alpha_geometry <- concaveman::concaveman(occurrence_points_utm, concavity = alpha)
     if (inherits(alpha_geometry, "sf") && all(sf::st_is_empty(alpha_geometry))) stop("alpha buffer.method failed - choose other buffer.method")
     buffer_geometry <- sf::st_buffer(alpha_geometry, dist = buffer.dist.meters)
-
   } else if (buffer.method == "bbox") {
     bbox_geometry <- sf::st_as_sfc(sf::st_bbox(occurrence_points_utm))
     buffer_geometry <- sf::st_buffer(bbox_geometry, dist = buffer.dist.meters)
@@ -316,14 +315,11 @@ crop.background.buffered <- function(occurrence.data, #input data.frame or tibbl
     } else if (inherits(custom.polygon, "SpatVector")) {
       custom.polygon <- sf::st_as_sf(custom.polygon)
     }
-
     if (!(inherits(custom.polygon, "sf") || inherits(custom.polygon, "sfc"))) stop("custom.polygon must be an sf, sfc, SpatVector, or polygon file")
     if (is.na(sf::st_crs(custom.polygon))) stop("custom.polygon must have a defined CRS")
-
     custom_geometry <- sf::st_geometry(custom.polygon)
     if (length(custom_geometry) == 0 || any(sf::st_is_empty(custom_geometry))) stop("custom.polygon contains empty geometries")
     if (!all(as.character(sf::st_geometry_type(custom_geometry)) %in% c("POLYGON", "MULTIPOLYGON"))) stop("custom.polygon must contain only polygon or multipolygon geometries")
-
     custom_geometry <- sf::st_transform(custom_geometry, metric_crs)
     suppressWarnings(custom_geometry <- sf::st_make_valid(custom_geometry))
     if (!all(as.character(sf::st_geometry_type(custom_geometry)) %in% c("POLYGON", "MULTIPOLYGON"))) stop("custom.polygon is not a valid polygon after geometry repair")

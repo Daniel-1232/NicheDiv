@@ -56,8 +56,10 @@ retained background points are printed.}
 
 \item{custom.polygon}{User-defined accessible-area polygon supplied as
 an \code{sf}, \code{sfc}, or \code{terra::SpatVector} object, or as a path to a spatial
-polygon file readable by \code{sf::st_read}. Required when
-\code{buffer.method = "custom"}. The polygon must have a defined CRS.}
+polygon file readable by \code{sf::st_read} (e.g., \code{.gpkg}, \code{.shp}, \code{.geojson}).
+Required when \code{buffer.method = "custom"}. The polygon must have a defined
+CRS and contain polygon or multipolygon geometries. It is automatically
+reprojected and used without additional buffering to filter background points.}
 }
 \value{
 A filtered \code{data.frame} containing only the rows of
