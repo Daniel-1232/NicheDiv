@@ -983,6 +983,7 @@ thin.occurrence <- function(occurrence.data, #input data.frame with occurrence r
 #' head(result$transformed)
 #'
 #' @rawNamespace export(transform.skewed.variables)
+#' @exportS3Method NULL
 transform.skewed.variables <- function(data.frame, #input data frame containing numeric variables to assess and transform
                                        background.dataframe = NULL, #optional background data frame to apply identical transformations
                                        skewness.threshold = 1, #absolute skewness threshold (variables with |skew| >= this value are transformed)
@@ -2598,16 +2599,19 @@ trim.to.analogous.environments <- function(Sp1.occurrence.data, #occurrence data
 #'   `save = TRUE`. Required only when `save = TRUE`.
 #' @param output.filename Character string giving the output file name used when
 #'   `save = TRUE`. Required only when `save = TRUE`.
-#' @param Sp1.background.data Optional `data.frame` of background environmental
-#'   values for species 1. Required when `background.permutation.test = TRUE`
+#' @param Sp1.background.data Optional `data.frame` containing environmental
+#'   predictors and longitude/latitude coordinates for the geographic
+#'   background of species 1. Required when `background.permutation.test = TRUE`
 #'   (default: `NULL`).
-#' @param Sp2.background.data Optional `data.frame` of background environmental
-#'   values for species 2. Required when `background.permutation.test = TRUE`
+#' @param Sp2.background.data Optional `data.frame` containing environmental
+#'   predictors and longitude/latitude coordinates for the geographic
+#'   background of species 2. Required when `background.permutation.test = TRUE`
 #'   (default: `NULL`).
-#' @param background.permutation.test Logical; if `TRUE`, run a background-based
-#'   permutation test in which one species' occurrences are replaced by random
-#'   samples from the other species' background, and vice versa
-#'   (default: `FALSE`).
+#' @param background.permutation.test Logical; if `TRUE`, run a spatially
+#'   structured HUMBOLDT-style background permutation test (Brown &
+#'   Carnaval, 2019). Occurrence configurations are randomly shifted within
+#'   their respective accessible backgrounds, with valid locations from repeated
+#'   shifts pooled to preserve sample sizes (default: `FALSE`).
 #' @param use.parallel Character string specifying whether and how to use
 #'   parallel computing. One of `"auto"`, `"Windows"`, `"Unix"`, or `"none"`.
 #'   `"auto"` uses `"Unix"` on Unix-like systems and `"Windows"` otherwise
@@ -2661,15 +2665,20 @@ trim.to.analogous.environments <- function(Sp1.occurrence.data, #occurrence data
 #' fitted discrimination is stronger than expected under random group membership.
 #'
 #' The optional background permutation test provides a complementary assessment
-#' conditioned on the environments available to each species. Rather than
-#' permuting labels alone, one species' occurrences are replaced with random
-#' samples from the other species' background, and the reciprocal comparison is
-#' also performed. This follows the logic of background-based tests for assessing
-#' whether apparent niche similarity or divergence may be influenced by the
-#' environmental conditions available within each species' accessible area
-#' (Brown & Carnaval, 2019). In this framework, background-conditioned null
-#' comparisons help distinguish weak divergence from limited power caused by
-#' similar or constrained environmental availability.
+#' conditioned on the environments available to each species. Following the
+#' spatial randomization principle of HUMBOLDT (Brown & Carnaval, 2019), entire
+#' occurrence configurations are randomly translated within their respective
+#' geographic backgrounds. Invalid shifted locations are discarded, and
+#' samples from repeated shifts are pooled to retain the original sample size.
+#' Environmental conditions are extracted from the nearest background records.
+#' Each species is shifted separately while the other remains unchanged.
+#' DAPC assignment accuracy is recalculated for each permutation and compared
+#' with the observed accuracy to obtain directional background-conditioned
+#' p-values. This implementation approximates HUMBOLDT's spatial randomization
+#' but uses DAPC assignment accuracy rather than environmental niche overlap.
+#' In this framework, background-conditioned null comparisons help distinguish
+#' weak divergence from limited power caused by similar or constrained
+#' environmental availability.
 #'
 #' Missing values are handled before ordination and discrimination because these
 #' methods require complete numeric inputs. Rows with excessive missingness are
@@ -2698,10 +2707,10 @@ trim.to.analogous.environments <- function(Sp1.occurrence.data, #occurrence data
 #'     \item{observed_assign_prop}{Observed mean assignment accuracy.}
 #'     \item{permutation_assign_props}{Permutation null distribution of mean
 #'       assignment accuracy. If `background.permutation.test = TRUE`, this is a
-#'       list with `forward` and `reverse` background permutations.}
+#'       list containing `species1_shifted` and `species2_shifted` distributions.}
 #'     \item{p_val_assign}{Permutation p-value for assignment accuracy. If
-#'       `background.permutation.test = TRUE`, this is a named vector with
-#'       `forward` and `reverse` p-values.}
+#'       `background.permutation.test = TRUE`, this is a named vector containing
+#'       `species1_shifted` and `species2_shifted` p-values.}
 #'     \item{ARI}{Adjusted Rand index comparing DAPC-predicted groupings to the
 #'       supplied group labels.}
 #'   }
@@ -2744,7 +2753,7 @@ run.DAPC.crossval.permutation <- function(data.input, #matrix or data.frame of p
                                           output.filename, #Rdata filename for results (only if save = TRUE)
                                           Sp1.background.data = NULL, #background data for species 1 (only required for background.permutation.test)
                                           Sp2.background.data = NULL, #background data for species 2 (only required for background.permutation.test)
-                                          background.permutation.test = FALSE, #run Humboldt-style background permutation instead of random label permutation
+                                          background.permutation.test = FALSE, #run Humboldt-style spatial background permutation instead of random label permutation
                                           use.parallel = c("auto", "Windows", "Unix", "none"), #whether to use parallel computing
                                           N.cores = 3, #number of cores used for parallel computing
                                           seed = 1, #set seed for reproducibility
@@ -2805,6 +2814,19 @@ run.DAPC.crossval.permutation <- function(data.input, #matrix or data.frame of p
   # Set seed for reproducibility
   set.seed(seed)
 
+  # Preserve occurrence coordinates
+  occurrence.spatial.coordinates <- NULL
+  if (background.permutation.test) {
+    spatial.longitude.col <- "Longitude"
+    spatial.latitude.col <- "Latitude"
+    spatial.max.match.distance.km <- 15
+    spatial.max.attempts <- 1000
+    coordinate.names <- c(spatial.longitude.col, spatial.latitude.col)
+    if (!all(coordinate.names %in% colnames(data.input))) stop("Spatial background test requires Longitude and Latitude columns in data.input")
+    occurrence.spatial.coordinates <- as.data.frame(data.input[, coordinate.names, drop = FALSE])
+    if (any(!is.finite(as.matrix(occurrence.spatial.coordinates)))) stop("Spatial background test requires finite occurrence coordinates")
+  }
+
   # Extract species factor
   if (!species.col %in% colnames(data.input)) stop("species.col not found in data.input")
   group.assignment <- data.input[[species.col]]
@@ -2821,6 +2843,7 @@ run.DAPC.crossval.permutation <- function(data.input, #matrix or data.frame of p
 
   # Drop excluded columns and add species
   drop_cols <- union(exclude.cols, species.col)
+  if (background.permutation.test) drop_cols <- union(drop_cols, coordinate.names)
   if (is.data.frame(data.input)) {
     keep_cols <- setdiff(colnames(data.input), drop_cols)
     data.input <- data.input[, keep_cols, drop = FALSE]
@@ -2878,8 +2901,9 @@ run.DAPC.crossval.permutation <- function(data.input, #matrix or data.frame of p
     n_before <- nrow(data.input)
     na_prop_row <- rowMeans(is.na(data.input))
     keep_rows <- na_prop_row <= max.NA.prop
-    data.input <- data.input[keep_rows, , drop = FALSE]
     group.assignment <- droplevels(group.assignment[keep_rows])
+    data.input <- data.input[keep_rows, , drop = FALSE]
+    if (!is.null(occurrence.spatial.coordinates)) occurrence.spatial.coordinates <- occurrence.spatial.coordinates[keep_rows, , drop = FALSE]
     n_after <- nrow(data.input)
     n_dropped <- n_before - n_after
     if (verbose && n_dropped > 0) message(n_dropped, " of ", n_before, " rows dropped due to NA higher than max.NA.prop")
@@ -2896,6 +2920,7 @@ run.DAPC.crossval.permutation <- function(data.input, #matrix or data.frame of p
     keep_rows <- na_prop_row <= max.NA.prop
     data.input <- data.input[keep_rows, , drop = FALSE]
     group.assignment <- droplevels(group.assignment[keep_rows])
+    if (!is.null(occurrence.spatial.coordinates)) occurrence.spatial.coordinates <- occurrence.spatial.coordinates[keep_rows, , drop = FALSE]
     n_after <- nrow(data.input)
     n_dropped <- n_before - n_after
     if (verbose && n_dropped > 0) message(n_dropped, " of ", n_before, " rows dropped due to NA higher than max.NA.prop")
@@ -2903,6 +2928,7 @@ run.DAPC.crossval.permutation <- function(data.input, #matrix or data.frame of p
     keep_complete <- stats::complete.cases(data.input)
     data.input <- data.input[keep_complete, , drop = FALSE]
     group.assignment <- droplevels(group.assignment[keep_complete])
+    if (!is.null(occurrence.spatial.coordinates)) occurrence.spatial.coordinates <- occurrence.spatial.coordinates[keep_complete, , drop = FALSE]
     if (nrow(data.input) == 0) stop("No rows remain after removing incomplete cases")
   }
   data.input <- data.input[, colMeans(is.na(data.input)) < 1, drop = FALSE]
@@ -3283,55 +3309,144 @@ run.DAPC.crossval.permutation <- function(data.input, #matrix or data.frame of p
     RNGkind("L'Ecuyer-CMRG")
     set.seed(seed + 30000L)
     if (background.permutation.test) {
-      if (verbose) message("Running Humboldt-style background permutations using shared.background ...")
-      Sp1.background <- Sp1.background.data[, vapply(Sp1.background.data, is.numeric, TRUE), drop = FALSE]
-      Sp2.background <- Sp2.background.data[, vapply(Sp2.background.data, is.numeric, TRUE), drop = FALSE]
-      if (!identical(colnames(Sp1.background), colnames(Sp2.background))) stop("Background datasets must have identical numeric environmental variables for background permutations")
-      if (ncol(Sp1.background) == 0 || ncol(Sp2.background) == 0) stop("Background datasets contain no numeric environmental columns")
+      if (verbose) message("Running HUMBOLDT-inspired spatial background permutations")
+
+      # Match environmental predictors used by DAPC
+      required.predictors <- colnames(data.input)
+      if (!all(required.predictors %in% names(Sp1.background.data))) stop("Species 1 background is missing retained DAPC predictors")
+      if (!all(required.predictors %in% names(Sp2.background.data))) stop("Species 2 background is missing retained DAPC predictors")
       species.levels <- levels(group.assignment)
       Sp1.label <- species.levels[1]
       Sp2.label <- species.levels[2]
-      if (ncol(Sp1.background) == 0 || ncol(Sp2.background) == 0) stop("Background datasets contain no numeric columns")
       Sp1.data <- as.matrix(data.input[group.assignment == Sp1.label, , drop = FALSE])
       Sp2.data <- as.matrix(data.input[group.assignment == Sp2.label, , drop = FALSE])
-      observed_acc <- observed_assign_prop
-      perm_assign_props <- numeric(N.permutations)
-      for (perm in seq_len(N.permutations)) {
-        pseudo_Sp1 <- Sp2.background[sample(seq_len(nrow(Sp2.background)), nrow(Sp1.data), replace = TRUE), , drop = FALSE]
-        pseudo_combined <- rbind(pseudo_Sp1, Sp2.data)
-        pseudo_labels <- factor(c(rep(Sp1.label, nrow(pseudo_Sp1)), rep(Sp2.label, nrow(Sp2.data))), levels = c(Sp1.label, Sp2.label))
-        pseudo_pca <- ade4::dudi.pca(pseudo_combined, nf = n_pcs_use, scannf = FALSE, center = TRUE, scale = TRUE)
-        pseudo_pc_scores <- as.matrix(pseudo_pca$li[, seq_len(min(n_pcs_use, ncol(pseudo_pca$li))), drop = FALSE])
-        priors_perm <- as.vector(prop.table(table(pseudo_labels)))
-        lda_perm <- try(MASS::lda(pseudo_pc_scores, grouping = pseudo_labels, prior = priors_perm, tol = lda_tol), silent = TRUE)
-        if (inherits(lda_perm, "try-error")) next
-        predicted_perm <- try(predict(lda_perm, pseudo_pc_scores)$class, silent = TRUE)
-        if (inherits(predicted_perm, "try-error")) next
-        perm_assign_props[perm] <- mean(predicted_perm == pseudo_labels)
+      observed.acc <- observed_assign_prop
+
+      # Create function to generate spatially shifted background samples
+      create.spatial.background.sampler <- function(occurrence.coordinates,
+                                                    target.background.data,
+                                                    predictor.names,
+                                                    longitude.col = "Longitude",
+                                                    latitude.col = "Latitude",
+                                                    max.match.distance.km = 15,
+                                                    max.attempts = 1000) {
+
+        # Validate coordinates and predictor columns
+        if (!requireNamespace("sf", quietly = TRUE)) stop("Package 'sf' is required for spatial background randomization")
+        if (!requireNamespace("RANN", quietly = TRUE)) stop("Package 'RANN' is required for spatial background randomization")
+        coordinate.names <- c(longitude.col, latitude.col)
+        if (!all(coordinate.names %in% names(occurrence.coordinates))) stop("Occurrence coordinates are missing longitude or latitude")
+        if (!all(coordinate.names %in% names(target.background.data))) stop("Background coordinates are missing longitude or latitude")
+        if (!all(predictor.names %in% names(target.background.data))) stop("Target background is missing predictors: ", paste(setdiff(predictor.names, names(target.background.data)), collapse = ", "))
+
+        # Retain only finite target-background rows with required predictors
+        target.background.data <- target.background.data[, unique(c(coordinate.names, predictor.names)), drop = FALSE]
+        if (!all(vapply(target.background.data, is.numeric, logical(1)))) stop("Background coordinates and predictors must be numeric")
+        valid.background.rows <- rowSums(!is.finite(as.matrix(target.background.data))) == 0L
+        target.background.data <- target.background.data[valid.background.rows, , drop = FALSE]
+        if (nrow(target.background.data) < 5L) stop("Too few valid target-background records for spatial shifting")
+        if (any(!is.finite(as.matrix(occurrence.coordinates[, coordinate.names, drop = FALSE])))) stop("Non-finite occurrence coordinates")
+        if (any(abs(target.background.data[[latitude.col]]) > 90 | abs(target.background.data[[longitude.col]]) > 180)) stop("Invalid background latitude or longitude")
+        if (any(abs(occurrence.coordinates[[latitude.col]]) > 90 | abs(occurrence.coordinates[[longitude.col]]) > 180)) stop("Invalid occurrence latitude or longitude")
+
+        # Use one equal-area metric projection for occurrences and target backgrounds
+        longitude.center <- mean(range(c(occurrence.coordinates[[longitude.col]], target.background.data[[longitude.col]])))
+        latitude.center <- mean(range(c(occurrence.coordinates[[latitude.col]], target.background.data[[latitude.col]])))
+        metric.crs <- sprintf("+proj=laea +lat_0=%.8f +lon_0=%.8f +datum=WGS84 +units=m +no_defs", latitude.center, longitude.center)
+        project.coordinates <- function(coordinate.data) {
+          sf::sf_project("+proj=longlat +datum=WGS84 +no_defs", metric.crs, as.matrix(coordinate.data[, coordinate.names, drop = FALSE]))
+        }
+        occurrence.xy <- project.coordinates(occurrence.coordinates)
+        background.xy <- project.coordinates(target.background.data)
+        background.environment <- as.matrix(target.background.data[, predictor.names, drop = FALSE])
+        background.hull <- sf::st_convex_hull(sf::st_sfc(sf::st_multipoint(background.xy), crs = metric.crs))
+        if (any(sf::st_geometry_type(background.hull) != "POLYGON")) stop("Background records do not define a valid convex polygon")
+
+        # Follow HUMBOLDT's bounded translation principle: one-third of background extent
+        maximum.longitude.shift <- diff(range(background.xy[, 1])) / 3
+        maximum.latitude.shift <- diff(range(background.xy[, 2])) / 3
+        if (maximum.longitude.shift <= 0 || maximum.latitude.shift <= 0) stop("Background has insufficient spatial extent for shifting")
+
+        # Retain valid records from repeated shifts until original sample size is reached
+        function() {
+          samples <- vector("list", max.attempts)
+          n.collected <- 0L
+          for (attempt in seq_len(max.attempts)) {
+            displacement <- c(stats::runif(1L, -maximum.longitude.shift, maximum.longitude.shift), stats::runif(1L, -maximum.latitude.shift, maximum.latitude.shift))
+            shifted.xy <- sweep(occurrence.xy, 2, displacement, FUN = "+")
+            shifted.points <- sf::st_sfc(lapply(seq_len(nrow(shifted.xy)), function(point.index) sf::st_point(shifted.xy[point.index, ])), crs = metric.crs)
+            within.background <- lengths(sf::st_covered_by(shifted.points, background.hull)) > 0L
+            if (!any(within.background)) next
+
+            # Extract background environments only at accepted shifted coordinates
+            nearest <- RANN::nn2(data = background.xy, query = shifted.xy[within.background, , drop = FALSE], k = 1)
+            valid.match <- is.finite(nearest$nn.dists[, 1]) & nearest$nn.dists[, 1] <= max.match.distance.km * 1000
+            if (!any(valid.match)) next
+            samples[[attempt]] <- background.environment[nearest$nn.idx[valid.match, 1], , drop = FALSE]
+            n.collected <- n.collected + sum(valid.match)
+            if (n.collected >= nrow(occurrence.xy)) {
+              collected.environment <- do.call(rbind, samples[!vapply(samples, is.null, logical(1))])
+              selected.rows <- sample.int(nrow(collected.environment), nrow(occurrence.xy), replace = FALSE)
+              return(collected.environment[selected.rows, , drop = FALSE])
+            }
+          }
+          NULL
+        }
       }
-      perm_assign_props <- perm_assign_props[is.finite(perm_assign_props)]
-      p_val_assign <- (sum(perm_assign_props >= observed_acc) + 1) / (length(perm_assign_props) + 1)
-      if (verbose) message(sprintf("Background permutation test 1 for mean accuracy (Species 1's occurrences replaced by random samples from Species 2's background): p-value = %.3f, mean = %.2f", p_val_assign, mean(perm_assign_props)))
-      permutation_assign_props <- perm_assign_props
-      perm_assign_props_rev <- numeric(N.permutations)
-      for (perm in seq_len(N.permutations)) {
-        pseudo_Sp2 <- Sp1.background[sample(seq_len(nrow(Sp1.background)), nrow(Sp2.data), replace = TRUE), , drop = FALSE]
-        pseudo_combined <- rbind(Sp1.data, pseudo_Sp2)
-        pseudo_labels <- factor(c(rep(Sp1.label, nrow(Sp1.data)), rep(Sp2.label, nrow(pseudo_Sp2))), levels = c(Sp1.label, Sp2.label))
-        pseudo_pca <- ade4::dudi.pca(pseudo_combined, nf = n_pcs_use, scannf = FALSE, center = TRUE, scale = TRUE)
-        pseudo_pc_scores <- as.matrix(pseudo_pca$li[, seq_len(min(n_pcs_use, ncol(pseudo_pca$li))), drop = FALSE])
-        priors_perm <- as.vector(prop.table(table(pseudo_labels)))
-        lda_perm <- try(MASS::lda(pseudo_pc_scores, grouping = pseudo_labels, prior = priors_perm, tol = lda_tol), silent = TRUE)
-        if (inherits(lda_perm, "try-error")) next
-        predicted_perm <- try(predict(lda_perm, pseudo_pc_scores)$class, silent = TRUE)
-        if (inherits(predicted_perm, "try-error")) next
-        perm_assign_props_rev[perm] <- mean(predicted_perm == pseudo_labels)
+
+      # Shift each species within its own geographic background
+      draw.Sp1.within.Sp1 <- create.spatial.background.sampler(
+        occurrence.coordinates = occurrence.spatial.coordinates[group.assignment == Sp1.label, , drop = FALSE],
+        target.background.data = Sp1.background.data,
+        predictor.names = required.predictors,
+        longitude.col = spatial.longitude.col,
+        latitude.col = spatial.latitude.col,
+        max.match.distance.km = spatial.max.match.distance.km,
+        max.attempts = spatial.max.attempts)
+      draw.Sp2.within.Sp2 <- create.spatial.background.sampler(
+        occurrence.coordinates = occurrence.spatial.coordinates[group.assignment == Sp2.label, , drop = FALSE],
+        target.background.data = Sp2.background.data,
+        predictor.names = required.predictors,
+        longitude.col = spatial.longitude.col,
+        latitude.col = spatial.latitude.col,
+        max.match.distance.km = spatial.max.match.distance.km,
+        max.attempts = spatial.max.attempts)
+
+      # Create function to calculate background permutation accuracy
+      calculate.background.accuracy <- function(pseudo.combined, pseudo.labels) {
+        if (any(!is.finite(pseudo.combined))) return(NA_real_)
+        pseudo.pca <- try(ade4::dudi.pca(pseudo.combined, nf = n_pcs_use, scannf = FALSE, center = TRUE, scale = TRUE), silent = TRUE)
+        if (inherits(pseudo.pca, "try-error")) return(NA_real_)
+        pseudo.scores <- as.matrix(pseudo.pca$li[, seq_len(min(n_pcs_use, ncol(pseudo.pca$li))), drop = FALSE])
+        pseudo.priors <- as.vector(prop.table(table(pseudo.labels)))
+        pseudo.lda <- try(MASS::lda(pseudo.scores, grouping = pseudo.labels, prior = pseudo.priors, tol = lda_tol), silent = TRUE)
+        if (inherits(pseudo.lda, "try-error")) return(NA_real_)
+        predicted <- try(predict(pseudo.lda, pseudo.scores)$class, silent = TRUE)
+        if (inherits(predicted, "try-error")) return(NA_real_)
+        mean(predicted == pseudo.labels)
       }
-      perm_assign_props_rev <- perm_assign_props_rev[is.finite(perm_assign_props_rev)]
-      p_val_assign_rev <- (sum(perm_assign_props_rev >= observed_acc) + 1) / (length(perm_assign_props_rev) + 1)
-      if (verbose) message(sprintf("Background permutation test 2 for mean accuracy (Species 2's occurrences replaced by random samples from Species 1's background): p-value = %.3f, mean = %.2f", p_val_assign_rev, mean(perm_assign_props_rev)))
-      permutation_assign_props <- list(forward = perm_assign_props, reverse = perm_assign_props_rev)
-      p_val_assign <- c(forward = p_val_assign, reverse = p_val_assign_rev)
+
+      # Generate spatial background permutation distributions
+      permutation.assign.forward <- rep(NA_real_, N.permutations)
+      permutation.assign.reverse <- rep(NA_real_, N.permutations)
+      pseudo.labels <- factor(c(rep(Sp1.label, nrow(Sp1.data)), rep(Sp2.label, nrow(Sp2.data))), levels = species.levels)
+      for (permutation.index in seq_len(N.permutations)) {
+        pseudo.Sp1 <- draw.Sp1.within.Sp1()
+        if (!is.null(pseudo.Sp1)) permutation.assign.forward[permutation.index] <- calculate.background.accuracy(rbind(pseudo.Sp1, Sp2.data), pseudo.labels)
+        pseudo.Sp2 <- draw.Sp2.within.Sp2()
+        if (!is.null(pseudo.Sp2)) permutation.assign.reverse[permutation.index] <- calculate.background.accuracy(rbind(Sp1.data, pseudo.Sp2), pseudo.labels)
+      }
+
+      # Calculate background permutation p-values
+      valid.forward <- permutation.assign.forward[is.finite(permutation.assign.forward)]
+      valid.reverse <- permutation.assign.reverse[is.finite(permutation.assign.reverse)]
+      minimum.valid <- ceiling(0.8 * N.permutations)
+      p.forward <- if (length(valid.forward) >= minimum.valid) min(1, 2 * (min(sum(valid.forward >= observed.acc), sum(valid.forward <= observed.acc)) + 1) / (length(valid.forward) + 1)) else NA_real_
+      p.reverse <- if (length(valid.reverse) >= minimum.valid) min(1, 2 * (min(sum(valid.reverse >= observed.acc), sum(valid.reverse <= observed.acc)) + 1) / (length(valid.reverse) + 1)) else NA_real_
+      if (length(valid.forward) < minimum.valid || length(valid.reverse) < minimum.valid) warning("Fewer than 80% of background permutations succeeded in at least one direction")
+      if (verbose) message("Valid background permutations: species 1 shifted ", length(valid.forward), "/", N.permutations, "; species 2 shifted ", length(valid.reverse), "/", N.permutations)
+      permutation_assign_props <- list(species1_shifted = permutation.assign.forward, species2_shifted = permutation.assign.reverse)
+      p_val_assign <- c(species1_shifted = p.forward, species2_shifted = p.reverse)
     } else {
       if (verbose) message("Running permutation test with ", N.permutations, " permutations ...")
       if (!.use_parallel) {
@@ -3359,7 +3474,11 @@ run.DAPC.crossval.permutation <- function(data.input, #matrix or data.frame of p
       }
       permutation_assign_props <- out[, 1]
       perm_assign_props_finite <- permutation_assign_props[is.finite(permutation_assign_props)]
-      p_val_assign <- (sum(perm_assign_props_finite > observed_assign_prop) + 1) / (length(perm_assign_props_finite) + 1)
+      p_val_assign <- if (length(perm_assign_props_finite) > 0L) {
+        (sum(perm_assign_props_finite >= observed_assign_prop) + 1) / (length(perm_assign_props_finite) + 1)
+      } else {
+        NA_real_
+      }
       if (verbose) message(sprintf("Permutation test for mean accuracy: p-value = %.3f, mean = %.2f", p_val_assign, mean(perm_assign_props_finite)))
     }
 
@@ -3524,6 +3643,7 @@ run.DAPC.crossval.permutation <- function(data.input, #matrix or data.frame of p
 #'   \emph{Biometrics}, 35(1), 69. https://doi.org/10.2307/2529937
 #'
 #' @rawNamespace export(plot.DAPC.niche.divergence)
+#' @exportS3Method NULL
 plot.DAPC.niche.divergence <- function(dapc.results, #DAPC result object
                                        alpha.density = 0.75, #transparency for density fill (0-1)
                                        group.colors = c("#00005A", "darkgrey"), #two colors for groups
@@ -3773,6 +3893,7 @@ plot.DAPC.niche.divergence <- function(dapc.results, #DAPC result object
 #'   visibly; otherwise it is returned invisibly.
 #'
 #' @rawNamespace export(plot.DAPC.permutation)
+#' @exportS3Method NULL
 plot.DAPC.permutation <- function(dapc_result, #DAPC result object
                                   bar.color = "lightgrey", #histogram bar fill color
                                   line.color = "firebrick", #vertical line color for observed value
@@ -4379,6 +4500,7 @@ calc.niche.divergence.metrics <- function(dapc_out, #DAPC results object
 #'   to disk using `filename`, `output.dir`, and `type`.
 #'
 #' @rawNamespace export(plot.DAPC.var.contributions)
+#' @exportS3Method NULL
 plot.DAPC.var.contributions <- function(dapc.results, #DAPC object
                                         group.colors = c("#00005A", "darkgrey"), #two colors for groups
                                         min.contribution.threshold = NULL, #drop variables below this contribution
@@ -4640,6 +4762,7 @@ plot.DAPC.var.contributions <- function(dapc.results, #DAPC object
 #'   visibly; otherwise it is returned invisibly.
 #'
 #' @rawNamespace export(plot.top.DAPC.predictors)
+#' @exportS3Method NULL
 plot.top.DAPC.predictors <- function(dapc.results, #DAPC result object
                                      group.colors = c("#00005A", "darkgrey"), #two colors for groups
                                      predictor.data, #data.frame or matrix with predictor variables
@@ -4968,6 +5091,7 @@ plot.top.DAPC.predictors <- function(dapc.results, #DAPC result object
 #'   a base R map and, when `save = TRUE`, writing the plot to disk.
 #'
 #' @rawNamespace export(plot.occurrences.map)
+#' @exportS3Method NULL
 plot.occurrences.map <- function(coordinates, #data.frame/matrix with coordinates
                                  latitude.col = "Latitude", #name of latitude column
                                  longitude.col = "Longitude", #name of longitude column

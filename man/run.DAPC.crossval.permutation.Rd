@@ -70,18 +70,21 @@ when \code{save = TRUE} (default: \code{FALSE}).}
 \item{output.filename}{Character string giving the output file name used when
 \code{save = TRUE}. Required only when \code{save = TRUE}.}
 
-\item{Sp1.background.data}{Optional \code{data.frame} of background environmental
-values for species 1. Required when \code{background.permutation.test = TRUE}
+\item{Sp1.background.data}{Optional \code{data.frame} containing environmental
+predictors and longitude/latitude coordinates for the geographic
+background of species 1. Required when \code{background.permutation.test = TRUE}
 (default: \code{NULL}).}
 
-\item{Sp2.background.data}{Optional \code{data.frame} of background environmental
-values for species 2. Required when \code{background.permutation.test = TRUE}
+\item{Sp2.background.data}{Optional \code{data.frame} containing environmental
+predictors and longitude/latitude coordinates for the geographic
+background of species 2. Required when \code{background.permutation.test = TRUE}
 (default: \code{NULL}).}
 
-\item{background.permutation.test}{Logical; if \code{TRUE}, run a background-based
-permutation test in which one species' occurrences are replaced by random
-samples from the other species' background, and vice versa
-(default: \code{FALSE}).}
+\item{background.permutation.test}{Logical; if \code{TRUE}, run a spatially
+structured HUMBOLDT-style background permutation test (Brown &
+Carnaval, 2019). Occurrence configurations are randomly shifted within
+their respective accessible backgrounds, with valid locations from repeated
+shifts pooled to preserve sample sizes (default: \code{FALSE}).}
 
 \item{use.parallel}{Character string specifying whether and how to use
 parallel computing. One of \code{"auto"}, \code{"Windows"}, \code{"Unix"}, or \code{"none"}.
@@ -117,10 +120,10 @@ retained PCs.}
 \item{observed_assign_prop}{Observed mean assignment accuracy.}
 \item{permutation_assign_props}{Permutation null distribution of mean
 assignment accuracy. If \code{background.permutation.test = TRUE}, this is a
-list with \code{forward} and \code{reverse} background permutations.}
+list containing \code{species1_shifted} and \code{species2_shifted} distributions.}
 \item{p_val_assign}{Permutation p-value for assignment accuracy. If
-\code{background.permutation.test = TRUE}, this is a named vector with
-\code{forward} and \code{reverse} p-values.}
+\code{background.permutation.test = TRUE}, this is a named vector containing
+\code{species1_shifted} and \code{species2_shifted} p-values.}
 \item{ARI}{Adjusted Rand index comparing DAPC-predicted groupings to the
 supplied group labels.}
 }
@@ -174,15 +177,20 @@ accuracy is then compared with this null distribution to assess whether the
 fitted discrimination is stronger than expected under random group membership.
 
 The optional background permutation test provides a complementary assessment
-conditioned on the environments available to each species. Rather than
-permuting labels alone, one species' occurrences are replaced with random
-samples from the other species' background, and the reciprocal comparison is
-also performed. This follows the logic of background-based tests for assessing
-whether apparent niche similarity or divergence may be influenced by the
-environmental conditions available within each species' accessible area
-(Brown & Carnaval, 2019). In this framework, background-conditioned null
-comparisons help distinguish weak divergence from limited power caused by
-similar or constrained environmental availability.
+conditioned on the environments available to each species. Following the
+spatial randomization principle of HUMBOLDT (Brown & Carnaval, 2019), entire
+occurrence configurations are randomly translated within their respective
+geographic backgrounds. Invalid shifted locations are discarded, and
+samples from repeated shifts are pooled to retain the original sample size.
+Environmental conditions are extracted from the nearest background records.
+Each species is shifted separately while the other remains unchanged.
+DAPC assignment accuracy is recalculated for each permutation and compared
+with the observed accuracy to obtain directional background-conditioned
+p-values. This implementation approximates HUMBOLDT's spatial randomization
+but uses DAPC assignment accuracy rather than environmental niche overlap.
+In this framework, background-conditioned null comparisons help distinguish
+weak divergence from limited power caused by similar or constrained
+environmental availability.
 
 Missing values are handled before ordination and discrimination because these
 methods require complete numeric inputs. Rows with excessive missingness are

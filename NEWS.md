@@ -1,3 +1,11 @@
+# NicheDiv 1.2.0 (2026-10-26)
+
+## Spatial background permutation testing
+
+- Added optional HUMBOLDT-inspired spatial background permutations for DAPC niche divergence.
+- Added directional tests, equal-sample-size randomization, and two-tailed permutation p-values.
+- Added RANN dependency for spatial nearest-neighbor matching.
+
 # NicheDiv 1.1.0 (2026-10-21)
 
 ## Accessible-area delineation
