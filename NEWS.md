@@ -2,9 +2,11 @@
 
 ## Spatial background permutation testing
 
-- Added optional HUMBOLDT-inspired spatial background permutations for DAPC niche divergence.
-- Added directional tests, equal-sample-size randomization, and two-tailed permutation p-values.
-- Added RANN dependency for spatial nearest-neighbor matching.
+- Revised the existing background permutation test to use HUMBOLDT-inspired geographic shifts of occurrence configurations instead of independently sampling background environments.
+- Improved directional background tests by pooling valid locations across repeated shifts to preserve sample sizes.
+- Updated two-tailed permutation p-value calculations to account for ties.
+- Added spatial boundary checks and nearest-neighbor environmental matching.
+- Added `RANN` as a dependency for nearest-neighbor matching.
 
 # NicheDiv 1.1.0 (2026-10-21)
 
