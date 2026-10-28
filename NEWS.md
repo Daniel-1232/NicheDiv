@@ -16,9 +16,9 @@
 - Retained optional occurrence downsampling after trimming to balance species sample sizes.
 - Improved input validation and reporting of retained occurrence records.
 
-## Replace background permutations with spatially structured randomization
+## Implement Humboldt-style spatially structured background permutations
 
-- Substantially revised the optional `background.permutation.test` procedure in `run.DAPC.crossval.permutation()`.
+- Substantially revised the optional `background.permutation.test` procedure in `run.DAPC.crossval.permutation()` to implement Humboldt-style spatial background randomization (Brown & Carnaval, 2019).
 - Replaced random sampling from the opposite species' background with spatial translations of each species' occurrence configuration within its own geographic background.
 - Added preservation and validation of longitude and latitude coordinates while excluding coordinates from environmental predictors used for DAPC.
 - Implemented spatial translations in a metric Lambert azimuthal equal-area projection, with displacement limits based on one-third of the corresponding background extent.
@@ -28,7 +28,7 @@
 - Replaced one-sided background permutation p-values with two-sided empirical p-values and required at least 80% valid permutations per direction.
 - Renamed directional permutation outputs from `forward` and `reverse` to `species1_shifted` and `species2_shifted`.
 - Improved the standard label-permutation p-value calculation by including ties and returning NA when no valid permutations are available.
-- Distinguished the DAPC assignment-accuracy test from Humboldt's original environmental niche-overlap randomization.
+- Adapted Humboldt-style spatial background randomization to DAPC assignment accuracy rather than Humboldt's original environmental niche-overlap statistics.
 
 ## Improve species-specific background correction of niche divergence metrics
 
