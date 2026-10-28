@@ -63,5 +63,4 @@ jobs:
             }, logical(1)))
           }, logical(1))
           if (any(test_failures)) stop("Custom polygon regression tests failed")
-          cat("All custom polygon tests passed on ", R.version$platform, "
-")
+          cat("All custom polygon tests passed on ", R.version$platform, "\n")
