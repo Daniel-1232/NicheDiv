@@ -2109,12 +2109,11 @@ filter.analogous.variables <- function(Sp1.background.data, #input data.frame or
 #' Trim occurrence and background data to analogous environmental space
 #'
 #' Restrict species occurrence and background datasets to the portion of
-#' environmental space shared between both species, following the logic of
-#' analogous-environment trimming described by Brown and Carnaval (2019) and the
-#' g2e workflow implemented in the Humboldt R package. The function compares
-#' the environmental backgrounds of two species, identifies the shared analogous
-#' portion of environmental space, and retains only occurrence records falling
-#' within that shared space.
+#' environmental space shared between both species based on the
+#' analogous-environment trimming described by Brown and Carnaval (2019).
+#' The function compares the environmental backgrounds of two species,
+#' identifies the shared analogous portion of environmental space, and retains
+#' only occurrence records falling within that shared space.
 #'
 #' @param Sp1.occurrence.data A `data.frame` or `sf` object containing occurrence
 #'   records for species 1.
@@ -2134,13 +2133,14 @@ filter.analogous.variables <- function(Sp1.background.data, #input data.frame or
 #'   PCA space (default: `5`).
 #' @param grid.resolution A single integer-like numeric value giving the number
 #'   of grid divisions per PCA axis used to estimate shared environmental space
-#'   (default: `50`).
+#'   (default: `100`).
 #' @param max.NA.prop A single numeric value between 0 and 1 giving the maximum
-#'   allowed proportion of missing values per background row before that row is
-#'   removed from analogous-space estimation (default: `0.2`).
-#' @param impute.NA.median Logical; if `TRUE`, eligible missing values are
-#'   imputed using the variable median before estimating analogous environmental
-#'   space. If `FALSE`, incomplete rows are removed instead (default: `TRUE`).
+#'   allowed proportion of missing values per background or occurrence row before
+#'   that row is removed from analogous-space estimation (default: `0.2`).
+#' @param impute.NA.median Logical; if `TRUE`, eligible missing background values
+#'   are imputed using each species' own background medians, and missing occurrence
+#'   values using pooled medians across both species' occurrences for the trimming
+#'   PCA. If `FALSE`, incomplete rows are removed instead (default: `TRUE`).
 #' @param downsample.equal.sizes Logical; if `TRUE`, the two trimmed occurrence
 #'   datasets are downsampled to equal sample sizes after trimming
 #'   (default: `TRUE`).
@@ -2148,33 +2148,34 @@ filter.analogous.variables <- function(Sp1.background.data, #input data.frame or
 #'   are printed during trimming (default: `TRUE`).
 #'
 #' @details
-#' Humboldt-style analogous trimming is used as a complementary correction to
-#' predictor-based environmental analogy screening. Whereas variable filtering
-#' removes environmental predictors that are poorly comparable between species,
-#' occurrence trimming removes occurrence records that fall outside the
+#' Humboldt-style analogous trimming provides an alternative correction to the
+#' predictor-based environmental analogy screening implemented in the
+#' filter.analogous.variables function. Rather than removing environmental
+#' predictors, this approach removes occurrence records that fall outside the
 #' environmentally shared region of the two species' accessible background
 #' spaces. This helps reduce bias caused by non-analogous environments, which can
 #' inflate apparent niche divergence and make comparisons depend on extrapolated
 #' portions of environmental space rather than on conditions available to both
 #' species (Brown & Carnaval, 2019; Guisan et al., 2014; Peterson et al., 2011).
 #'
-#' The method summarizes the combined environmental backgrounds of both species
-#' in a shared principal component space. Using a common ordination space ensures
-#' that both species are compared along the same environmental axes rather than
-#' in separate species-specific coordinate systems. Principal component analysis
-#' is appropriate here because it provides a reduced environmental space that
-#' captures dominant gradients of covariation among predictors while allowing
-#' occurrence and background points to be evaluated on the same scale (Chessel et
-#' al., 2004; Dray & Dufour, 2007; Bougeard & Dray, 2018; Thioulouse et al.,
-#' 2018).
+#' Following the humboldt.g2e function in the Humboldt R package (Brown &
+#' Carnaval, 2019), the method fits a shared PCA to occurrence environments,
+#' assigning equal total weight to each species. Both species' accessible
+#' backgrounds are projected as supplementary points into this PCA space.
+#' The trimming PCA is separate from the PCA subsequently used by DAPC, which
+#' is refitted to the retained occurrence records.
 #'
-#' Prior to trimming, low-information predictors and rows with excessive
-#' missingness are removed because near-constant variables and heavily incomplete
-#' observations can distort environmental-space estimates. The missingness
-#' threshold (`max.NA.prop = 0.2`) is intended as a practical default that
-#' permits moderate missingness while reducing the risk that the shared
-#' environmental space is driven by imputation or incomplete background records
-#' (Harrell, 2015; van Buuren, 2018).
+#' Prior to PCA, predictors with near-zero variance are removed to ensure valid
+#' scaling, while records with excessive missingness are excluded to limit
+#' imputation bias. Remaining missing values are either median-imputed or
+#' incomplete records are removed, as PCA cannot handle missing values. The
+#' missingness threshold (`max.NA.prop = 0.2`) is intended as a practical default
+#' that permits moderate missingness while reducing the risk that the shared
+#' environmental space is driven by imputation or incomplete records (van
+#' Buuren, 2018). Background values are imputed separately for each
+#' species, while occurrence values use pooled occurrence medians without using
+#' species identity to determine replacements. Imputed occurrence values are
+#' used only for trimming and are not returned.
 #'
 #' The analogous trimming window controls how strictly environmental space is
 #' shared between species. Smaller windows impose stricter analogy requirements
@@ -2184,6 +2185,11 @@ filter.analogous.variables <- function(Sp1.background.data, #input data.frame or
 #' that reduces extrapolation into non-analogous environmental regions while
 #' retaining enough occurrence records for downstream analyses.
 #'
+#' Following the humboldt.g2e function in the Humboldt R package (Brown &
+#' Carnaval, 2019), only reciprocal PCA-range restriction is applied when
+#' Schoener's D between the two accessible backgrounds in PCA space exceeds
+#' 0.97. Otherwise, the reciprocal moving-window procedure is applied.
+#'
 #' Reciprocal trimming is used so that neither species defines the analogous
 #' space unilaterally. By restricting each species relative to the environmental
 #' space occupied by the other, the retained region represents a shared subset of
@@ -2192,17 +2198,19 @@ filter.analogous.variables <- function(Sp1.background.data, #input data.frame or
 #' asymmetric trimming can bias comparisons toward the species with the broader
 #' or more densely sampled background environment (Brown & Carnaval, 2019).
 #'
-#' After the shared analogous region is identified, occurrence records are
-#' retained only when they fall inside that shared environmental space. This
-#' produces occurrence datasets restricted to comparable environmental
-#' conditions, reducing the influence of extrapolated or non-analogous
+#' Occurrence records are retained within shared PCA ranges when background
+#' overlap is very high, or within locally shared environmental windows
+#' otherwise. This produces occurrence datasets restricted to comparable
+#' environmental conditions, reducing the influence of extrapolated or non-analogous
 #' occurrences that could otherwise bias downstream comparisons of niche
 #' divergence, niche overlap, or discriminant environmental separation.
 #'
-#' Equalizing sample sizes after trimming is useful when downstream
-#' methods are sensitive to unequal occurrence counts. Downsampling to matched
-#' sample sizes can reduce imbalance between species and make subsequent
-#' comparisons less dependent on differences in retained occurrence density.
+#' Because analogous-space trimming may result in unequal numbers of
+#' occurrences between species, the function equalizes sample sizes after
+#' trimming by default (`downsample.equal.sizes = TRUE`). The larger group is
+#' reduced to the size of the smaller group using the sample.down function.
+#' This ensures balanced sample sizes for subsequent DAPC analyses. When
+#' `downsample.equal.sizes = FALSE`, all retained occurrences are preserved.
 #'
 #' @return A `data.frame` combining the retained occurrence rows for both species
 #'   after Humboldt-style trimming to analogous environmental space. If
@@ -2210,38 +2218,20 @@ filter.analogous.variables <- function(Sp1.background.data, #input data.frame or
 #'   downsampled to equal sample sizes.
 #'
 #' @references
-#' Bougeard, S., & Dray, S. (2018). Supervised multiblock analysis in R with the
-#'   ade4 package. \emph{Journal of Statistical Software}, 86(1).
-#'   https://doi.org/10.18637/jss.v086.i01
 #'
 #' Brown, J., & Carnaval, A. C. (2019). A tale of two niches: Methods, concepts,
 #'   and evolution. \emph{Frontiers of Biogeography}, 11(4).
 #'   https://doi.org/10.21425/F5FBG44158
-#'
-#' Chessel, D., Dufour, A., & Thioulouse, J. (2004). The ade4 Package - I:
-#'   One-table methods. \emph{R News}, 4(1), 5-10.
-#'
-#' Dray, S., & Dufour, A.-B. (2007). The ade4 package: Implementing the duality
-#'   diagram for ecologists. \emph{Journal of Statistical Software}, 22(4).
-#'   https://doi.org/10.18637/jss.v022.i04
 #'
 #' Guisan, A., Petitpierre, B., Broennimann, O., Daehler, C., & Kueffer, C.
 #'   (2014). Unifying niche shift studies. Insights from biological invasions.
 #'   \emph{Trends in Ecology & Evolution}, 29(5), 260-269.
 #'   https://doi.org/10.1016/j.tree.2014.02.009
 #'
-#' Harrell, F. E. (2015). \emph{Regression modeling strategies: With applications
-#'   to linear models, logistic and ordinal regression, and survival analysis}
-#'   (2nd ed.). Springer.
-#'
 #' Peterson, A. T., Soberon, J., Pearson, R. G., Anderson, R. P.,
 #'   Martinez-Meyer, E., Nakamura, M., & Araujo, M. B. (2011). \emph{Ecological
 #'   niches and geographic distributions}. Princeton University Press.
 #'   https://doi.org/10.1515/9781400840670
-#'
-#' Thioulouse, J., Dray, S., Dufour, A.-B., Siberchicot, A., Jombart, T., &
-#'   Pavoine, S. (2018). \emph{Multivariate analysis of ecological data with
-#'   ade4}. Springer New York. https://doi.org/10.1007/978-1-4939-8850-1
 #'
 #' van Buuren, S. (2018). \emph{Flexible imputation of missing data}. Chapman &
 #'   Hall/CRC.
@@ -2253,8 +2243,8 @@ trim.to.analogous.environments <- function(Sp1.occurrence.data, #occurrence data
                                            Sp2.background.data, #background data for species 2
                                            exclude.cols = NULL, #columns to exclude
                                            keep.occurrence.cols = NULL, #columns to retain
-                                           analogous.window.size = 5, #width (in PCA grid bands) of moving window used for Humboldt G2E trimming
-                                           grid.resolution = 50, #set number of grid divisions per PCA axis used to build the moving-window sequence (Humboldt G2E R parameter)
+                                           analogous.window.size = 5, #width (in PCA grid bands) of moving window used for trimming
+                                           grid.resolution = 100, #set number of grid divisions per PCA axis used to build moving-window sequence
                                            max.NA.prop = 0.2, #max proportion of NA allowed per row
                                            impute.NA.median = TRUE, #impute median for NA if <= max.NA.prop
                                            downsample.equal.sizes = TRUE, #downsample to equal sample sizes
@@ -2268,8 +2258,8 @@ trim.to.analogous.environments <- function(Sp1.occurrence.data, #occurrence data
   if (!is.null(keep.occurrence.cols) && !is.character(keep.occurrence.cols)) stop("keep.occurrence.cols must be a character vector or NULL")
   if (is.null(exclude.cols)) exclude.cols <- character(0)
   if (is.null(keep.occurrence.cols)) keep.occurrence.cols <- character(0)
-  if (!is.numeric(grid.resolution) || length(grid.resolution) != 1 || grid.resolution < 10) stop("grid.resolution must be >= 10")
-  if (!is.numeric(analogous.window.size) || length(analogous.window.size) != 1 || analogous.window.size < 0) stop("analogous.window.size must be non-negative")
+  if (!is.numeric(grid.resolution) || length(grid.resolution) != 1 || !is.finite(grid.resolution) || grid.resolution < 10 || grid.resolution != floor(grid.resolution)) stop("grid.resolution must be a single finite integer >= 10")
+  if (!is.numeric(analogous.window.size) || length(analogous.window.size) != 1 || !is.finite(analogous.window.size) || analogous.window.size < 0) stop("analogous.window.size must be a single finite non-negative numeric value")
   if (!is.numeric(max.NA.prop) || length(max.NA.prop) != 1 || max.NA.prop < 0 || max.NA.prop > 1) stop("max.NA.prop must be between 0 and 1")
   if (!is.logical(impute.NA.median) || length(impute.NA.median) != 1) stop("impute.NA.median must be TRUE or FALSE")
   if (!is.logical(downsample.equal.sizes) || length(downsample.equal.sizes) != 1) stop("downsample.equal.sizes must be TRUE or FALSE")
@@ -2281,11 +2271,13 @@ trim.to.analogous.environments <- function(Sp1.occurrence.data, #occurrence data
   if (initial_species1_count != initial_species2_count) warning("Initial sample sizes differ between species (species 1 = ", initial_species1_count, ", species 2 = ", initial_species2_count, ") - this may affect trimming balance")
 
   # Print starting message
-  if (verbose) message("Trimming to shared analogous environment (Humboldt-like correction)")
+  if (verbose) message("Trimming to shared analogous environment (Humboldt-style reciprocal window correction)")
 
   # Prepare background data
-  species1_background_numeric <- Sp1.background.data[, setdiff(names(Sp1.background.data), exclude.cols), drop = FALSE]
-  species2_background_numeric <- Sp2.background.data[, setdiff(names(Sp2.background.data), exclude.cols), drop = FALSE]
+  species1_background_environment <- if (inherits(Sp1.background.data, "sf")) sf::st_drop_geometry(Sp1.background.data) else Sp1.background.data
+  species2_background_environment <- if (inherits(Sp2.background.data, "sf")) sf::st_drop_geometry(Sp2.background.data) else Sp2.background.data
+  species1_background_numeric <- species1_background_environment[, setdiff(names(species1_background_environment), exclude.cols), drop = FALSE]
+  species2_background_numeric <- species2_background_environment[, setdiff(names(species2_background_environment), exclude.cols), drop = FALSE]
   species1_background_numeric <- species1_background_numeric[, sapply(species1_background_numeric, is.numeric), drop = FALSE]
   species2_background_numeric <- species2_background_numeric[, sapply(species2_background_numeric, is.numeric), drop = FALSE]
   shared_environment_variable_names <- intersect(names(species1_background_numeric), names(species2_background_numeric))
@@ -2343,151 +2335,50 @@ trim.to.analogous.environments <- function(Sp1.occurrence.data, #occurrence data
   combined_background_matrix <- rbind(species1_background_numeric, species2_background_numeric)
   if (ncol(combined_background_matrix) < 2) stop("Fewer than two valid predictors remain for PCA")
 
-  # Impute background NA
+  # Impute background NA using species-specific background medians
   if (impute.NA.median) {
-    for (variable_index in seq_len(ncol(combined_background_matrix))) {
-      na_row_mask <- is.na(combined_background_matrix[, variable_index])
-      if (any(na_row_mask)) combined_background_matrix[na_row_mask, variable_index] <- median(combined_background_matrix[, variable_index], na.rm = TRUE)
+    for (environment_variable in names(combined_background_matrix)) {
+      species1_background_missing_mask <- is.na(species1_background_numeric[[environment_variable]])
+      species2_background_missing_mask <- is.na(species2_background_numeric[[environment_variable]])
+      if (any(species1_background_missing_mask)) {
+        species1_background_median <- stats::median(species1_background_numeric[[environment_variable]], na.rm = TRUE)
+        if (!is.finite(species1_background_median)) stop("Cannot impute species 1 background predictor without observed values: ", environment_variable)
+        species1_background_numeric[[environment_variable]][species1_background_missing_mask] <- species1_background_median
+      }
+      if (any(species2_background_missing_mask)) {
+        species2_background_median <- stats::median(species2_background_numeric[[environment_variable]], na.rm = TRUE)
+        if (!is.finite(species2_background_median)) stop("Cannot impute species 2 background predictor without observed values: ", environment_variable)
+        species2_background_numeric[[environment_variable]][species2_background_missing_mask] <- species2_background_median
+      }
     }
   }
+  combined_background_matrix <- rbind(species1_background_numeric, species2_background_numeric)
   if (!all(is.finite(as.matrix(combined_background_matrix)))) stop("Non-finite background values remain after imputation")
 
-  # Run PCA (E-space)
-  pca_model <- ade4::dudi.pca(combined_background_matrix, center = TRUE, scale = TRUE, scannf = FALSE, nf = 2)
-  species1_background_row_count <- nrow(species1_background_numeric)
-  species2_background_row_count <- nrow(species2_background_numeric)
-  species1_background_pca_scores <- pca_model$li[1:species1_background_row_count, 1:2, drop = FALSE]
-  species2_background_pca_scores <- pca_model$li[(species1_background_row_count + 1):(species1_background_row_count + species2_background_row_count), 1:2, drop = FALSE]
-
-  # Initialize current scores for REDUC = 5 trimming
-  species1_scores_current <- species1_background_pca_scores
-  species2_scores_current <- species2_background_pca_scores
-
-  # Create function to check that both species still have environments
-  check_env_nonempty <- function(scores1, scores2) {
-    if (nrow(scores1) == 0 || nrow(scores2) == 0) stop("No analogous environments remain for at least one species after trimming (Humboldt-style REDUC loop)")
-  }
-
-  # Perform full REDUC = 5 loops: PC1 trim S2 -> PC2 trim S2 -> PC2 trim S1 -> PC1 trim S1
-  reduction_iterations <- 5
-  for (reduction_iteration in seq_len(reduction_iterations)) {
-
-    # Trim species 2 along PC1 based on species 1
-    if (nrow(species1_scores_current) < 2 || nrow(species2_scores_current) < 2) check_env_nonempty(species1_scores_current, species2_scores_current)
-    pc1_max_species1 <- max(species1_scores_current[, 1])
-    pc1_min_species1 <- min(species1_scores_current[, 1])
-    pc1_range_length <- pc1_max_species1 - pc1_min_species1
-    if (pc1_range_length <= .Machine$double.eps) stop("Species 1 PC1 range collapsed during trimming")
-    pc1_bandwidth <- pc1_range_length / grid.resolution
-    pc1_sequence <- seq(pc1_min_species1, pc1_max_species1, length.out = grid.resolution)
-    species2_trimmed_pc1 <- NULL
-    for (pc1_window_center in pc1_sequence) {
-      species1_band_subset <- species1_scores_current[species1_scores_current[, 1] <= (pc1_window_center + (analogous.window.size + 1) * pc1_bandwidth) & species1_scores_current[, 1] >= (pc1_window_center - analogous.window.size * pc1_bandwidth), , drop = FALSE]
-      if (nrow(species1_band_subset) == 0) next
-      pc2_max_for_window <- max(species1_band_subset[, 2])
-      pc2_min_for_window <- min(species1_band_subset[, 2])
-      species2_band_subset <- species2_scores_current[species2_scores_current[, 1] <= (pc1_window_center + pc1_bandwidth) & species2_scores_current[, 1] >= pc1_window_center, , drop = FALSE]
-      if (nrow(species2_band_subset) == 0) next
-      species2_band_subset <- species2_band_subset[species2_band_subset[, 2] <= pc2_max_for_window & species2_band_subset[, 2] >= pc2_min_for_window, , drop = FALSE]
-      if (nrow(species2_band_subset) == 0) next
-      if (is.null(species2_trimmed_pc1)) species2_trimmed_pc1 <- species2_band_subset else species2_trimmed_pc1 <- rbind(species2_trimmed_pc1, species2_band_subset)
-    }
-    if (is.null(species2_trimmed_pc1) || nrow(species2_trimmed_pc1) == 0) stop("No analogous environments retained for species 2 after PC1 trimming")
-    species2_scores_current <- species2_trimmed_pc1
-
-    # Trim species 2 along PC2 based on species 1
-    if (nrow(species1_scores_current) < 2 || nrow(species2_scores_current) < 2) check_env_nonempty(species1_scores_current, species2_scores_current)
-    pc2_max_species1 <- max(species1_scores_current[, 2])
-    pc2_min_species1 <- min(species1_scores_current[, 2])
-    pc2_range_length <- pc2_max_species1 - pc2_min_species1
-    if (pc2_range_length <= .Machine$double.eps) stop("Species 1 PC2 range collapsed during trimming")
-    pc2_bandwidth <- pc2_range_length / grid.resolution
-    pc2_sequence <- seq(pc2_min_species1, pc2_max_species1, length.out = grid.resolution)
-    species2_trimmed_pc2 <- NULL
-    for (pc2_window_center in pc2_sequence) {
-      species1_band_subset <- species1_scores_current[species1_scores_current[, 2] <= (pc2_window_center + (analogous.window.size + 1) * pc2_bandwidth) & species1_scores_current[, 2] >= (pc2_window_center - analogous.window.size * pc2_bandwidth), , drop = FALSE]
-      if (nrow(species1_band_subset) == 0) next
-      pc1_max_for_window <- max(species1_band_subset[, 1])
-      pc1_min_for_window <- min(species1_band_subset[, 1])
-      species2_band_subset <- species2_scores_current[species2_scores_current[, 2] <= (pc2_window_center + pc2_bandwidth) & species2_scores_current[, 2] >= pc2_window_center, , drop = FALSE]
-      if (nrow(species2_band_subset) == 0) next
-      species2_band_subset <- species2_band_subset[species2_band_subset[, 1] <= pc1_max_for_window & species2_band_subset[, 1] >= pc1_min_for_window, , drop = FALSE]
-      if (nrow(species2_band_subset) == 0) next
-      if (is.null(species2_trimmed_pc2)) species2_trimmed_pc2 <- species2_band_subset else species2_trimmed_pc2 <- rbind(species2_trimmed_pc2, species2_band_subset)
-    }
-    if (is.null(species2_trimmed_pc2) || nrow(species2_trimmed_pc2) == 0) stop("No analogous environments retained for species 2 after PC2 trimming")
-    species2_scores_current <- species2_trimmed_pc2
-
-    # Trim species 1 along PC2 based on species 2 (reciprocal)
-    if (nrow(species1_scores_current) < 2 || nrow(species2_scores_current) < 2) check_env_nonempty(species1_scores_current, species2_scores_current)
-    pc2_max_species2 <- max(species2_scores_current[, 2])
-    pc2_min_species2 <- min(species2_scores_current[, 2])
-    pc2_range_length_2 <- pc2_max_species2 - pc2_min_species2
-    if (pc2_range_length_2 <= .Machine$double.eps) stop("Species 2 PC2 range collapsed during trimming")
-    pc2_bandwidth_2 <- pc2_range_length_2 / grid.resolution
-    pc2_sequence_2 <- seq(pc2_min_species2, pc2_max_species2, length.out = grid.resolution)
-    species1_trimmed_pc2 <- NULL
-    for (pc2_window_center in pc2_sequence_2) {
-      species2_band_subset <- species2_scores_current[species2_scores_current[, 2] <= (pc2_window_center + (analogous.window.size + 1) * pc2_bandwidth_2) & species2_scores_current[, 2] >= (pc2_window_center - analogous.window.size * pc2_bandwidth_2), , drop = FALSE]
-      if (nrow(species2_band_subset) == 0) next
-      pc1_max_for_window <- max(species2_band_subset[, 1])
-      pc1_min_for_window <- min(species2_band_subset[, 1])
-      species1_band_subset <- species1_scores_current[species1_scores_current[, 2] <= (pc2_window_center + pc2_bandwidth_2) & species1_scores_current[, 2] >= pc2_window_center, , drop = FALSE]
-      if (nrow(species1_band_subset) == 0) next
-      species1_band_subset <- species1_band_subset[species1_band_subset[, 1] <= pc1_max_for_window & species1_band_subset[, 1] >= pc1_min_for_window, , drop = FALSE]
-      if (nrow(species1_band_subset) == 0) next
-      if (is.null(species1_trimmed_pc2)) species1_trimmed_pc2 <- species1_band_subset else species1_trimmed_pc2 <- rbind(species1_trimmed_pc2, species1_band_subset)
-    }
-    if (is.null(species1_trimmed_pc2) || nrow(species1_trimmed_pc2) == 0) stop("No analogous environments retained for species 1 after reciprocal PC2 trimming")
-    species1_scores_current <- species1_trimmed_pc2
-
-    # Trim species 1 along PC1 based on species 2 (reciprocal)
-    if (nrow(species1_scores_current) < 2 || nrow(species2_scores_current) < 2) check_env_nonempty(species1_scores_current, species2_scores_current)
-    pc1_max_species2 <- max(species2_scores_current[, 1])
-    pc1_min_species2 <- min(species2_scores_current[, 1])
-    pc1_range_length_2 <- pc1_max_species2 - pc1_min_species2
-    if (pc1_range_length_2 <= .Machine$double.eps) stop("Species 2 PC1 range collapsed during trimming")
-    pc1_bandwidth_2 <- pc1_range_length_2 / grid.resolution
-    pc1_sequence_2 <- seq(pc1_min_species2, pc1_max_species2, length.out = grid.resolution)
-    species1_trimmed_pc1 <- NULL
-    for (pc1_window_center in pc1_sequence_2) {
-      species2_band_subset <- species2_scores_current[species2_scores_current[, 1] <= (pc1_window_center + (analogous.window.size + 1) * pc1_bandwidth_2) & species2_scores_current[, 1] >= (pc1_window_center - analogous.window.size * pc1_bandwidth_2), , drop = FALSE]
-      if (nrow(species2_band_subset) == 0) next
-      pc2_max_for_window <- max(species2_band_subset[, 2])
-      pc2_min_for_window <- min(species2_band_subset[, 2])
-      species1_band_subset <- species1_scores_current[species1_scores_current[, 1] <= (pc1_window_center + pc1_bandwidth_2) & species1_scores_current[, 1] >= pc1_window_center, , drop = FALSE]
-      if (nrow(species1_band_subset) == 0) next
-      species1_band_subset <- species1_band_subset[species1_band_subset[, 2] <= pc2_max_for_window & species1_band_subset[, 2] >= pc2_min_for_window, , drop = FALSE]
-      if (nrow(species1_band_subset) == 0) next
-      if (is.null(species1_trimmed_pc1)) species1_trimmed_pc1 <- species1_band_subset else species1_trimmed_pc1 <- rbind(species1_trimmed_pc1, species1_band_subset)
-    }
-    if (is.null(species1_trimmed_pc1) || nrow(species1_trimmed_pc1) == 0) stop("No analogous environments retained for species 1 after reciprocal PC1 trimming")
-    species1_scores_current <- species1_trimmed_pc1
-    check_env_nonempty(species1_scores_current, species2_scores_current)
-  }
-
-  # Compute final shared PCA bounds after REDUC = 5 loop
-  species1_pc1_range <- range(species1_scores_current[, 1])
-  species1_pc2_range <- range(species1_scores_current[, 2])
-  species2_pc1_range <- range(species2_scores_current[, 1])
-  species2_pc2_range <- range(species2_scores_current[, 2])
-  if (any(is.na(c(species1_pc1_range, species1_pc2_range, species2_pc1_range, species2_pc2_range)))) stop("Analogous region collapsed: at least one species has no remaining PCA range after trimming and NA filtering")
-  shared_pc1_min <- max(species1_pc1_range[1], species2_pc1_range[1])
-  shared_pc1_max <- min(species1_pc1_range[2], species2_pc1_range[2])
-  shared_pc2_min <- max(species1_pc2_range[1], species2_pc2_range[1])
-  shared_pc2_max <- min(species1_pc2_range[2], species2_pc2_range[2])
-  if ((shared_pc1_max - shared_pc1_min) < .Machine$double.eps || (shared_pc2_max - shared_pc2_min) < .Machine$double.eps) stop("No shared analogous PCA extent after REDUC = 5 trimming")
-
-  # Prepare occurrences (environmental variables matching PCA)
+  # Prepare occurrence environmental variables for weighted PCA
   pca_environment_variable_names <- names(combined_background_matrix)
-  species1_occurrence_environment <- Sp1.occurrence.data[, intersect(pca_environment_variable_names, names(Sp1.occurrence.data)), drop = FALSE]
-  species2_occurrence_environment <- Sp2.occurrence.data[, intersect(pca_environment_variable_names, names(Sp2.occurrence.data)), drop = FALSE]
+  species1_occurrence_environment_data <- if (inherits(Sp1.occurrence.data, "sf")) sf::st_drop_geometry(Sp1.occurrence.data) else Sp1.occurrence.data
+  species2_occurrence_environment_data <- if (inherits(Sp2.occurrence.data, "sf")) sf::st_drop_geometry(Sp2.occurrence.data) else Sp2.occurrence.data
+  species1_occurrence_environment <- species1_occurrence_environment_data[, intersect(pca_environment_variable_names, names(species1_occurrence_environment_data)), drop = FALSE]
+  species2_occurrence_environment <- species2_occurrence_environment_data[, intersect(pca_environment_variable_names, names(species2_occurrence_environment_data)), drop = FALSE]
   if (!all(pca_environment_variable_names %in% names(species1_occurrence_environment))) stop("Species 1 missing PCA vars: ", paste(setdiff(pca_environment_variable_names, names(species1_occurrence_environment)), collapse = ", "))
   if (!all(pca_environment_variable_names %in% names(species2_occurrence_environment))) stop("Species 2 missing PCA vars: ", paste(setdiff(pca_environment_variable_names, names(species2_occurrence_environment)), collapse = ", "))
   species1_occurrence_environment <- species1_occurrence_environment[, pca_environment_variable_names, drop = FALSE]
   species2_occurrence_environment <- species2_occurrence_environment[, pca_environment_variable_names, drop = FALSE]
+  if (!all(vapply(species1_occurrence_environment, is.numeric, logical(1)))) stop("Species 1 PCA environmental variables must be numeric")
+  if (!all(vapply(species2_occurrence_environment, is.numeric, logical(1)))) stop("Species 2 PCA environmental variables must be numeric")
   species1_occurrence_environment[!is.finite(as.matrix(species1_occurrence_environment))] <- NA
   species2_occurrence_environment[!is.finite(as.matrix(species2_occurrence_environment))] <- NA
+
+  # Remove occurrence rows exceeding the same missingness threshold as backgrounds
+  species1_occurrence_row_drop_mask <- rowMeans(is.na(species1_occurrence_environment)) > max.NA.prop
+  species2_occurrence_row_drop_mask <- rowMeans(is.na(species2_occurrence_environment)) > max.NA.prop
+  if (verbose && any(species1_occurrence_row_drop_mask)) message("Dropping ", sum(species1_occurrence_row_drop_mask), " occurrence rows for species 1 due to NA proportion")
+  if (verbose && any(species2_occurrence_row_drop_mask)) message("Dropping ", sum(species2_occurrence_row_drop_mask), " occurrence rows for species 2 due to NA proportion")
+  species1_occurrence_environment <- species1_occurrence_environment[!species1_occurrence_row_drop_mask, , drop = FALSE]
+  species2_occurrence_environment <- species2_occurrence_environment[!species2_occurrence_row_drop_mask, , drop = FALSE]
+  Sp1.occurrence.data <- Sp1.occurrence.data[!species1_occurrence_row_drop_mask, , drop = FALSE]
+  Sp2.occurrence.data <- Sp2.occurrence.data[!species2_occurrence_row_drop_mask, , drop = FALSE]
   if (!impute.NA.median) {
     complete1_occ <- stats::complete.cases(species1_occurrence_environment)
     complete2_occ <- stats::complete.cases(species2_occurrence_environment)
@@ -2497,43 +2388,186 @@ trim.to.analogous.environments <- function(Sp1.occurrence.data, #occurrence data
     species2_occurrence_environment <- species2_occurrence_environment[complete2_occ, , drop = FALSE]
     Sp1.occurrence.data <- Sp1.occurrence.data[complete1_occ, , drop = FALSE]
     Sp2.occurrence.data <- Sp2.occurrence.data[complete2_occ, , drop = FALSE]
-    if (nrow(species1_occurrence_environment) == 0 || nrow(species2_occurrence_environment) == 0) stop("No occurrence rows remain after removing NA rows for projection when impute.NA.median = FALSE")
   }
+  if (nrow(species1_occurrence_environment) < 2 || nrow(species2_occurrence_environment) < 2) stop("At least two valid occurrence records per species are required for occurrence-weighted PCA")
+
+  # Impute occurrence values using pooled occurrence medians for trimming PCA
   species1_occurrence_environment_temp <- species1_occurrence_environment
   species2_occurrence_environment_temp <- species2_occurrence_environment
   if (impute.NA.median) {
-    background_medians <- apply(combined_background_matrix[, pca_environment_variable_names, drop = FALSE], 2, median, na.rm = TRUE)
+    combined_occurrence_environment <- rbind(species1_occurrence_environment, species2_occurrence_environment)
+    pooled_occurrence_medians <- vapply(combined_occurrence_environment, function(environment_values) stats::median(environment_values, na.rm = TRUE), numeric(1))
     for (environment_variable in pca_environment_variable_names) {
+
+      # Predictors without observed occurrence values are dropped by variance filter below
+      if (!is.finite(pooled_occurrence_medians[[environment_variable]])) next
       missing_mask_1 <- is.na(species1_occurrence_environment_temp[[environment_variable]])
-      if (any(missing_mask_1)) species1_occurrence_environment_temp[[environment_variable]][missing_mask_1] <- background_medians[[environment_variable]]
+      if (any(missing_mask_1)) species1_occurrence_environment_temp[[environment_variable]][missing_mask_1] <- pooled_occurrence_medians[[environment_variable]]
       missing_mask_2 <- is.na(species2_occurrence_environment_temp[[environment_variable]])
-      if (any(missing_mask_2)) species2_occurrence_environment_temp[[environment_variable]][missing_mask_2] <- background_medians[[environment_variable]]
+      if (any(missing_mask_2)) species2_occurrence_environment_temp[[environment_variable]][missing_mask_2] <- pooled_occurrence_medians[[environment_variable]]
     }
   }
 
-  # Project occurrences as supplementary points into PCA
-  species1_occurrence_pca_scores <- ade4::suprow(pca_model, species1_occurrence_environment_temp)$li[, 1:2, drop = FALSE]
-  species2_occurrence_pca_scores <- ade4::suprow(pca_model, species2_occurrence_environment_temp)$li[, 1:2, drop = FALSE]
+  # Exclude predictors without variation among occurrences from trimming PCA
+  combined_occurrence_matrix <- rbind(species1_occurrence_environment_temp, species2_occurrence_environment_temp)
+  occurrence_variable_low_variance_mask <- vapply(combined_occurrence_matrix, function(environment_values) {
+    environment_sd <- stats::sd(environment_values)
+    !is.finite(environment_sd) || environment_sd < 1e-9
+  }, logical(1))
+  if (any(occurrence_variable_low_variance_mask)) {
+    if (verbose) message("Dropping predictors with near-zero occurrence variance from trimming PCA: ", paste(names(combined_occurrence_matrix)[occurrence_variable_low_variance_mask], collapse = ", "))
+    pca_environment_variable_names <- pca_environment_variable_names[!occurrence_variable_low_variance_mask]
+    combined_occurrence_matrix <- combined_occurrence_matrix[, pca_environment_variable_names, drop = FALSE]
+    combined_background_matrix <- combined_background_matrix[, pca_environment_variable_names, drop = FALSE]
+  }
+  if (ncol(combined_occurrence_matrix) < 2) stop("Fewer than two variable predictors remain for occurrence-weighted PCA")
 
-  # Identify retained occurrences within shared analogous PCA extent
-  species1_occurrence_keep_mask <- species1_occurrence_pca_scores[, 1] >= shared_pc1_min & species1_occurrence_pca_scores[, 1] <= shared_pc1_max & species1_occurrence_pca_scores[, 2] >= shared_pc2_min & species1_occurrence_pca_scores[, 2] <= shared_pc2_max
-  species2_occurrence_keep_mask <- species2_occurrence_pca_scores[, 1] >= shared_pc1_min & species2_occurrence_pca_scores[, 1] <= shared_pc1_max & species2_occurrence_pca_scores[, 2] >= shared_pc2_min & species2_occurrence_pca_scores[, 2] <= shared_pc2_max
+  # Fit HUMBOLDT-style occurrence-weighted PCA with equal total weight per species
+  species1_occurrence_row_count <- nrow(species1_occurrence_environment_temp)
+  species2_occurrence_row_count <- nrow(species2_occurrence_environment_temp)
+  occurrence_pca_row_weights <- c(rep(0.5 / species1_occurrence_row_count, species1_occurrence_row_count), rep(0.5 / species2_occurrence_row_count, species2_occurrence_row_count))
+  pca_model <- ade4::dudi.pca(combined_occurrence_matrix, row.w = occurrence_pca_row_weights, center = TRUE, scale = TRUE, scannf = FALSE, nf = 2)
+  species1_occurrence_pca_scores <- pca_model$li[seq_len(species1_occurrence_row_count), 1:2, drop = FALSE]
+  species2_occurrence_pca_scores <- pca_model$li[species1_occurrence_row_count + seq_len(species2_occurrence_row_count), 1:2, drop = FALSE]
 
+  # Project backgrounds as supplementary points into occurrence-weighted PCA
+  species1_background_row_count <- nrow(species1_background_numeric)
+  species2_background_row_count <- nrow(species2_background_numeric)
+  combined_background_pca_projection <- ade4::suprow(pca_model, combined_background_matrix)$lisup[, 1:2, drop = FALSE]
+  species1_background_pca_scores <- combined_background_pca_projection[seq_len(species1_background_row_count), , drop = FALSE]
+  species2_background_pca_scores <- combined_background_pca_projection[species1_background_row_count + seq_len(species2_background_row_count), , drop = FALSE]
+
+  # Calculate background Schoener's D using Humboldt-style environmental densities
+  combined_background_pca_scores <- rbind(species1_background_pca_scores, species2_background_pca_scores)
+  background_kernel_bandwidth <- 0.03
+  background_kernel_margin <- 20 * background_kernel_bandwidth
+  background_pca_minima <- apply(combined_background_pca_scores, 2, min) - background_kernel_margin
+  background_pca_maxima <- apply(combined_background_pca_scores, 2, max) + background_kernel_margin
+  background_pca_ranges <- background_pca_maxima - background_pca_minima
+  background_grid_values <- (seq_len(grid.resolution) - 1) / (grid.resolution - 2)
+
+  # Create function to calculate Gaussian environmental density on shared grid
+  calculate.background.environment.grid <- function(background_pca_scores) {
+    scaled_background_scores <- sweep(sweep(as.matrix(background_pca_scores), 2, background_pca_minima, "-"), 2, background_pca_ranges, "/")
+    background_density <- matrix(0, nrow = grid.resolution, ncol = grid.resolution)
+    for (background_chunk_start in seq(1L, nrow(scaled_background_scores), by = 500L)) {
+      background_chunk_indices <- background_chunk_start:min(background_chunk_start + 499L, nrow(scaled_background_scores))
+      pc1_kernel_matrix <- outer(background_grid_values, scaled_background_scores[background_chunk_indices, 1], function(grid_value, background_value) stats::dnorm((grid_value - background_value) / background_kernel_bandwidth))
+      pc2_kernel_matrix <- outer(background_grid_values, scaled_background_scores[background_chunk_indices, 2], function(grid_value, background_value) stats::dnorm((grid_value - background_value) / background_kernel_bandwidth))
+      background_density <- background_density + tcrossprod(pc2_kernel_matrix, pc1_kernel_matrix)
+    }
+    background_cell_columns <- round(scaled_background_scores[, 1] * (grid.resolution - 2)) + 1L
+    background_cell_rows <- round(scaled_background_scores[, 2] * (grid.resolution - 2)) + 1L
+    background_cell_columns <- pmax(1L, pmin(grid.resolution, background_cell_columns))
+    background_cell_rows <- pmax(1L, pmin(grid.resolution, background_cell_rows))
+    background_point_densities <- background_density[cbind(background_cell_rows, background_cell_columns)]
+    background_density_threshold <- min(background_point_densities)
+    background_density[background_density < background_density_threshold] <- 0
+    if (sum(background_density) <= 0) stop("No background density remains after kernel-density filtering")
+    background_environment_density <- background_density * nrow(background_pca_scores) / sum(background_density)
+    background_uncorrected_density <- background_density / max(background_density)
+    list(environment_density = background_environment_density, uncorrected_density = background_uncorrected_density)
+  }
+
+  # Create function to calculate uncorrected background Schoener's D
+  calculate.background.schoeners.d <- function(species1_background_grid, species2_background_grid) {
+    analogous_environment_mask <- species1_background_grid$environment_density >= 0.001 & species2_background_grid$environment_density >= 0.001
+    species1_uncorrected_density <- species1_background_grid$uncorrected_density
+    species2_uncorrected_density <- species2_background_grid$uncorrected_density
+    species1_uncorrected_density[!analogous_environment_mask] <- 0
+    species2_uncorrected_density[!analogous_environment_mask] <- 0
+    species1_uncorrected_density[species1_uncorrected_density < 0.001] <- 0
+    species2_uncorrected_density[species2_uncorrected_density < 0.001] <- 0
+    species1_density_total <- sum(species1_uncorrected_density)
+    species2_density_total <- sum(species2_uncorrected_density)
+    if (species1_density_total <= 0 || species2_density_total <= 0) return(0)
+    species1_environment_probabilities <- species1_uncorrected_density / species1_density_total
+    species2_environment_probabilities <- species2_uncorrected_density / species2_density_total
+    schoeners_d <- 1 - 0.5 * sum(abs(species1_environment_probabilities - species2_environment_probabilities))
+    schoeners_d
+  }
+
+  # Calculate background overlap using Gaussian environmental densities
+  species1_background_grid <- calculate.background.environment.grid(species1_background_pca_scores)
+  species2_background_grid <- calculate.background.environment.grid(species2_background_pca_scores)
+  background_schoeners_d <- calculate.background.schoeners.d(species1_background_grid, species2_background_grid)
+  if (verbose) message("Background Schoener's D = ", round(background_schoeners_d, 2), "; trimming = ", if (background_schoeners_d > 0.97) "reciprocal PCA ranges" else "reciprocal moving windows")
+
+  # Initialize current backgrounds and occurrence masks
+  species1_scores_current <- species1_background_pca_scores
+  species2_scores_current <- species2_background_pca_scores
+  species1_occurrence_keep_mask <- rep(TRUE, nrow(species1_occurrence_pca_scores))
+  species2_occurrence_keep_mask <- rep(TRUE, nrow(species2_occurrence_pca_scores))
+
+  # Restrict backgrounds and occurrences to reciprocal PCA ranges
+  for (pca_axis_index in 1:2) {
+    species1_axis_range <- range(species1_scores_current[, pca_axis_index])
+    species2_axis_range <- range(species2_scores_current[, pca_axis_index])
+    species1_background_axis_mask <- species1_scores_current[, pca_axis_index] >= species2_axis_range[1] & species1_scores_current[, pca_axis_index] <= species2_axis_range[2]
+    species2_background_axis_mask <- species2_scores_current[, pca_axis_index] >= species1_axis_range[1] & species2_scores_current[, pca_axis_index] <= species1_axis_range[2]
+    species1_occurrence_keep_mask <- species1_occurrence_keep_mask & species1_occurrence_pca_scores[, pca_axis_index] >= species2_axis_range[1] & species1_occurrence_pca_scores[, pca_axis_index] <= species2_axis_range[2]
+    species2_occurrence_keep_mask <- species2_occurrence_keep_mask & species2_occurrence_pca_scores[, pca_axis_index] >= species1_axis_range[1] & species2_occurrence_pca_scores[, pca_axis_index] <= species1_axis_range[2]
+    species1_scores_current <- species1_scores_current[species1_background_axis_mask, , drop = FALSE]
+    species2_scores_current <- species2_scores_current[species2_background_axis_mask, , drop = FALSE]
+    if (nrow(species1_scores_current) == 0 || nrow(species2_scores_current) == 0) stop("No shared analogous environments remain after reciprocal PCA range trimming")
+  }
+
+  # Create function to trim target backgrounds and occurrences in moving windows
+  trim.directional.window <- function(reference_background_scores, target_background_scores, target_occurrence_scores, pca_axis_index) {
+    other_axis_index <- 3L - pca_axis_index
+    reference_axis_range <- range(reference_background_scores[, pca_axis_index])
+    pca_bandwidth <- diff(reference_axis_range) / grid.resolution
+    if (!is.finite(pca_bandwidth) || pca_bandwidth <= .Machine$double.eps) stop("Reference background PCA range collapsed during analogous trimming")
+    pca_window_centers <- seq(reference_axis_range[1], reference_axis_range[2], length.out = grid.resolution)
+    background_keep_mask <- rep(FALSE, nrow(target_background_scores))
+    occurrence_keep_mask <- rep(FALSE, nrow(target_occurrence_scores))
+    for (pca_window_center in pca_window_centers) {
+      reference_band_mask <- reference_background_scores[, pca_axis_index] >= pca_window_center - analogous.window.size * pca_bandwidth & reference_background_scores[, pca_axis_index] <= pca_window_center + (analogous.window.size + 1) * pca_bandwidth
+      if (!any(reference_band_mask)) next
+      other_axis_range <- range(reference_background_scores[reference_band_mask, other_axis_index])
+      background_band_mask <- target_background_scores[, pca_axis_index] >= pca_window_center & target_background_scores[, pca_axis_index] <= pca_window_center + pca_bandwidth & target_background_scores[, other_axis_index] >= other_axis_range[1] & target_background_scores[, other_axis_index] <= other_axis_range[2]
+      occurrence_band_mask <- target_occurrence_scores[, pca_axis_index] >= pca_window_center & target_occurrence_scores[, pca_axis_index] <= pca_window_center + pca_bandwidth & target_occurrence_scores[, other_axis_index] >= other_axis_range[1] & target_occurrence_scores[, other_axis_index] <= other_axis_range[2]
+      background_keep_mask <- background_keep_mask | background_band_mask
+      occurrence_keep_mask <- occurrence_keep_mask | occurrence_band_mask
+    }
+    if (!any(background_keep_mask)) stop("No analogous background environments remain after moving-window trimming")
+    list(background_scores = target_background_scores[background_keep_mask, , drop = FALSE], occurrence_keep_mask = occurrence_keep_mask)
+  }
+
+  # Apply moving windows only when background overlap is not extremely high
+  if (background_schoeners_d <= 0.97) {
+
+    # Trim species 2 along PC1 and PC2 relative to species 1
+    species2_pc1_result <- trim.directional.window(species1_scores_current, species2_scores_current, species2_occurrence_pca_scores, 1)
+    species2_scores_current <- species2_pc1_result$background_scores
+    species2_occurrence_keep_mask <- species2_occurrence_keep_mask & species2_pc1_result$occurrence_keep_mask
+    species2_pc2_result <- trim.directional.window(species1_scores_current, species2_scores_current, species2_occurrence_pca_scores, 2)
+    species2_scores_current <- species2_pc2_result$background_scores
+    species2_occurrence_keep_mask <- species2_occurrence_keep_mask & species2_pc2_result$occurrence_keep_mask
+
+    # Trim species 1 along PC2 and PC1 relative to species 2
+    species1_pc2_result <- trim.directional.window(species2_scores_current, species1_scores_current, species1_occurrence_pca_scores, 2)
+    species1_scores_current <- species1_pc2_result$background_scores
+    species1_occurrence_keep_mask <- species1_occurrence_keep_mask & species1_pc2_result$occurrence_keep_mask
+    species1_pc1_result <- trim.directional.window(species2_scores_current, species1_scores_current, species1_occurrence_pca_scores, 1)
+    species1_scores_current <- species1_pc1_result$background_scores
+    species1_occurrence_keep_mask <- species1_occurrence_keep_mask & species1_pc1_result$occurrence_keep_mask
+  }
+
+  # Retain occurrences passing analogous-space trimming
   species1_occurrence_trimmed <- Sp1.occurrence.data[species1_occurrence_keep_mask, , drop = FALSE]
   species2_occurrence_trimmed <- Sp2.occurrence.data[species2_occurrence_keep_mask, , drop = FALSE]
   species1_occurrence_trimmed_count <- nrow(species1_occurrence_trimmed)
   species2_occurrence_trimmed_count <- nrow(species2_occurrence_trimmed)
-  if (species1_occurrence_trimmed_count == 0 || species2_occurrence_trimmed_count == 0) stop("No occurrences retained within shared analogous PCA extent after REDUC = 5 trimming")
+  if (species1_occurrence_trimmed_count == 0 || species2_occurrence_trimmed_count == 0) stop("No occurrences retained within shared analogous environment after trimming")
   target_sample_size <- min(species1_occurrence_trimmed_count, species2_occurrence_trimmed_count)
 
   # Downsample occurrences
   if (downsample.equal.sizes) {
     if (verbose) message("Equalizing sample sizes to ", target_sample_size, " (species 1 = ", species1_occurrence_trimmed_count, ", species 2 = ", species2_occurrence_trimmed_count, " originally)")
-    species1_occurrence_equalized <- if (species1_occurrence_trimmed_count > target_sample_size)
-      sample.down(species1_occurrence_trimmed, N.rows = target_sample_size, poisson.lambda = 1)
+    species1_occurrence_equalized <- if (species1_occurrence_trimmed_count > target_sample_size) NicheDiv::sample.down(species1_occurrence_trimmed, N.rows = target_sample_size, poisson.lambda = 1)
     else species1_occurrence_trimmed
-    species2_occurrence_equalized <- if (species2_occurrence_trimmed_count > target_sample_size)
-      sample.down(species2_occurrence_trimmed, N.rows = target_sample_size, poisson.lambda = 1)
+    species2_occurrence_equalized <- if (species2_occurrence_trimmed_count > target_sample_size) NicheDiv::sample.down(species2_occurrence_trimmed, N.rows = target_sample_size, poisson.lambda = 1)
     else species2_occurrence_trimmed
   } else {
     species1_occurrence_equalized <- species1_occurrence_trimmed
@@ -2551,7 +2585,7 @@ trim.to.analogous.environments <- function(Sp1.occurrence.data, #occurrence data
   }
 
   # Print summary
-  if (verbose) message("Retained ", nrow(species1_occurrence_equalized), " of ", nrow(Sp1.occurrence.data), " samples for species 1 and ", nrow(species2_occurrence_equalized), " of ", nrow(Sp2.occurrence.data), " samples for species 2 after Humboldt-style trimming (REDUC = 5)")
+  if (verbose) message("Retained ", nrow(species1_occurrence_equalized), " of ", initial_species1_count, " samples for species 1 and ", nrow(species2_occurrence_equalized), " of ", initial_species2_count, " samples for species 2 after Humboldt-style trimming (", if (background_schoeners_d > 0.97) "reciprocal PCA ranges" else "reciprocal moving windows", ")")
 
   # Return results
   dplyr::bind_rows(species1_occurrence_equalized, species2_occurrence_equalized)
@@ -4085,13 +4119,13 @@ plot.DAPC.permutation <- function(dapc_result, #DAPC result object
 #'   environments and down-weighting common available environments
 #'   (default: `FALSE`).
 #' @param Sp1.background.data Optional `data.frame` of background environmental
-#'   values for species 1. Required when `weight.background = TRUE`; columns must
-#'   overlap the environmental variables used to fit the DAPC/PCA object
-#'   (default: `NULL`).
+#'   values for the first level of `factor(group.assignment)`. Required when
+#'   `weight.background = TRUE`; must contain all environmental predictors used
+#'   to fit the DAPC/PCA object (default: `NULL`).
 #' @param Sp2.background.data Optional `data.frame` of background environmental
-#'   values for species 2. Required when `weight.background = TRUE`; columns must
-#'   overlap the environmental variables used to fit the DAPC/PCA object
-#'   (default: `NULL`).
+#'   values for the second level of `factor(group.assignment)`. Required when
+#'   `weight.background = TRUE`; must contain all environmental predictors used
+#'   to fit the DAPC/PCA object (default: `NULL`).
 #' @param verbose Logical; if `TRUE`, progress messages and metric values are
 #'   printed (default: `TRUE`).
 #'
@@ -4131,8 +4165,8 @@ plot.DAPC.permutation <- function(dapc_result, #DAPC result object
 #' 2024).
 #'
 #' When `weight.background = TRUE`, density estimates are adjusted for unequal
-#' environmental availability along the discriminant axis. This follows the logic
-#' of background corrections that reduce bias caused by common environments
+#' environmental availability along the discriminant axis. This is based on the
+#' background corrections in Humboldt (Brown & Carnaval, 2019) to reduce bias caused by common environments
 #' dominating density estimates and rare available environments being
 #' underrepresented. Such weighting can be useful when species differ in
 #' accessible background environments and when niche overlap should be
@@ -4190,12 +4224,12 @@ calc.niche.divergence.metrics <- function(dapc_out, #DAPC results object
 
   # Validate input
   if (is.null(dapc_out$dapc_results) || !is.list(dapc_out$dapc_results)) stop("Input validation failed - dapc_out$dapc_results is missing or not a list - potentially rerun run.DAPC.crossval.permutation function")
-  if (!is.numeric(density.grid.resolution) || length(density.grid.resolution) != 1L || !is.finite(density.grid.resolution) || density.grid.resolution < 100) stop("density.grid.resolution must be a single numeric number >= 100 (recommended: 1024)")
-  if (!is.logical(weight.background) || length(weight.background) != 1L) stop("weight.background must be TRUE or FALSE")
+  if (!is.numeric(density.grid.resolution) || length(density.grid.resolution) != 1L || !is.finite(density.grid.resolution) || density.grid.resolution < 100 || density.grid.resolution != floor(density.grid.resolution)) stop("density.grid.resolution must be a single integer >= 100 (recommended: 1024)")
+  if (!is.logical(weight.background) || length(weight.background) != 1L || is.na(weight.background)) stop("weight.background must be TRUE or FALSE")
   if (!is.null(Sp1.background.data) && !is.data.frame(Sp1.background.data)) stop("Sp1.background.data must be a data frame or NULL")
   if (!is.null(Sp2.background.data) && !is.data.frame(Sp2.background.data)) stop("Sp2.background.data must be a data frame or NULL")
   if (isTRUE(weight.background) && (is.null(Sp1.background.data) || is.null(Sp2.background.data))) stop("weight.background = TRUE but one or both background datasets are missing - provide both Sp1.background.data and Sp2.background.data")
-  if (!is.logical(verbose) || length(verbose) != 1L) stop("verbose must be TRUE or FALSE")
+  if (!is.logical(verbose) || length(verbose) != 1L || is.na(verbose)) stop("verbose must be TRUE or FALSE")
 
   # Project background environmental data into LD1 space if weighting requested
   if (isTRUE(weight.background)) {
@@ -4208,15 +4242,27 @@ calc.niche.divergence.metrics <- function(dapc_out, #DAPC results object
         if (is.null(pca_object$co)) stop("Expected ade4::dudi.pca object with $co loadings")
         variable_names <- rownames(pca_object$co)
         if (is.null(variable_names)) stop("ade4 PCA lacks variable names in $co")
-        common_environmental_variables <- intersect(colnames(background.environment.data), variable_names)
-        if (length(common_environmental_variables) == 0) stop("No overlapping environmental variables between background data and PCA object")
-        background_environment_matrix <- as.matrix(background.environment.data[, common_environmental_variables, drop = FALSE])
-        background_pca_scores <- ade4::suprow(pca_object, background_environment_matrix[, colnames(pca_object$tab), drop = FALSE])$lisup
+        required_environmental_variables <- colnames(pca_object$tab)
+        if (!all(required_environmental_variables %in% names(background.environment.data))) stop("Background data are missing required PCA variables: ", paste(setdiff(required_environmental_variables, names(background.environment.data)), collapse = ", "))
+        background_environment_matrix <- background.environment.data[, required_environmental_variables, drop = FALSE]
+        if (!all(vapply(background_environment_matrix, is.numeric, logical(1)))) stop("Background environmental variables must be numeric")
+        background_environment_matrix <- as.matrix(background_environment_matrix)
+        if (any(!is.finite(background_environment_matrix))) stop("Background environmental variables contain missing or non-finite values")
+        background_pca_scores <- ade4::suprow(pca_object, background_environment_matrix)$lisup
         scaling_vector <- as.matrix(as.numeric(dapc_out$dapc_results$scaling[, 1, drop = FALSE]))
         n_pcs_needed <- length(scaling_vector)
         if (ncol(background_pca_scores) < n_pcs_needed) stop("Background PCA scores have fewer PCs than used in LDA")
         background_pca_scores_used <- background_pca_scores[, seq_len(n_pcs_needed), drop = FALSE]
-        background_LD1_scores <- as.numeric(as.matrix(background_pca_scores_used) %*% as.matrix(as.numeric(dapc_out$dapc_results$scaling[, 1, drop = FALSE])))
+        observed_pca_scores <- as.matrix(pca_object$li[, seq_len(n_pcs_needed), drop = FALSE])
+        observed_ld_coordinates <- if (!is.null(dapc_out$dapc_results$ind.coord)) dapc_out$dapc_results$ind.coord else dapc_out$dapc_results$ld
+        if (is.null(observed_ld_coordinates)) stop("Observed LD1 coordinates are missing")
+        observed_ld1_scores <- as.numeric(as.matrix(observed_ld_coordinates)[, 1])
+        if (nrow(observed_pca_scores) != length(observed_ld1_scores)) stop("PCA and LDA observation counts do not match")
+        projected_observed_ld1_scores <- as.numeric(observed_pca_scores %*% scaling_vector)
+        ld1_centering_offset <- mean(projected_observed_ld1_scores - observed_ld1_scores)
+        projection_error <- max(abs(projected_observed_ld1_scores - ld1_centering_offset - observed_ld1_scores))
+        if (!is.finite(projection_error) || projection_error > 1e-7 * max(1, max(abs(observed_ld1_scores)))) stop("Background LD1 projection is inconsistent with observed DAPC scores")
+        background_LD1_scores <- as.numeric(as.matrix(background_pca_scores_used) %*% scaling_vector) - ld1_centering_offset
         background_LD1_scores[!is.finite(background_LD1_scores)] <- NA_real_
         background_LD1_scores
       }
@@ -4249,12 +4295,11 @@ calc.niche.divergence.metrics <- function(dapc_out, #DAPC results object
   }
 
   # Validate group labels
+  if (anyNA(group_input)) stop("group.assignment contains missing values")
   group_factor <- factor(group_input)
   if (nlevels(group_factor) != 2L) stop("Exactly two groups are required")
   if (any(table(group_factor) == 0L)) stop("One group has zero samples")
-  if (length(group_factor) != nrow(ld_matrix)) {
-    stop("Length mismatch: group.assignment (", length(group_factor), ") vs LD rows (", nrow(ld_matrix), ")")
-  }
+  if (length(group_factor) != nrow(ld_matrix)) stop("Length mismatch: group.assignment (", length(group_factor), ") vs LD rows (", nrow(ld_matrix), ")")
 
   # Extract LD1 and drop non-finite
   ld1_values <- as.numeric(ld_matrix[, 1])
@@ -4272,52 +4317,94 @@ calc.niche.divergence.metrics <- function(dapc_out, #DAPC results object
   ld1_group1 <- ld1_values[group_factor == group_levels[1]]
   ld1_group2 <- ld1_values[group_factor == group_levels[2]]
 
-  # KDE range and bandwidth
+  # Determine KDE range
   ld1_all <- c(ld1_group1, ld1_group2)
-  ld1_range <- range(ld1_all, na.rm = TRUE)
+  ld1_grid_values <- if (isTRUE(weight.background)) c(ld1_all, Sp1.background.LD1, Sp2.background.LD1) else ld1_all
+  ld1_range <- range(ld1_grid_values, na.rm = TRUE)
   if (!all(is.finite(ld1_range)) || ld1_range[2] <= ld1_range[1]) stop("LD1 has zero or invalid range")
 
-  bandwidth <- tryCatch(stats::bw.SJ(ld1_all, method = "dpi"), error = function(e) NA_real_)
-  if (!is.finite(bandwidth) || bandwidth <= 0) bandwidth <- stats::bw.nrd0(ld1_all)
+  # Calculate KDE bandwidth from centered LD1 scores
+  centered_ld1_all <- ld1_all - mean(ld1_all)
+  bandwidth <- tryCatch(stats::bw.SJ(centered_ld1_all, method = "dpi"), error = function(e) NA_real_)
+  if (!is.finite(bandwidth) || bandwidth <= 0) bandwidth <- stats::bw.nrd0(centered_ld1_all)
+  if (!is.finite(bandwidth) || bandwidth <= 0) stop("Could not calculate a valid KDE bandwidth")
 
-  # Shared evaluation grid
-  density_grid <- seq(ld1_range[1],
-                      ld1_range[2],
-                      length.out = density.grid.resolution)
+  # Create shared evaluation grid
+  if (isTRUE(weight.background)) ld1_range <- ld1_range + c(-20, 20) * bandwidth
+  density_grid <- seq(ld1_range[1], ld1_range[2], length.out = density.grid.resolution)
 
-  # KDEs on shared grid
-  kde_group1 <- stats::density(ld1_group1, from = density_grid[1],
-                               to = density_grid[length(density_grid)],
-                               n = density.grid.resolution,
-                               bw = bandwidth)
-  kde_group2 <- stats::density(ld1_group2, from = density_grid[1],
-                               to = density_grid[length(density_grid)],
-                               n = density.grid.resolution,
-                               bw = bandwidth)
+  # Estimate KDEs on shared grid
+  kde_group1 <- stats::density(ld1_group1, from = density_grid[1],to = density_grid[length(density_grid)], n = density.grid.resolution, bw = bandwidth)
+  kde_group2 <- stats::density(ld1_group2, from = density_grid[1], to = density_grid[length(density_grid)], n = density.grid.resolution, bw = bandwidth)
   grid_dx <- diff(kde_group1$x[1:2])
 
-  ## Apply Humboldt-like environmental weighting if requested
+  # Apply Humboldt-style species-specific background weighting if requested
   if (isTRUE(weight.background)) {
-    if (isTRUE(verbose)) message("Applying Humboldt-like background weighting: up-weighting rare environments, down-weighting common ones")
-    background_kde_sp1 <- stats::density(Sp1.background.LD1, from = density_grid[1],
-                                         to = density_grid[length(density_grid)],
-                                         n = density.grid.resolution, bw = bandwidth)
-    background_kde_sp2 <- stats::density(Sp2.background.LD1, from = density_grid[1],
-                                         to = density_grid[length(density_grid)],
-                                         n = density.grid.resolution, bw = bandwidth)
-    combined_background_density <- (background_kde_sp1$y + background_kde_sp2$y) / 2
-    combined_background_density <- combined_background_density / max(combined_background_density, na.rm = TRUE)
-    epsilon <- 1e-6
-    dens1 <- kde_group1$y / (combined_background_density + epsilon)
-    dens2 <- kde_group2$y / (combined_background_density + epsilon)
-    dens1 <- dens1 / sum(dens1 * grid_dx)
-    dens2 <- dens2 / sum(dens2 * grid_dx)
+    if (isTRUE(verbose)) message("Applying Humboldt-style species-specific environmental background weighting")
+
+    # Estimate background KDEs on shared LD1 grid
+    background_kde_sp1 <- stats::density(Sp1.background.LD1, from = density_grid[1], to = density_grid[length(density_grid)], n = density.grid.resolution, bw = bandwidth)
+    background_kde_sp2 <- stats::density(Sp2.background.LD1, from = density_grid[1], to = density_grid[length(density_grid)], n = density.grid.resolution, bw = bandwidth)
+
+    # Create function to remove low-density kernel tails
+    filter.kernel.tails <- function(density_values, observed_scores) {
+      observed_density_values <- stats::approx(density_grid, density_values, xout = observed_scores, rule = 2)$y
+      minimum_observed_density <- min(observed_density_values)
+      density_values[density_values < minimum_observed_density] <- 0
+      density_values
+    }
+
+    # Filter occurrence and background KDEs using observed density thresholds
+    occurrence_density_sp1 <- filter.kernel.tails(kde_group1$y, ld1_group1)
+    occurrence_density_sp2 <- filter.kernel.tails(kde_group2$y, ld1_group2)
+    background_density_sp1 <- filter.kernel.tails(background_kde_sp1$y, Sp1.background.LD1)
+    background_density_sp2 <- filter.kernel.tails(background_kde_sp2$y, Sp2.background.LD1)
+
+    # Create function to normalize densities to expected grid-cell counts
+    calculate.cell.counts <- function(density_values, record_count) {
+      density_total <- sum(density_values)
+      if (!is.finite(density_total) || density_total <= 0) stop("Density has zero or invalid total")
+      density_values * record_count / density_total
+    }
+
+    # Calculate occurrence and background densities scaled to sample sizes
+    occurrence_counts_sp1 <- calculate.cell.counts(occurrence_density_sp1, length(ld1_group1))
+    occurrence_counts_sp2 <- calculate.cell.counts(occurrence_density_sp2, length(ld1_group2))
+    background_counts_sp1 <- calculate.cell.counts(background_density_sp1, length(Sp1.background.LD1))
+    background_counts_sp2 <- calculate.cell.counts(background_density_sp2, length(Sp2.background.LD1))
+
+    # Correct each species' occurrence density by its own background density
+    corrected_density_sp1 <- occurrence_counts_sp1 / background_counts_sp1
+    corrected_density_sp2 <- occurrence_counts_sp2 / background_counts_sp2
+    corrected_density_sp1[!is.finite(corrected_density_sp1)] <- 0
+    corrected_density_sp2[!is.finite(corrected_density_sp2)] <- 0
+
+    # Peak-normalize corrected densities following Humboldt
+    corrected_peak_sp1 <- max(corrected_density_sp1)
+    corrected_peak_sp2 <- max(corrected_density_sp2)
+    if (!is.finite(corrected_peak_sp1) || corrected_peak_sp1 <= 0) stop("Species 1 has no valid corrected density")
+    if (!is.finite(corrected_peak_sp2) || corrected_peak_sp2 <= 0) stop("Species 2 has no valid corrected density")
+    corrected_density_sp1 <- corrected_density_sp1 / corrected_peak_sp1
+    corrected_density_sp2 <- corrected_density_sp2 / corrected_peak_sp2
+
+    # Identify environmentally analogous background grid cells
+    analogous_environment_mask <- background_counts_sp1 >= 0.001 & background_counts_sp2 >= 0.001
+    if (!any(analogous_environment_mask)) stop("No analogous background environments remain along LD1")
+
+    # Restrict corrected densities to analogous environmental space
+    corrected_density_sp1[!analogous_environment_mask | corrected_density_sp1 < 0.001] <- 0
+    corrected_density_sp2[!analogous_environment_mask | corrected_density_sp2 < 0.001] <- 0
+    if (sum(corrected_density_sp1) <= 0 || sum(corrected_density_sp2) <= 0) stop("No corrected occurrence density remains within analogous environmental space")
+
+    # Retain corrected densities for downstream normalization and niche metrics
+    dens1 <- corrected_density_sp1
+    dens2 <- corrected_density_sp2
   } else {
     dens1 <- kde_group1$y
     dens2 <- kde_group2$y
   }
 
-  # Max-normalization (Ascanio et al. 2024, Eq. 1): f_tilde(x) = f(x) / max_x f(x)
+  # Perform max-normalization (Ascanio et al. 2024, Eq. 1): f_tilde(x) = f(x) / max_x f(x)
   peak1 <- max(dens1, na.rm = TRUE)
   if (!is.finite(peak1) || peak1 <= 0) stop("Non-positive peak (group 1)")
   peak2 <- max(dens2, na.rm = TRUE)
@@ -4325,7 +4412,7 @@ calc.niche.divergence.metrics <- function(dapc_out, #DAPC results object
   f_norm1 <- dens1 / peak1
   f_norm2 <- dens2 / peak2
 
-  # Support-based niche limits for NE (Ascanio et al. 2024, Eq. 4)
+  # Calculate support-based niche limits for NE (Ascanio et al. 2024, Eq. 4)
   support_threshold <- 1e-6
   support_idx1 <- which(f_norm1 > support_threshold)
   if (length(support_idx1) < 2) stop("Insufficient support for group 1")
@@ -4340,7 +4427,7 @@ calc.niche.divergence.metrics <- function(dapc_out, #DAPC results object
   trapz.integral <- function(x, y) sum((head(y, -1) + tail(y, -1)) * diff(x) / 2)
   grid.between <- function(lower, upper, grid) which(grid >= lower & grid <= upper)
 
-  # One-sided dissimilarities DS (Ascanio et al. 2024, Eq. 3): DS(A|B) = 1 - integral_A min(f_tilde_A, f_tilde_B) dx / integral_A f_tilde_A x and DS(B|A) analogous on B
+  # Calculate one-sided dissimilarities DS (Ascanio et al. 2024, Eq. 3): DS(A|B) = 1 - integral_A min(f_tilde_A, f_tilde_B) dx / integral_A f_tilde_A x and DS(B|A) analogous on B
   idx_A <- grid.between(niche1_lower, niche1_upper, density_grid)
   if (length(idx_A) < 2) stop("Too few grid points in group 1 limits")
   idx_B <- grid.between(niche2_lower, niche2_upper, density_grid)
@@ -4354,21 +4441,21 @@ calc.niche.divergence.metrics <- function(dapc_out, #DAPC results object
   area_B_overlap <- trapz.integral(density_grid[idx_B], pmin(f_norm1[idx_B], f_norm2[idx_B]))
   ds_group2_given_group1 <- (area_B_total - area_B_overlap) / area_B_total
 
-  # Niche dissimilarity (NDS) (Ascanio et al. 2024, Eq. 2)
+  # Calculate niche dissimilarity (NDS) (Ascanio et al. 2024, Eq. 2)
   niche_dissimilarity <- (ds_group1_given_group2 + ds_group2_given_group1) / 2
   niche_dissimilarity <- max(0, min(1, niche_dissimilarity))
 
-  # Niche breadth exclusivity (NE) (Ascanio et al. 2024, Eq. 4)
+  # Calculate niche breadth exclusivity (NE) (Ascanio et al. 2024, Eq. 4)
   union_span <- max(niche1_upper, niche2_upper) - min(niche1_lower, niche2_lower)
   overlap_span <- max(0, min(niche1_upper, niche2_upper) - max(niche1_lower, niche2_lower))
   niche_exclusivity <- if (union_span > .Machine$double.eps) 1 - (overlap_span / union_span) else 0
   niche_exclusivity <- max(0, min(1, niche_exclusivity))
 
-  # Niche divergence magnitude (ND) and angle (theta) (Ascanio et al. 2024, Eqs. 5-6): ND = sqrt(NDS^2 + NE^2) and theta = atan2(NDS, NE) in degrees
+  # Calculate niche divergence magnitude (ND) and angle (theta) (Ascanio et al. 2024, Eqs. 5-6): ND = sqrt(NDS^2 + NE^2) and theta = atan2(NDS, NE) in degrees
   niche_divergence_magnitude <- sqrt(niche_dissimilarity^2 + niche_exclusivity^2)
   niche_divergence_angle_degrees <- atan2(niche_dissimilarity, niche_exclusivity) * (180 / pi)
 
-  # Schoener's D overlap (Schoener 1968): D = integral min(q1(x), q2(x)) dx, with q normalized to area 1
+  # Calculate Schoener's D overlap (Schoener 1968): D = integral min(q1(x), q2(x)) dx, with q normalized to area 1
   area1 <- sum(dens1 * grid_dx)
   if (!is.finite(area1) || area1 <= 0) stop("KDE normalization failed (group 1)")
   area2 <- sum(dens2 * grid_dx)
@@ -4378,7 +4465,7 @@ calc.niche.divergence.metrics <- function(dapc_out, #DAPC results object
   schoener_D <- sum(pmin(q1, q2)) * grid_dx
   schoener_D <- max(0, min(1, schoener_D))
 
-  # Messages
+  # Print metric messages
   if (isTRUE(verbose)) {
     message("")
     message("Niche divergence metrics:")

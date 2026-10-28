@@ -1,5 +1,21 @@
 # NicheDiv 1.2.0 (2026-10-26)
 
+## Improve Humboldt-style background correction
+
+- Updated calc.niche.divergence.metrics() with optional species-specific Humboldt-style environmental background correction along the DAPC discriminant axis.
+- Added projection of species-specific background environments into the fitted PCA and LD1 space.
+- Implemented separate occurrence-to-background density corrections for each species.
+- Added kernel-tail filtering and reciprocal analogous-environment masking.
+- Added peak normalization and density-support thresholds following Humboldt.
+- Improved KDE stability by centering LD1 scores before bandwidth estimation.
+- Resolved LD1 translation sensitivity and verified numerical translation invariance.
+- Improved input validation and projection-consistency checks.
+- Preserved unweighted niche-divergence calculations as the default.
+- Retained Schoener's D, NDS, NE, ND, and divergence angle calculations.
+
+The background correction is a one-dimensional adaptation of Humboldt's environmental-availability correction.
+
+
 ## Spatial background permutation testing
 
 - Revised the existing background permutation test to use HUMBOLDT-inspired geographic shifts of occurrence configurations instead of independently sampling background environments.

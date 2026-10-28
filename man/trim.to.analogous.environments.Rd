@@ -12,7 +12,7 @@ trim.to.analogous.environments(
   exclude.cols = NULL,
   keep.occurrence.cols = NULL,
   analogous.window.size = 5,
-  grid.resolution = 50,
+  grid.resolution = 100,
   max.NA.prop = 0.2,
   impute.NA.median = TRUE,
   downsample.equal.sizes = TRUE,
@@ -45,15 +45,16 @@ PCA space (default: \code{5}).}
 
 \item{grid.resolution}{A single integer-like numeric value giving the number
 of grid divisions per PCA axis used to estimate shared environmental space
-(default: \code{50}).}
+(default: \code{100}).}
 
 \item{max.NA.prop}{A single numeric value between 0 and 1 giving the maximum
-allowed proportion of missing values per background row before that row is
-removed from analogous-space estimation (default: \code{0.2}).}
+allowed proportion of missing values per background or occurrence row before
+that row is removed from analogous-space estimation (default: \code{0.2}).}
 
-\item{impute.NA.median}{Logical; if \code{TRUE}, eligible missing values are
-imputed using the variable median before estimating analogous environmental
-space. If \code{FALSE}, incomplete rows are removed instead (default: \code{TRUE}).}
+\item{impute.NA.median}{Logical; if \code{TRUE}, eligible missing background values
+are imputed using each species' own background medians, and missing occurrence
+values using pooled medians across both species' occurrences for the trimming
+PCA. If \code{FALSE}, incomplete rows are removed instead (default: \code{TRUE}).}
 
 \item{downsample.equal.sizes}{Logical; if \code{TRUE}, the two trimmed occurrence
 datasets are downsampled to equal sample sizes after trimming
@@ -70,41 +71,41 @@ downsampled to equal sample sizes.
 }
 \description{
 Restrict species occurrence and background datasets to the portion of
-environmental space shared between both species, following the logic of
-analogous-environment trimming described by Brown and Carnaval (2019) and the
-g2e workflow implemented in the Humboldt R package. The function compares
-the environmental backgrounds of two species, identifies the shared analogous
-portion of environmental space, and retains only occurrence records falling
-within that shared space.
+environmental space shared between both species based on the
+analogous-environment trimming described by Brown and Carnaval (2019).
+The function compares the environmental backgrounds of two species,
+identifies the shared analogous portion of environmental space, and retains
+only occurrence records falling within that shared space.
 }
 \details{
-Humboldt-style analogous trimming is used as a complementary correction to
-predictor-based environmental analogy screening. Whereas variable filtering
-removes environmental predictors that are poorly comparable between species,
-occurrence trimming removes occurrence records that fall outside the
+Humboldt-style analogous trimming provides an alternative correction to the
+predictor-based environmental analogy screening implemented in the
+filter.analogous.variables function. Rather than removing environmental
+predictors, this approach removes occurrence records that fall outside the
 environmentally shared region of the two species' accessible background
 spaces. This helps reduce bias caused by non-analogous environments, which can
 inflate apparent niche divergence and make comparisons depend on extrapolated
 portions of environmental space rather than on conditions available to both
 species (Brown & Carnaval, 2019; Guisan et al., 2014; Peterson et al., 2011).
 
-The method summarizes the combined environmental backgrounds of both species
-in a shared principal component space. Using a common ordination space ensures
-that both species are compared along the same environmental axes rather than
-in separate species-specific coordinate systems. Principal component analysis
-is appropriate here because it provides a reduced environmental space that
-captures dominant gradients of covariation among predictors while allowing
-occurrence and background points to be evaluated on the same scale (Chessel et
-al., 2004; Dray & Dufour, 2007; Bougeard & Dray, 2018; Thioulouse et al.,
-2018).
+Following the humboldt.g2e function in the Humboldt R package (Brown &
+Carnaval, 2019), the method fits a shared PCA to occurrence environments,
+assigning equal total weight to each species. Both species' accessible
+backgrounds are projected as supplementary points into this PCA space.
+The trimming PCA is separate from the PCA subsequently used by DAPC, which
+is refitted to the retained occurrence records.
 
-Prior to trimming, low-information predictors and rows with excessive
-missingness are removed because near-constant variables and heavily incomplete
-observations can distort environmental-space estimates. The missingness
-threshold (\code{max.NA.prop = 0.2}) is intended as a practical default that
-permits moderate missingness while reducing the risk that the shared
-environmental space is driven by imputation or incomplete background records
-(Harrell, 2015; van Buuren, 2018).
+Prior to PCA, predictors with near-zero variance are removed to ensure valid
+scaling, while records with excessive missingness are excluded to limit
+imputation bias. Remaining missing values are either median-imputed or
+incomplete records are removed, as PCA cannot handle missing values. The
+missingness threshold (\code{max.NA.prop = 0.2}) is intended as a practical default
+that permits moderate missingness while reducing the risk that the shared
+environmental space is driven by imputation or incomplete records (van
+Buuren, 2018). Background values are imputed separately for each
+species, while occurrence values use pooled occurrence medians without using
+species identity to determine replacements. Imputed occurrence values are
+used only for trimming and are not returned.
 
 The analogous trimming window controls how strictly environmental space is
 shared between species. Smaller windows impose stricter analogy requirements
@@ -114,6 +115,11 @@ window size (\code{analogous.window.size = 5}) is intended as a moderate comprom
 that reduces extrapolation into non-analogous environmental regions while
 retaining enough occurrence records for downstream analyses.
 
+Following the humboldt.g2e function in the Humboldt R package (Brown &
+Carnaval, 2019), only reciprocal PCA-range restriction is applied when
+Schoener's D between the two accessible backgrounds in PCA space exceeds
+0.97. Otherwise, the reciprocal moving-window procedure is applied.
+
 Reciprocal trimming is used so that neither species defines the analogous
 space unilaterally. By restricting each species relative to the environmental
 space occupied by the other, the retained region represents a shared subset of
@@ -122,51 +128,34 @@ only one species. This is important for niche-divergence analyses because
 asymmetric trimming can bias comparisons toward the species with the broader
 or more densely sampled background environment (Brown & Carnaval, 2019).
 
-After the shared analogous region is identified, occurrence records are
-retained only when they fall inside that shared environmental space. This
-produces occurrence datasets restricted to comparable environmental
-conditions, reducing the influence of extrapolated or non-analogous
+Occurrence records are retained within shared PCA ranges when background
+overlap is very high, or within locally shared environmental windows
+otherwise. This produces occurrence datasets restricted to comparable
+environmental conditions, reducing the influence of extrapolated or non-analogous
 occurrences that could otherwise bias downstream comparisons of niche
 divergence, niche overlap, or discriminant environmental separation.
 
-Equalizing sample sizes after trimming is useful when downstream
-methods are sensitive to unequal occurrence counts. Downsampling to matched
-sample sizes can reduce imbalance between species and make subsequent
-comparisons less dependent on differences in retained occurrence density.
+Because analogous-space trimming may result in unequal numbers of
+occurrences between species, the function equalizes sample sizes after
+trimming by default (\code{downsample.equal.sizes = TRUE}). The larger group is
+reduced to the size of the smaller group using the sample.down function.
+This ensures balanced sample sizes for subsequent DAPC analyses. When
+\code{downsample.equal.sizes = FALSE}, all retained occurrences are preserved.
 }
 \references{
-Bougeard, S., & Dray, S. (2018). Supervised multiblock analysis in R with the
-ade4 package. \emph{Journal of Statistical Software}, 86(1).
-https://doi.org/10.18637/jss.v086.i01
-
 Brown, J., & Carnaval, A. C. (2019). A tale of two niches: Methods, concepts,
 and evolution. \emph{Frontiers of Biogeography}, 11(4).
 https://doi.org/10.21425/F5FBG44158
-
-Chessel, D., Dufour, A., & Thioulouse, J. (2004). The ade4 Package - I:
-One-table methods. \emph{R News}, 4(1), 5-10.
-
-Dray, S., & Dufour, A.-B. (2007). The ade4 package: Implementing the duality
-diagram for ecologists. \emph{Journal of Statistical Software}, 22(4).
-https://doi.org/10.18637/jss.v022.i04
 
 Guisan, A., Petitpierre, B., Broennimann, O., Daehler, C., & Kueffer, C.
 (2014). Unifying niche shift studies. Insights from biological invasions.
 \emph{Trends in Ecology & Evolution}, 29(5), 260-269.
 https://doi.org/10.1016/j.tree.2014.02.009
 
-Harrell, F. E. (2015). \emph{Regression modeling strategies: With applications
-to linear models, logistic and ordinal regression, and survival analysis}
-(2nd ed.). Springer.
-
 Peterson, A. T., Soberon, J., Pearson, R. G., Anderson, R. P.,
 Martinez-Meyer, E., Nakamura, M., & Araujo, M. B. (2011). \emph{Ecological
 niches and geographic distributions}. Princeton University Press.
 https://doi.org/10.1515/9781400840670
-
-Thioulouse, J., Dray, S., Dufour, A.-B., Siberchicot, A., Jombart, T., &
-Pavoine, S. (2018). \emph{Multivariate analysis of ecological data with
-ade4}. Springer New York. https://doi.org/10.1007/978-1-4939-8850-1
 
 van Buuren, S. (2018). \emph{Flexible imputation of missing data}. Chapman &
 Hall/CRC.

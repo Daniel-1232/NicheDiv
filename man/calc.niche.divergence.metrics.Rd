@@ -33,14 +33,14 @@ environments and down-weighting common available environments
 (default: \code{FALSE}).}
 
 \item{Sp1.background.data}{Optional \code{data.frame} of background environmental
-values for species 1. Required when \code{weight.background = TRUE}; columns must
-overlap the environmental variables used to fit the DAPC/PCA object
-(default: \code{NULL}).}
+values for the first level of \code{factor(group.assignment)}. Required when
+\code{weight.background = TRUE}; must contain all environmental predictors used
+to fit the DAPC/PCA object (default: \code{NULL}).}
 
 \item{Sp2.background.data}{Optional \code{data.frame} of background environmental
-values for species 2. Required when \code{weight.background = TRUE}; columns must
-overlap the environmental variables used to fit the DAPC/PCA object
-(default: \code{NULL}).}
+values for the second level of \code{factor(group.assignment)}. Required when
+\code{weight.background = TRUE}; must contain all environmental predictors used
+to fit the DAPC/PCA object (default: \code{NULL}).}
 
 \item{verbose}{Logical; if \code{TRUE}, progress messages and metric values are
 printed (default: \code{TRUE}).}
@@ -103,8 +103,8 @@ forms such as weighted, soft, nested, or hard divergence (Ascanio et al.,
 2024).
 
 When \code{weight.background = TRUE}, density estimates are adjusted for unequal
-environmental availability along the discriminant axis. This follows the logic
-of background corrections that reduce bias caused by common environments
+environmental availability along the discriminant axis. This is based on the
+background corrections in Humboldt (Brown & Carnaval, 2019) to reduce bias caused by common environments
 dominating density estimates and rare available environments being
 underrepresented. Such weighting can be useful when species differ in
 accessible background environments and when niche overlap should be
