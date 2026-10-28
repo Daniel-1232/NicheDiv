@@ -6,7 +6,7 @@
 - Added explicit deterministic seeding of the random-chance baseline in DAPC cross-validation.
 - Updated function documentation to describe the new seed argument.
 
-# NicheDiv 1.2.0 (2026-10-26)
+# NicheDiv 1.2.0 (2026-10-28)
 
 ## Revise Humboldt-style analogous-environment trimming
 
