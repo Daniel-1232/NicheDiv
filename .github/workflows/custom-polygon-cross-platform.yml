@@ -35,6 +35,7 @@ jobs:
 
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
+          dependencies: '"hard"'
           packages: |
             any::concaveman
             any::sf
