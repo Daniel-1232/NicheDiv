@@ -45,14 +45,6 @@
 - Improved validation of LD1 coordinates, group assignments, grid resolution, background predictors, and logical arguments.
 - Preserved unweighted calculations as the default and retained Schoener's D, NDS, NE, ND, and divergence angle outputs.
 
-## Clarify complementary background and analogy corrections
-
-- Distinguished predictor-based environmental analogy screening with `filter.analogous.variables()` from occurrence-based trimming with `trim.to.analogous.environments()`.
-- Distinguished environmental availability correction along LD1 from spatial background permutation testing.
-- Clarified that these Humboldt-inspired procedures are methodological adaptations, not exact numerical reproductions of Humboldt's original implementations.
-- Clarified custom-polygon input requirements in `crop.background.buffered()` documentation.
-- Updated roxygen export annotations and generated function documentation.
-
 # NicheDiv 1.1.0 (2026-10-21)
 
 ## Accessible-area delineation
