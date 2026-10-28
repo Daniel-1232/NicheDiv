@@ -35,6 +35,7 @@ jobs:
 
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
+          install-pandoc: 'false'
           dependencies: '"hard"'
           packages: |
             any::concaveman
