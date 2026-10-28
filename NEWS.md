@@ -23,7 +23,8 @@
 - Added preservation and validation of longitude and latitude coordinates while excluding coordinates from environmental predictors used for DAPC.
 - Implemented spatial translations in a metric Lambert azimuthal equal-area projection, with displacement limits based on one-third of the corresponding background extent.
 - Restricted translated points to the convex hull of the corresponding species' background and matched valid points to nearest background records within 15 km.
-- Allowed repeated spatial translations, up to 1,000 attempts per sample, to collect sufficient valid background environments while preserving the original occurrence sample size.
+- Added `RANN` as a dependency for nearest-neighbor environmental matching.
+- Allowed up to 1,000 spatial translation attempts per permutation and species, pooling valid background records across shifts to reconstruct the original occurrence sample size.
 - Recalculated PCA and LDA assignment accuracy for each spatial permutation, separately shifting species 1 and species 2 while keeping the other species unchanged.
 - Replaced one-sided background permutation p-values with two-sided empirical p-values and required at least 80% valid permutations per direction.
 - Renamed directional permutation outputs from `forward` and `reverse` to `species1_shifted` and `species2_shifted`.
@@ -51,14 +52,6 @@
 - Clarified that these Humboldt-inspired procedures are methodological adaptations, not exact numerical reproductions of Humboldt's original implementations.
 - Clarified custom-polygon input requirements in `crop.background.buffered()` documentation.
 - Updated roxygen export annotations and generated function documentation.
-
-## Spatial background permutation testing
-
-- Revised the existing background permutation test to use HUMBOLDT-inspired geographic shifts of occurrence configurations instead of independently sampling background environments.
-- Improved directional background tests by pooling valid locations across repeated shifts to preserve sample sizes.
-- Updated two-tailed permutation p-value calculations to account for ties.
-- Added spatial boundary checks and nearest-neighbor environmental matching.
-- Added `RANN` as a dependency for nearest-neighbor matching.
 
 # NicheDiv 1.1.0 (2026-10-21)
 
