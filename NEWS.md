@@ -1,3 +1,11 @@
+# NicheDiv 1.2.1 (2026-10-28)
+## Improve stochastic reproducibility
+
+- Added a configurable `downsampling.seed` argument to `trim.to.analogous.environments()` for reproducible occurrence downsampling.
+- Forwarded the downsampling seed to both species-specific calls of `sample.down()`.
+- Added explicit deterministic seeding of the random-chance baseline in DAPC cross-validation.
+- Updated function documentation to describe the new seed argument.
+
 # NicheDiv 1.2.0 (2026-10-26)
 
 ## Revise Humboldt-style analogous-environment trimming

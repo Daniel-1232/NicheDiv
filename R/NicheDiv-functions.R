@@ -2144,6 +2144,8 @@ filter.analogous.variables <- function(Sp1.background.data, #input data.frame or
 #' @param downsample.equal.sizes Logical; if `TRUE`, the two trimmed occurrence
 #'   datasets are downsampled to equal sample sizes after trimming
 #'   (default: `TRUE`).
+#' @param downsampling.seed A single numeric value used to set the random seed for
+#'   reproducible occurrence downsampling (default: `1`).
 #' @param verbose Logical; if `TRUE`, progress messages and summary information
 #'   are printed during trimming (default: `TRUE`).
 #'
@@ -2248,6 +2250,7 @@ trim.to.analogous.environments <- function(Sp1.occurrence.data, #occurrence data
                                            max.NA.prop = 0.2, #max proportion of NA allowed per row
                                            impute.NA.median = TRUE, #impute median for NA if <= max.NA.prop
                                            downsample.equal.sizes = TRUE, #downsample to equal sample sizes
+                                           downsampling.seed = 1, #set seed for reproducibility of downsampling
                                            verbose = TRUE #print messages
 ) {
 
@@ -2263,6 +2266,7 @@ trim.to.analogous.environments <- function(Sp1.occurrence.data, #occurrence data
   if (!is.numeric(max.NA.prop) || length(max.NA.prop) != 1 || max.NA.prop < 0 || max.NA.prop > 1) stop("max.NA.prop must be between 0 and 1")
   if (!is.logical(impute.NA.median) || length(impute.NA.median) != 1) stop("impute.NA.median must be TRUE or FALSE")
   if (!is.logical(downsample.equal.sizes) || length(downsample.equal.sizes) != 1) stop("downsample.equal.sizes must be TRUE or FALSE")
+  if (!is.numeric(downsampling.seed) || length(downsampling.seed) != 1 || !is.finite(downsampling.seed)) stop("downsampling.seed must be a single finite numeric value")
   if (!is.logical(verbose) || length(verbose) != 1) stop("verbose must be TRUE or FALSE")
 
   # Warn if initial occurrence sample sizes differ
@@ -2565,9 +2569,9 @@ trim.to.analogous.environments <- function(Sp1.occurrence.data, #occurrence data
   # Downsample occurrences
   if (downsample.equal.sizes) {
     if (verbose) message("Equalizing sample sizes to ", target_sample_size, " (species 1 = ", species1_occurrence_trimmed_count, ", species 2 = ", species2_occurrence_trimmed_count, " originally)")
-    species1_occurrence_equalized <- if (species1_occurrence_trimmed_count > target_sample_size) NicheDiv::sample.down(species1_occurrence_trimmed, N.rows = target_sample_size, poisson.lambda = 1)
+    species1_occurrence_equalized <- if (species1_occurrence_trimmed_count > target_sample_size) NicheDiv::sample.down(species1_occurrence_trimmed, N.rows = target_sample_size, poisson.lambda = 1, seed = downsampling.seed)
     else species1_occurrence_trimmed
-    species2_occurrence_equalized <- if (species2_occurrence_trimmed_count > target_sample_size) NicheDiv::sample.down(species2_occurrence_trimmed, N.rows = target_sample_size, poisson.lambda = 1)
+    species2_occurrence_equalized <- if (species2_occurrence_trimmed_count > target_sample_size) NicheDiv::sample.down(species2_occurrence_trimmed, N.rows = target_sample_size, poisson.lambda = 1, seed = downsampling.seed)
     else species2_occurrence_trimmed
   } else {
     species1_occurrence_equalized <- species1_occurrence_trimmed
@@ -3110,6 +3114,8 @@ run.DAPC.crossval.permutation <- function(data.input, #matrix or data.frame of p
     out <- list(
       `Cross-Validation Results` = xval_df,
       `Median and Confidence Interval for Random Chance` = {
+        RNGkind("L'Ecuyer-CMRG")
+        set.seed(base_seed + 500000L)
         phen <- group_labels
         random <- replicate(300, mean(tapply(sample(phen) == phen, phen, mean)))
         stats::quantile(random, c(0.025, 0.5, 0.975))

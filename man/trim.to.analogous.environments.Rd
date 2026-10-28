@@ -16,6 +16,7 @@ trim.to.analogous.environments(
   max.NA.prop = 0.2,
   impute.NA.median = TRUE,
   downsample.equal.sizes = TRUE,
+  downsampling.seed = 1,
   verbose = TRUE
 )
 }
@@ -59,6 +60,9 @@ PCA. If \code{FALSE}, incomplete rows are removed instead (default: \code{TRUE})
 \item{downsample.equal.sizes}{Logical; if \code{TRUE}, the two trimmed occurrence
 datasets are downsampled to equal sample sizes after trimming
 (default: \code{TRUE}).}
+
+\item{downsampling.seed}{A single numeric value used to set the random seed for
+reproducible occurrence downsampling (default: \code{1}).}
 
 \item{verbose}{Logical; if \code{TRUE}, progress messages and summary information
 are printed during trimming (default: \code{TRUE}).}
