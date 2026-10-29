@@ -2275,7 +2275,7 @@ trim.to.analogous.environments <- function(Sp1.occurrence.data, #occurrence data
   if (initial_species1_count != initial_species2_count) warning("Initial sample sizes differ between species (species 1 = ", initial_species1_count, ", species 2 = ", initial_species2_count, ") - this may affect trimming balance")
 
   # Print starting message
-  if (verbose) message("Trimming to shared analogous environment (Humboldt-style reciprocal window correction)")
+  if (verbose) message("Trimming to shared analogous environment using Humboldt-style reciprocal window correction ...")
 
   # Prepare background data
   species1_background_environment <- if (inherits(Sp1.background.data, "sf")) sf::st_drop_geometry(Sp1.background.data) else Sp1.background.data
@@ -2495,7 +2495,6 @@ trim.to.analogous.environments <- function(Sp1.occurrence.data, #occurrence data
   species1_background_grid <- calculate.background.environment.grid(species1_background_pca_scores)
   species2_background_grid <- calculate.background.environment.grid(species2_background_pca_scores)
   background_schoeners_d <- calculate.background.schoeners.d(species1_background_grid, species2_background_grid)
-  if (verbose) message("Background Schoener's D = ", round(background_schoeners_d, 2), "; trimming = ", if (background_schoeners_d > 0.97) "reciprocal PCA ranges" else "reciprocal moving windows")
 
   # Initialize current backgrounds and occurrence masks
   species1_scores_current <- species1_background_pca_scores
@@ -2568,7 +2567,7 @@ trim.to.analogous.environments <- function(Sp1.occurrence.data, #occurrence data
 
   # Downsample occurrences
   if (downsample.equal.sizes) {
-    if (verbose) message("Equalizing sample sizes to ", target_sample_size, " (species 1 = ", species1_occurrence_trimmed_count, ", species 2 = ", species2_occurrence_trimmed_count, " originally)")
+    if (verbose) message("Equalizing sample sizes to ", target_sample_size, " (originally: species 1 = ", species1_occurrence_trimmed_count, ", species 2 = ", species2_occurrence_trimmed_count, ")")
     species1_occurrence_equalized <- if (species1_occurrence_trimmed_count > target_sample_size) NicheDiv::sample.down(species1_occurrence_trimmed, N.rows = target_sample_size, poisson.lambda = 1, seed = downsampling.seed)
     else species1_occurrence_trimmed
     species2_occurrence_equalized <- if (species2_occurrence_trimmed_count > target_sample_size) NicheDiv::sample.down(species2_occurrence_trimmed, N.rows = target_sample_size, poisson.lambda = 1, seed = downsampling.seed)
@@ -2588,8 +2587,14 @@ trim.to.analogous.environments <- function(Sp1.occurrence.data, #occurrence data
     species2_occurrence_equalized <- species2_occurrence_equalized[, c(front2, rest2), drop = FALSE]
   }
 
-  # Print summary
-  if (verbose) message("Retained ", nrow(species1_occurrence_equalized), " of ", initial_species1_count, " samples for species 1 and ", nrow(species2_occurrence_equalized), " of ", initial_species2_count, " samples for species 2 after Humboldt-style trimming (", if (background_schoeners_d > 0.97) "reciprocal PCA ranges" else "reciprocal moving windows", ")")
+  ## Print summary
+  if (verbose) {
+    if (downsample.equal.sizes && initial_species1_count == initial_species2_count) {
+      message("Retained ", nrow(species1_occurrence_equalized), " of ", initial_species1_count, " samples for both species after Humboldt-style trimming")
+    } else {
+      message("Retained ", nrow(species1_occurrence_equalized), " of ", initial_species1_count, " samples for species 1 and ", nrow(species2_occurrence_equalized), " of ", initial_species2_count, " samples for species 2 after Humboldt-style trimming")
+    }
+  }
 
   # Return results
   dplyr::bind_rows(species1_occurrence_equalized, species2_occurrence_equalized)
