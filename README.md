@@ -20,7 +20,7 @@ The motivation behind our approach is that ecological niches are highly multidim
 ## Development status
 The framework is described in a preprint (https://doi.org/10.64898/2026.06.19.733388) and the manuscript is currently in review.  
 
-Current *R* package version: 1.2.1
+Current *R* package version: 1.2.2
 
 For bug reports, feedback, or questions, please contact me: daniel.schoenberger@uky.edu.
 

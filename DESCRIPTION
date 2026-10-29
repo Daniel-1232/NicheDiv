@@ -1,6 +1,6 @@
 Package: NicheDiv
 Title: Tools for Ecological Niche Divergence Analyses
-Version: 1.2.1
+Version: 1.2.2
 Authors@R: 
     person("Daniel", "Schönberger", email = "daniel@familie-schoenberger.de", role = c("aut", "cre"))
 Description: Functions for a DAPC-based niche divergence approach, including
@@ -41,4 +41,4 @@ Suggests:
     rmarkdown,
     testthat (>= 3.0.0)
 Config/testthat/edition: 3
-Config/roxygen2/version: 8.1.0
+Config/roxygen2/version: 8.1.1

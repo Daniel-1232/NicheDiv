@@ -1,3 +1,11 @@
+# NicheDiv 1.2.2 (2026-10-29)
+
+## Improve background-weighted niche divergence calculations
+
+- Add configurable missing-data handling to `calc.niche.divergence.metrics()` using `max.NA.prop` and `impute.NA.median`.
+- Exclude background records exceeding the missingness threshold and impute remaining missing environmental values using species-specific background medians.
+- Improve preprocessing of background environmental data before projection into the fitted PCA and DAPC discriminant space.
+
 # NicheDiv 1.2.1 (2026-10-28)
 ## Improve stochastic reproducibility
 
