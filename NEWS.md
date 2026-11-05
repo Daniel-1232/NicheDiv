@@ -1,3 +1,12 @@
+# NicheDiv 1.2.3 (2026-11-05)
+## Allow DAPC analyses without permutation testing
+- Added support for `N.permutations = NULL` or `0` in `run.DAPC.crossval.permutation()`.
+- Allowed DAPC fitting and cross-validation without running standard label permutations or Humboldt-style spatial background permutations.
+- Removed background-data and spatial-coordinate requirements when permutation testing is disabled.
+- Return an empty permutation null distribution (`numeric(0)`) and an undefined permutation p-value (`NA_real_`) when no permutations are performed.
+- Updated `plot.DAPC.permutation()` to report an informative error when plotting is requested without permutation results.
+- Updated function documentation and the GitHub tutorial to describe optional permutation testing.
+
 # NicheDiv 1.2.2 (2026-10-29)
 
 ## Improve background-weighted niche divergence calculations

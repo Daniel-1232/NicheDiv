@@ -2617,8 +2617,9 @@ trim.to.analogous.environments <- function(Sp1.occurrence.data, #occurrence data
 #'   required.
 #' @param N.crossval.replicates A single positive integer-like numeric value
 #'   giving the number of cross-validation replicates (recommended default: `100`).
-#' @param N.permutations A single positive integer-like numeric value giving the
-#'   number of permutation replicates (default: `1000`).
+#' @param N.permutations `NULL` or a single non-negative integer-like numeric
+#'   value giving the number of permutation replicates (default: `999`).
+#'   Use `NULL` or `0` to skip permutation testing while retaining the DAPC fit.
 #' @param fixed.n.pcs Optional positive integer-like numeric value giving a fixed
 #'   number of PCs to retain. If `NULL`, the number of PCs is determined by
 #'   cross-validation (default: `NULL`; recommended: `NULL` unless a fixed PC
@@ -2645,11 +2646,11 @@ trim.to.analogous.environments <- function(Sp1.occurrence.data, #occurrence data
 #' @param Sp1.background.data Optional `data.frame` containing environmental
 #'   predictors and longitude/latitude coordinates for the geographic
 #'   background of species 1. Required when `background.permutation.test = TRUE`
-#'   (default: `NULL`).
+#'   and `N.permutations > 0` (default: `NULL`).
 #' @param Sp2.background.data Optional `data.frame` containing environmental
 #'   predictors and longitude/latitude coordinates for the geographic
 #'   background of species 2. Required when `background.permutation.test = TRUE`
-#'   (default: `NULL`).
+#'   and `N.permutations > 0` (default: `NULL`).
 #' @param background.permutation.test Logical; if `TRUE`, run a spatially
 #'   structured HUMBOLDT-style background permutation test (Brown &
 #'   Carnaval, 2019). Occurrence configurations are randomly shifted within
@@ -2750,10 +2751,12 @@ trim.to.analogous.environments <- function(Sp1.occurrence.data, #occurrence data
 #'     \item{observed_assign_prop}{Observed mean assignment accuracy.}
 #'     \item{permutation_assign_props}{Permutation null distribution of mean
 #'       assignment accuracy. If `background.permutation.test = TRUE`, this is a
-#'       list containing `species1_shifted` and `species2_shifted` distributions.}
+#'       list containing `species1_shifted` and `species2_shifted` distributions.
+#'       When permutation testing is skipped, this is `numeric(0)`.}
 #'     \item{p_val_assign}{Permutation p-value for assignment accuracy. If
 #'       `background.permutation.test = TRUE`, this is a named vector containing
-#'       `species1_shifted` and `species2_shifted` p-values.}
+#'       `species1_shifted` and `species2_shifted` p-values. When permutation
+#'       testing is skipped, this is `NA_real_`.}
 #'     \item{ARI}{Adjusted Rand index comparing DAPC-predicted groupings to the
 #'       supplied group labels.}
 #'   }
@@ -2784,7 +2787,7 @@ trim.to.analogous.environments <- function(Sp1.occurrence.data, #occurrence data
 #' @export
 run.DAPC.crossval.permutation <- function(data.input, #matrix or data.frame of predictors (rows = samples, cols = variables)
                                           N.crossval.replicates = 100, #cross-validation replicates
-                                          N.permutations = 1000, #number of permutations for test
+                                          N.permutations = 999, #number of permutations for test
                                           fixed.n.pcs = NULL, #override n.pca used for DAPC/permutations
                                           exclude.cols = NULL, #extra columns to drop from predictors
                                           species.col = "Species", #name of column with species/group labels (character)
@@ -2817,7 +2820,8 @@ run.DAPC.crossval.permutation <- function(data.input, #matrix or data.frame of p
   if (!is.data.frame(data.input) && !is.matrix(data.input)) stop("data.input must be a data.frame or matrix")
   if (is.matrix(data.input) && is.null(colnames(data.input))) stop("data.input must have column names")
   if (!is.numeric(N.crossval.replicates) || length(N.crossval.replicates) != 1 || !is.finite(N.crossval.replicates) || N.crossval.replicates <= 0 || N.crossval.replicates %% 1 != 0) stop("N.crossval.replicates must be a positive integer (recommended: 100)")
-  if (!is.numeric(N.permutations) || length(N.permutations) != 1 || !is.finite(N.permutations) || N.permutations < 1 || N.permutations %% 1 != 0) stop("N.permutations must be a positive integer (recommended: 1000)")
+  if (!is.null(N.permutations) && (!is.numeric(N.permutations) || length(N.permutations) != 1L || !is.finite(N.permutations) || N.permutations < 0 || N.permutations %% 1 != 0)) stop("N.permutations must be NULL or a non-negative integer (recommended: 999)")
+  if (is.null(N.permutations)) N.permutations <- 0L
   if (!is.null(fixed.n.pcs) && (!is.numeric(fixed.n.pcs) || length(fixed.n.pcs) != 1L || fixed.n.pcs < 1)) stop("fixed.n.pcs must be a positive numeric value or NULL")
   if (is.null(exclude.cols)) exclude.cols <- character(0)
   else if (!is.character(exclude.cols)) stop("exclude.cols must be a character vector or NULL")
@@ -2837,7 +2841,7 @@ run.DAPC.crossval.permutation <- function(data.input, #matrix or data.frame of p
   if (!is.null(Sp1.background.data) && !is.data.frame(Sp1.background.data)) stop("Sp1.background.data must be a data frame or NULL")
   if (!is.null(Sp2.background.data) && !is.data.frame(Sp2.background.data)) stop("Sp2.background.data must be a data frame or NULL")
   if (!is.logical(background.permutation.test) || length(background.permutation.test) != 1 || is.na(background.permutation.test)) stop("background.permutation.test must be TRUE or FALSE")
-  if (isTRUE(background.permutation.test)) {
+  if (isTRUE(background.permutation.test) && N.permutations > 0L) {
     if (is.null(Sp1.background.data) || is.null(Sp2.background.data)) stop("background.permutation.test = TRUE but background datasets (Sp1.background.data and Sp2.background.data) are missing")
     if (!is.data.frame(Sp1.background.data) || !is.data.frame(Sp2.background.data)) stop("Both Sp1.background.data and Sp2.background.data must be data frames when background.permutation.test = TRUE")
   }
@@ -2859,7 +2863,7 @@ run.DAPC.crossval.permutation <- function(data.input, #matrix or data.frame of p
 
   # Preserve occurrence coordinates
   occurrence.spatial.coordinates <- NULL
-  if (background.permutation.test) {
+  if (background.permutation.test && N.permutations > 0L) {
     spatial.longitude.col <- "Longitude"
     spatial.latitude.col <- "Latitude"
     spatial.max.match.distance.km <- 15
@@ -2886,7 +2890,7 @@ run.DAPC.crossval.permutation <- function(data.input, #matrix or data.frame of p
 
   # Drop excluded columns and add species
   drop_cols <- union(exclude.cols, species.col)
-  if (background.permutation.test) drop_cols <- union(drop_cols, coordinate.names)
+  if (background.permutation.test) drop_cols <- union(drop_cols, c("Longitude", "Latitude"))
   if (is.data.frame(data.input)) {
     keep_cols <- setdiff(colnames(data.input), drop_cols)
     data.input <- data.input[, keep_cols, drop = FALSE]
@@ -3347,13 +3351,18 @@ run.DAPC.crossval.permutation <- function(data.input, #matrix or data.frame of p
     if (verbose) message(sprintf("Adjusted Rand Index (ARI) = %.2f", ARI))
 
     # Permutation null distributions
-    permutation_assign_props <- numeric(N.permutations)
+    permutation_assign_props <- numeric(0)
+    p_val_assign <- NA_real_
 
     # Run permutation test
-    if (verbose) message("")
-    RNGkind("L'Ecuyer-CMRG")
-    set.seed(seed + 30000L)
-    if (background.permutation.test) {
+    if (N.permutations > 0L) {
+      if (verbose) message("")
+      RNGkind("L'Ecuyer-CMRG")
+      set.seed(seed + 30000L)
+    } else if (verbose) {
+      message("Skipping DAPC permutation tests (N.permutations = 0)")
+    }
+    if (N.permutations > 0L && background.permutation.test) {
       if (verbose) message("Running HUMBOLDT-inspired spatial background permutations")
 
       # Match environmental predictors used by DAPC
@@ -3492,7 +3501,7 @@ run.DAPC.crossval.permutation <- function(data.input, #matrix or data.frame of p
       if (verbose) message("Valid background permutations: species 1 shifted ", length(valid.forward), "/", N.permutations, "; species 2 shifted ", length(valid.reverse), "/", N.permutations)
       permutation_assign_props <- list(species1_shifted = permutation.assign.forward, species2_shifted = permutation.assign.reverse)
       p_val_assign <- c(species1_shifted = p.forward, species2_shifted = p.reverse)
-    } else {
+    } else if (N.permutations > 0L) {
       if (verbose) message("Running permutation test with ", N.permutations, " permutations ...")
       if (!.use_parallel) {
         out <- lapply(seq_len(N.permutations), permute.once, n_pcs_keep = n_pcs_use, pc_scores_full = pc_scores_full)
@@ -3990,7 +3999,8 @@ plot.DAPC.permutation <- function(dapc_result, #DAPC result object
   observed_accuracy <- dapc_result$observed_assign_prop
   permutation_accuracies <- dapc_result$permutation_assign_props
   if (!is.numeric(observed_accuracy) || length(observed_accuracy) != 1L || !is.finite(observed_accuracy)) stop("observed_assign_prop must be single finite numeric")
-  if (!is.numeric(permutation_accuracies) || !length(permutation_accuracies)) stop("permutation_assign_props must be a non-empty numeric vector")
+  if (is.null(permutation_accuracies) || !length(permutation_accuracies)) stop("No DAPC permutations were performed (N.permutations = NULL or 0) - permutation plot cannot be generated")
+  if (!is.numeric(permutation_accuracies)) stop("permutation_assign_props must be a numeric vector")
   permutation_accuracies <- permutation_accuracies[is.finite(permutation_accuracies)]
   if (!length(permutation_accuracies)) stop("No finite values in permutation_assign_props")
 

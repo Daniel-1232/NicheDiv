@@ -7,7 +7,7 @@
 run.DAPC.crossval.permutation(
   data.input,
   N.crossval.replicates = 100,
-  N.permutations = 1000,
+  N.permutations = 999,
   fixed.n.pcs = NULL,
   exclude.cols = NULL,
   species.col = "Species",
@@ -35,8 +35,9 @@ required.}
 \item{N.crossval.replicates}{A single positive integer-like numeric value
 giving the number of cross-validation replicates (recommended default: \code{100}).}
 
-\item{N.permutations}{A single positive integer-like numeric value giving the
-number of permutation replicates (default: \code{1000}).}
+\item{N.permutations}{\code{NULL} or a single non-negative integer-like numeric
+value giving the number of permutation replicates (default: \code{999}).
+Use \code{NULL} or \code{0} to skip permutation testing while retaining the DAPC fit.}
 
 \item{fixed.n.pcs}{Optional positive integer-like numeric value giving a fixed
 number of PCs to retain. If \code{NULL}, the number of PCs is determined by
@@ -73,12 +74,12 @@ when \code{save = TRUE} (default: \code{FALSE}).}
 \item{Sp1.background.data}{Optional \code{data.frame} containing environmental
 predictors and longitude/latitude coordinates for the geographic
 background of species 1. Required when \code{background.permutation.test = TRUE}
-(default: \code{NULL}).}
+and \code{N.permutations > 0} (default: \code{NULL}).}
 
 \item{Sp2.background.data}{Optional \code{data.frame} containing environmental
 predictors and longitude/latitude coordinates for the geographic
 background of species 2. Required when \code{background.permutation.test = TRUE}
-(default: \code{NULL}).}
+and \code{N.permutations > 0} (default: \code{NULL}).}
 
 \item{background.permutation.test}{Logical; if \code{TRUE}, run a spatially
 structured HUMBOLDT-style background permutation test (Brown &
@@ -120,10 +121,12 @@ retained PCs.}
 \item{observed_assign_prop}{Observed mean assignment accuracy.}
 \item{permutation_assign_props}{Permutation null distribution of mean
 assignment accuracy. If \code{background.permutation.test = TRUE}, this is a
-list containing \code{species1_shifted} and \code{species2_shifted} distributions.}
+list containing \code{species1_shifted} and \code{species2_shifted} distributions.
+When permutation testing is skipped, this is \code{numeric(0)}.}
 \item{p_val_assign}{Permutation p-value for assignment accuracy. If
 \code{background.permutation.test = TRUE}, this is a named vector containing
-\code{species1_shifted} and \code{species2_shifted} p-values.}
+\code{species1_shifted} and \code{species2_shifted} p-values. When permutation
+testing is skipped, this is \code{NA_real_}.}
 \item{ARI}{Adjusted Rand index comparing DAPC-predicted groupings to the
 supplied group labels.}
 }
