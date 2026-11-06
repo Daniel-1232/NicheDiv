@@ -203,6 +203,40 @@ handled by complete-case filtering. The default missingness threshold
 moderate missingness while reducing the risk that ordination and
 discrimination are driven by imputation or incomplete records (Harrell, 2015;
 van Buuren, 2018).
+
+Because DAPC maximizes discrimination between predefined groups based on
+multivariate mean differences relative to within-group variation, ecological
+differences arising primarily from contrasting relationships between
+environmental variables may not be fully represented along the discriminant
+axis, potentially reducing the accuracy of the inferred niche divergence
+metrics. For example, two variables may be positively correlated in one
+species but negatively correlated in another despite similar individual
+distributions. To identify such cases, the function implements a diagnostic
+comparing species-specific Pearson correlation matrices after predictor
+filtering and missing-value handling. Pairs are flagged when correlations
+have opposite signs, absolute values >= 0.4 in both species, and an absolute
+difference >= 0.8, provided both variables have similar individual
+distributions (Kolmogorov-Smirnov distance <= 0.25, absolute standardized
+mean difference <= 0.35, and SD ratio <= 1.5). These criteria assess
+distributional shape, location, and spread, while an approximate Fisher-z
+test with Benjamini-Hochberg FDR < 0.05 reduces false positives from
+multiple comparisons. The diagnostic requires at least 25 samples per
+species, excludes variables with negligible within-species variance, and
+is skipped when more than 1000 predictors remain to limit computational
+costs. Thresholds are exploratory, and Fisher-z tests assume independent
+observations and approximate bivariate normality, potentially yielding
+unreliable significance estimates with non-normal or spatially
+autocorrelated data. Furthermore, the diagnostic detects only pronounced
+pairwise correlation reversals, not all covariance differences or nonlinear
+relationships; thus, no flagged pairs does not guarantee that DAPC captures
+all ecological differences. When pairs are flagged, users should examine
+species-specific bivariate distributions, investigate outliers, sampling
+artifacts, and spatial autocorrelation, and assess the variables' ecological
+relevance and discriminant contributions. Sensitivity analyses should rerun
+the complete DAPC procedure, including PCA, cross-validation, and
+permutation testing, after excluding each implicated variable separately
+and, where appropriate, both together. The resulting niche divergence
+metrics should then be compared with the original estimates.
 }
 \references{
 Brown, J., & Carnaval, A. C. (2019). A tale of two niches: Methods, concepts,

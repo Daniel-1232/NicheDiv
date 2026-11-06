@@ -1,3 +1,13 @@
+# NicheDiv 1.2.4 (2026-11-05)
+## Add diagnostic for contrasting environmental correlations
+- Added a diagnostic to `run.DAPC.crossval.permutation()` that compares species-specific Pearson correlation matrices to identify contrasting relationships between environmental variables that may not be fully represented by DAPC and could affect the accuracy of inferred niche divergence metrics.
+- Flag variable pairs with strong opposing correlations despite similar individual distributions, using thresholds for correlation strength, correlation differences, Kolmogorov-Smirnov distance, standardized mean differences, and standard deviation ratios.
+- Added approximate Fisher-z tests with Benjamini-Hochberg false discovery rate correction to screen for differences in species-specific correlations.
+- Added warnings identifying flagged variable pairs and their correlations, with recommendations to examine the affected variables and assess the sensitivity of niche divergence metrics by rerunning the analysis after excluding implicated variables.
+- Skip the diagnostic when fewer than 25 samples per species or more than 1000 predictors are available, and exclude variables with negligible within-species variance.
+- Updated function documentation to explain the diagnostic's methodological justification, thresholds, limitations, and recommendations for sensitivity analyses.
+- The diagnostic does not modify environmental predictors, DAPC fitting, cross-validation, or permutation testing.
+
 # NicheDiv 1.2.3 (2026-11-05)
 ## Allow DAPC analyses without permutation testing
 - Added support for `N.permutations = NULL` or `0` in `run.DAPC.crossval.permutation()`.

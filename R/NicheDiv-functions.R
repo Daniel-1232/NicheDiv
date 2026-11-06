@@ -2733,6 +2733,40 @@ trim.to.analogous.environments <- function(Sp1.occurrence.data, #occurrence data
 #' discrimination are driven by imputation or incomplete records (Harrell, 2015;
 #' van Buuren, 2018).
 #'
+#' Because DAPC maximizes discrimination between predefined groups based on
+#' multivariate mean differences relative to within-group variation, ecological
+#' differences arising primarily from contrasting relationships between
+#' environmental variables may not be fully represented along the discriminant
+#' axis, potentially reducing the accuracy of the inferred niche divergence
+#' metrics. For example, two variables may be positively correlated in one
+#' species but negatively correlated in another despite similar individual
+#' distributions. To identify such cases, the function implements a diagnostic
+#' comparing species-specific Pearson correlation matrices after predictor
+#' filtering and missing-value handling. Pairs are flagged when correlations
+#' have opposite signs, absolute values >= 0.4 in both species, and an absolute
+#' difference >= 0.8, provided both variables have similar individual
+#' distributions (Kolmogorov-Smirnov distance <= 0.25, absolute standardized
+#' mean difference <= 0.35, and SD ratio <= 1.5). These criteria assess
+#' distributional shape, location, and spread, while an approximate Fisher-z
+#' test with Benjamini-Hochberg FDR < 0.05 reduces false positives from
+#' multiple comparisons. The diagnostic requires at least 25 samples per
+#' species, excludes variables with negligible within-species variance, and
+#' is skipped when more than 1000 predictors remain to limit computational
+#' costs. Thresholds are exploratory, and Fisher-z tests assume independent
+#' observations and approximate bivariate normality, potentially yielding
+#' unreliable significance estimates with non-normal or spatially
+#' autocorrelated data. Furthermore, the diagnostic detects only pronounced
+#' pairwise correlation reversals, not all covariance differences or nonlinear
+#' relationships; thus, no flagged pairs does not guarantee that DAPC captures
+#' all ecological differences. When pairs are flagged, users should examine
+#' species-specific bivariate distributions, investigate outliers, sampling
+#' artifacts, and spatial autocorrelation, and assess the variables' ecological
+#' relevance and discriminant contributions. Sensitivity analyses should rerun
+#' the complete DAPC procedure, including PCA, cross-validation, and
+#' permutation testing, after excluding each implicated variable separately
+#' and, where appropriate, both together. The resulting niche divergence
+#' metrics should then be compared with the original estimates.
+#'
 #' @return A named list containing:
 #'   \describe{
 #'     \item{crossval_run1}{First-stage cross-validation object, or `NULL` if
@@ -3005,6 +3039,74 @@ run.DAPC.crossval.permutation <- function(data.input, #matrix or data.frame of p
   group_sizes <- table(group.assignment)
   if (any(group_sizes < 3)) stop("Each group must have at least three samples (found: ", paste(group_sizes, collapse = ", "), ")")
   if (any(group_sizes < 25)) warning("Each group should have at least 25 samples (found: ", paste(group_sizes, collapse = ", "), ")")
+
+  # Screen for strong, opposing correlations despite similar individual distributions that might reduce accuracy of inferred niche divergence metrics
+  if (ncol(data.input) >= 2L) {
+    if (any(group_sizes < 25L)) {
+      if (verbose) message("Correlation diagnostic skipped: fewer than 25 samples in at least one group")
+    } else if (ncol(data.input) > 1000L) {
+      warning("Correlation diagnostic skipped: more than 1000 predictors - use separate blockwise correlation analysis", call. = FALSE)
+    } else {
+
+      # Prepare species-specific predictor matrices and remove variables with zero variance
+      species_levels <- levels(group.assignment)
+      Sp1_corr_data <- data.input[group.assignment == species_levels[1], , drop = FALSE]
+      Sp2_corr_data <- data.input[group.assignment == species_levels[2], , drop = FALSE]
+      Sp1_sds <- apply(Sp1_corr_data, 2, stats::sd)
+      Sp2_sds <- apply(Sp2_corr_data, 2, stats::sd)
+      valid_corr_vars <- is.finite(Sp1_sds) & is.finite(Sp2_sds) & Sp1_sds > 1e-9 & Sp2_sds > 1e-9
+      if (sum(valid_corr_vars) >= 2L) {
+        Sp1_corr_data <- Sp1_corr_data[, valid_corr_vars, drop = FALSE]
+        Sp2_corr_data <- Sp2_corr_data[, valid_corr_vars, drop = FALSE]
+        Sp1_sds <- Sp1_sds[valid_corr_vars]
+        Sp2_sds <- Sp2_sds[valid_corr_vars]
+        Sp1_correlation_matrix <- suppressWarnings(stats::cor(Sp1_corr_data))
+        Sp2_correlation_matrix <- suppressWarnings(stats::cor(Sp2_corr_data))
+        correlation_indices <- which(upper.tri(Sp1_correlation_matrix), arr.ind = TRUE)
+
+        # Check similarity of each variable's individual distribution between groups
+        KS_distances <- vapply(seq_len(ncol(Sp1_corr_data)), function(j) {
+          values <- sort(unique(c(Sp1_corr_data[, j], Sp2_corr_data[, j])))
+          max(abs(stats::ecdf(Sp1_corr_data[, j])(values) - stats::ecdf(Sp2_corr_data[, j])(values)))
+        }, numeric(1))
+        standardized_mean_differences <- abs(colMeans(Sp1_corr_data) - colMeans(Sp2_corr_data)) /
+          sqrt((Sp1_sds^2 + Sp2_sds^2) / 2)
+        SD_ratios <- pmax(Sp1_sds, Sp2_sds) / pmin(Sp1_sds, Sp2_sds)
+        similar_distributions <- KS_distances <= 0.25 & standardized_mean_differences <= 0.35 & SD_ratios <= 1.5
+
+        # Identify pairs with opposite strong correlations and similar individual distributions
+        Sp1_correlations <- Sp1_correlation_matrix[correlation_indices]
+        Sp2_correlations <- Sp2_correlation_matrix[correlation_indices]
+        correlation_differences <- abs(Sp1_correlations - Sp2_correlations)
+        valid_Fisher <- is.finite(Sp1_correlations) & is.finite(Sp2_correlations) & abs(Sp1_correlations) < 0.999999 & abs(Sp2_correlations) < 0.999999
+        correlation_P <- rep(NA_real_, length(Sp1_correlations))
+        Fisher_z <- (atanh(Sp1_correlations[valid_Fisher]) - atanh(Sp2_correlations[valid_Fisher])) / sqrt(1 / (nrow(Sp1_corr_data) - 3) + 1 / (nrow(Sp2_corr_data) - 3))
+        correlation_P[valid_Fisher] <- 2 * stats::pnorm(-abs(Fisher_z))
+        correlation_FDR <- stats::p.adjust(correlation_P, method = "BH")
+        flagged_pairs <- which(is.finite(Sp1_correlations) & is.finite(Sp2_correlations) &
+                                 Sp1_correlations * Sp2_correlations < 0 &
+                                 pmin(abs(Sp1_correlations), abs(Sp2_correlations)) >= 0.4 &
+                                 correlation_differences >= 0.8 & correlation_FDR < 0.05 &
+                                 similar_distributions[correlation_indices[, 1]] &
+                                 similar_distributions[correlation_indices[, 2]])
+        if (length(flagged_pairs) > 0L) {
+          flagged_pairs <- flagged_pairs[order(-correlation_differences[flagged_pairs])]
+          report_pairs <- head(flagged_pairs, 5L)
+          flagged_labels <- vapply(report_pairs, function(i) {
+            sprintf("%s / %s (r = %.2f vs %.2f)", colnames(Sp1_corr_data)[correlation_indices[i, 1]], colnames(Sp1_corr_data)[correlation_indices[i, 2]], Sp1_correlations[i], Sp2_correlations[i])
+          }, character(1))
+          warning("Detected ", length(flagged_pairs), " variable pair(s) with strong, opposing correlations between ",
+                  species_levels[1], " and ", species_levels[2], " despite similar individual distributions: ",
+                  paste(flagged_labels, collapse = "; "),
+                  if (length(flagged_pairs) > length(report_pairs)) paste0("; plus ", length(flagged_pairs) - length(report_pairs), " more") else "",
+                  ". Such pairs might reduce the accuracy of the inferred DAPC-based niche divergence metrics. It is recommended to examine these pairs and assess the sensitivity of the results by rerunning the analysis after excluding each implicated variable separately.",
+                  call. = FALSE)
+        }
+      } else if (verbose) {
+        warning("Correlation diagnostic skipped: fewer than two variables vary in both groups")
+      }
+    }
+  }
 
   # Decide whether we need to compute or can load from file
   if (save) {
