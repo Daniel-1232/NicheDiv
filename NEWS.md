@@ -1,3 +1,11 @@
+# NicheDiv 1.3.1 (2026-11-17)
+
+## Fix DAPC plotting namespace imports
+
+- Corrected missing ggplot2 imports for `geom_segment`, `geom_point`, and `geom_text` used by `plot.DAPC.permutation()`.
+- Imported `geom_boxplot` for the bootstrap confidence interval display in `plot.DAPC.var.contributions()`.
+- No changes to DAPC model fitting, permutation statistics, or niche divergence calculations.
+
 # NicheDiv 1.3 (2026-11-17)
 
 ## Revise DAPC cross-validation and PC selection

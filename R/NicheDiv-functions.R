@@ -7,7 +7,7 @@
 #' @importFrom magrittr %>%
 #' @importFrom tidyselect where
 #' @importFrom terra nlyr
-#' @importFrom ggplot2 ggplot aes geom_density scale_fill_manual guides guide_legend labs theme_classic theme element_line element_text geom_rug scale_colour_manual ggsave geom_rect annotate coord_cartesian scale_y_continuous expansion geom_col scale_x_continuous facet_wrap element_rect
+#' @importFrom ggplot2 ggplot aes geom_density scale_fill_manual guides guide_legend labs theme_classic theme element_line element_text geom_rug scale_colour_manual ggsave geom_rect annotate coord_cartesian scale_y_continuous expansion geom_col scale_x_continuous facet_wrap element_rect geom_segment geom_point geom_text geom_boxplot .pt
 NULL
 
 ## Function to convert all integer columns to numeric
