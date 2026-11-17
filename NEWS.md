@@ -1,36 +1,50 @@
 # NicheDiv 1.3 (2026-11-17)
 
-## DAPC cross-validation and PC selection
+## Revise DAPC cross-validation and PC selection
 
-- Revised PC selection to use the one-standard-error rule based on class-balanced classification error from repeated stratified five-fold cross-validation.
-- Calculate the standard error across repetition-level mean classification errors.
-- Improved the adaptive two-stage PC search by extending the fine-search boundaries when a boundary PC count is selected.
-- Reuse previously evaluated PC counts and identical cross-validation splits during boundary extension.
-- Applied the revised selection procedure to observed analyses, label permutations, spatial background permutations, held-out evaluations, and variable-contribution bootstrapping.
+- Replaced repeated random training/validation splits with repeated stratified five-fold cross-validation (80% training and 20% validation per fold), fitting PCA only on the training observations for each fold.
+- Introduced the one-standard-error rule: select the smallest evaluated PC count whose mean class-balanced classification error is within one standard error of the minimum; calculate the standard error across five-fold repetition means.
+- Revised the two-stage PC search to use exhaustive evaluation for up to 13 PCs and coarse-to-fine adaptive searches for larger candidate ranges. Extend the fine-search boundary one PC at a time when the one-SE-selected count remains at that boundary, reusing previously evaluated results and identical CV splits.
+- Reassess the PC count during each label or spatial background permutation and during the new held-out and contribution-bootstrap procedures.
+- Changed the default `N.crossval.replicates` from 100 to 10, representing 50 fold evaluations per candidate PC count per stage, and strengthened PC-count constraints based on training-group sizes.
 
-## DAPC computational performance
+## Add held-out validation and confidence intervals for niche divergence
 
-- Improved cross-validation performance by reusing pooled covariance calculations and Cholesky decompositions for nested PC counts.
-- Improved PCA computation for suitable training matrices.
-- Improved variable-standard-deviation calculations and parallel execution of held-out evaluations.
-- Improved permutation execution using single-batch processing for large Unix-parallel label-permutation workloads.
-- Improved reuse of parallel workers during repeated cross-validation.
+- Added optional `N.heldout.replicates` for repeated stratified 50/50 training/test splits. Select PCs by inner five-fold cross-validation and fit PCA and discriminant analysis exclusively on each training half; return predictions, discriminant scores, classification accuracy, adjusted Rand index, selected PC counts, and train/test indices for held-out records.
+- Extended `calc.niche.divergence.metrics()` to calculate Schoener's D, niche dissimilarity (NDS), niche breadth exclusivity (NE), niche divergence magnitude (ND), and niche divergence angle (theta) for the held-out repetitions, with summaries across repetitions.
+- Added optional `N.bootstrap.replicates` for bootstrap uncertainty of mean held-out niche metrics. Resample training and test records separately within groups, refit the selection and discrimination procedure, and calculate percentile-based 95% confidence intervals for D, NDS, NE, ND, and theta.
+- Require sufficient successful replicates for bootstrap summaries and retain consistency checks for metric implementation and KDE grid settings. Held-out and bootstrap metric calculations are unweighted.
 
-## Reproducibility and error handling
+## Extend permutation inference and refine niche metrics
 
-- Standardized random-number generation for held-out sampling across execution backends.
-- Preserve and restore the caller's random-number state after DAPC analysis.
-- Prevent nested Unix parallelism during held-out cross-validation.
-- Improved detection and reporting of failed parallel cross-validation, held-out, bootstrap, and permutation workers.
-- Removed unnecessary variable-contribution calculations from held-out repetitions.
-- Improved handling of unused factor levels in group labels.
-- Include occurrence coordinates in saved-result validation for spatial background permutation analyses.
+- Added observed and null-distribution calculations and permutation p-values for Schoener's D and ND, in addition to DAPC assignment accuracy. Use lower-tail tests for D and upper-tail tests for ND and assignment accuracy under label permutation.
+- Extended the spatial background permutation workflow to assess D and ND as well as assignment accuracy in each direction, using lower-tail D, upper-tail ND, and two-sided accuracy comparisons.
+- Revised numerical integration of niche dissimilarity by splitting grid intervals where the two interpolated density curves cross. Treat theta as undefined when ND equals zero.
+- Refined background-environment projection checks and restricted background-corrected metric densities to analogous environmental conditions along the discriminant axis.
 
-## Output and documentation
+## Extend DAPC plots and variable-contribution uncertainty
 
-- Corrected permutation plot annotations for the minimum attainable empirical p-value.
-- Updated DAPC function documentation and output descriptions.
-- Added matrixStats to the package dependencies.
+- Expanded `plot.DAPC.permutation()` from an assignment-accuracy histogram to three panels displaying permutation null distributions for assignment accuracy, Schoener's D, and ND, with observed statistics and empirical p-values.
+- Corrected the plot annotation for the smallest attainable empirical p-value based on the number of valid permutation replicates.
+- Added optional `N.bootstraps.CI` to `plot.DAPC.var.contributions()` to bootstrap variable contributions, reselect PCs and refit DAPC, and return percentile-based 95% confidence limits (`CI_lower` and `CI_upper`).
+- Display contribution-bootstrap distributions as boxplots with full-data estimates marked by black diamonds; when bootstrapping, rank predictors by bootstrap median contribution. Updated group-direction labels to reflect the group with the higher predictor median.
+
+## Improve performance, reproducibility, and input validation
+
+- Reused pooled within-group covariance and Cholesky calculations across nested PC counts; accelerated training-fold PCA where covariance eigendecomposition is suitable and improved standard-deviation calculations.
+- Reused Windows parallel CV workers, improved held-out parallel dispatch, and dispatched Unix-parallel label permutations in a single batch only when more than 800 permutations are requested.
+- Standardized L'Ecuyer-CMRG random-number generation for held-out sampling across execution backends and restored the caller's original RNG kind and state on function exit.
+- Prevented nested Unix parallel CV within parallel held-out repetitions, removed unused held-out contribution calculations, and added explicit checks for failed CV, held-out, bootstrap, and permutation workers.
+- Improved handling of factors with unused levels, validated background coordinates and predictors, and included occurrence coordinates in the saved-result signature for spatial background analyses.
+- Expanded the contrasting-correlation diagnostic from a minimum of 25 to 12 observations per group and from a maximum of 1,000 to 2,000 predictors, while retaining correlation, distribution-similarity, and multiple-testing criteria.
+- Added configurable permutation-progress reporting through `message.N.permutations` and declared the `matrixStats` dependency.
+
+## Changes to function arguments
+
+- Removed the `fixed.n.pcs` override from `run.DAPC.crossval.permutation()`; retained-PC selection is cross-validation based.
+- Added `N.heldout.replicates`, `N.bootstrap.replicates`, and `message.N.permutations` to `run.DAPC.crossval.permutation()`.
+- Added `N.bootstraps.CI` to `plot.DAPC.var.contributions()`.
+- Updated `calc.niche.divergence.metrics()` to obtain group labels from the supplied DAPC result rather than a separate `group.assignment` argument. The former `density.grid.resolution` argument is no longer exposed; the metric grid is fixed internally at 1,024 points. Calls using these removed arguments must be updated.
 
 # NicheDiv 1.2.4 (2026-11-05)
 ## Add diagnostic for contrasting environmental correlations
