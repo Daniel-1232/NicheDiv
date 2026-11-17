@@ -6,6 +6,7 @@
 \usage{
 \method{plot}{DAPC.var.contributions}(
   dapc.results,
+  N.bootstraps.CI = NULL,
   group.colors = c("#00005A", "darkgrey"),
   min.contribution.threshold = NULL,
   top.N = NULL,
@@ -37,9 +38,17 @@
 \verb{$dapc_results}. The object must contain variable contributions, variable
 loadings, and group coordinates.}
 
-\item{group.colors}{Character vector of two colors used for the plotted groups
-or contribution directions. Can be named with group levels to enforce a
-specific group-color mapping (default: \code{c("#00005A", "darkgrey")}).}
+\item{N.bootstraps.CI}{\code{NULL} (default) to show full-data variable
+contributions as a bar plot, or an integer >= 2 giving the number of
+stratified full-sample DAPC bootstrap replicates to display as boxplots
+(recommended: \code{999}). The bootstrap uses the preprocessed
+environmental predictors stored in \verb{$pca_object$tab} of \code{dapc.results},
+with PC selection, PCA, and LDA repeated for each bootstrap replicate.}
+
+\item{group.colors}{Character vector of two colors used for the plotted
+groups or contribution directions. Can be named with group levels to
+enforce a specific group-color mapping (default:
+\code{c("#00005A", "darkgrey")}).}
 
 \item{min.contribution.threshold}{Optional single non-negative numeric value
 giving the minimum contribution required for a variable to be plotted
@@ -61,8 +70,8 @@ font size (default: \code{9.1}).}
 \item{legend.title.font.size}{A single positive numeric value giving the
 legend title font size (default: \code{9.1}).}
 
-\item{legend.text.font.size}{A single positive numeric value giving the legend
-text font size (default: \code{9.1}).}
+\item{legend.text.font.size}{A single positive numeric value giving the
+legend text font size (default: \code{9.1}).}
 
 \item{legend.text.italics}{Logical; if \code{TRUE}, legend entries are italicized
 (default: \code{FALSE}).}
@@ -112,9 +121,10 @@ dpi when saving raster formats (default: \code{300}).}
 }
 \value{
 A \code{data.frame} containing the plotted variable contributions,
-loadings, and inferred contribution directions. If \code{show.plot = TRUE}, the
-plot is displayed as a side effect. If \code{save = TRUE}, the plot is also saved
-to disk using \code{filename}, \code{output.dir}, and \code{type}.
+loadings, and inferred contribution directions, plus \code{CI_lower} and
+\code{CI_upper} when \code{N.bootstraps.CI} is provided. If \code{show.plot = TRUE}, the
+plot is displayed as a side effect. If \code{save = TRUE}, the plot is also
+saved to disk using \code{filename}, \code{output.dir}, and \code{type}.
 }
 \description{
 Plot the relative contributions of environmental variables to the DAPC
@@ -123,11 +133,11 @@ each variable.
 }
 \details{
 Variable contributions identify environmental predictors that contribute most
-strongly to separation along the DAPC discriminant axis. The discriminant axis
-is a linear combination of retained principal components, which are themselves
-linear combinations of the original predictors. Back-transforming the
-discriminant axis to the original predictor space gives each variable a
-loading that reflects its weight in the fitted discrimination.
+strongly to separation along the DAPC discriminant axis. The discriminant
+axis is a linear combination of retained principal components, which are
+themselves linear combinations of the original predictors. Back-transforming
+the discriminant axis to the original predictor space gives each variable
+a loading that reflects its weight in the fitted discrimination.
 
 Contributions are calculated from squared loadings normalized to sum to one,
 so each value represents the relative proportion of discrimination associated
@@ -135,16 +145,21 @@ with a predictor. Larger values indicate stronger contribution to separation
 along the discriminant axis, whereas values near zero indicate little
 contribution to the fitted group separation.
 
-The direction of effect is determined from the sign of each variable loading
-relative to the group centroids on the discriminant axis. This indicates which
-group is associated with higher values of each predictor along the fitted
-discriminant direction. The direction should be interpreted as an axis-based
-association, not as evidence of an independent causal effect.
+relative to the group centroids on the discriminant axis. This indicates
+which group is associated with higher values of each predictor along the
+fitted discriminant direction. The direction should be interpreted as an
+axis-based association, not as evidence of an independent causal effect.
 
 Variable contributions should be interpreted cautiously when predictors are
 strongly correlated. PCA reduces collinearity for model fitting, but the
-back-transformed contributions still reflect shared covariance structure among
-the original predictors. Therefore, high contributions indicate variables or
-correlated variable sets associated with niche divergence, rather than fully
-independent effects of individual predictors.
+back-transformed contributions still reflect shared covariance structure
+among the original predictors. Therefore, high contributions indicate
+variables or correlated variable sets associated with niche divergence,
+rather than fully independent effects of individual predictors.
+
+When \code{N.bootstraps.CI} is specified, boxplots show the empirical bootstrap
+distribution of each variable contribution; black diamonds show the original
+full-data estimates. Boxplot whiskers extend to observations within 1.5 times
+the interquartile range and do not represent 95\% confidence intervals. The
+percentile bootstrap 95\% limits are returned as \code{CI_lower} and \code{CI_upper}.
 }

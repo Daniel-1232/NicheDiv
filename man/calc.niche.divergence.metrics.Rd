@@ -6,8 +6,6 @@
 \usage{
 calc.niche.divergence.metrics(
   dapc_out,
-  group.assignment,
-  density.grid.resolution = 1024,
   weight.background = FALSE,
   Sp1.background.data = NULL,
   Sp2.background.data = NULL,
@@ -19,15 +17,9 @@ calc.niche.divergence.metrics(
 \arguments{
 \item{dapc_out}{A DAPC result object returned by
 \code{run.DAPC.crossval.permutation()}. The object must contain \verb{$dapc_results}
-with LD scores and, when \code{weight.background = TRUE}, the PCA object and
-discriminant scaling needed to project background data into LD1 space.}
-
-\item{group.assignment}{Factor or character vector giving group identity for
-each row of the input data. Exactly two groups are required.}
-
-\item{density.grid.resolution}{A single positive integer-like numeric value
-giving the number of grid points used to estimate smoothed density overlap
-(default: \code{1024}).}
+with discriminant axis scores and, when \code{weight.background = TRUE}, the PCA
+object and discriminant scaling needed to project background data into
+discriminant analysis space.}
 
 \item{weight.background}{Logical; if \code{TRUE}, apply background-availability
 weighting along the discriminant axis by up-weighting rare available
@@ -35,12 +27,12 @@ environments and down-weighting common available environments
 (default: \code{FALSE}).}
 
 \item{Sp1.background.data}{Optional \code{data.frame} of background environmental
-values for the first level of \code{factor(group.assignment)}. Required when
+values for the first level of \code{dapc_out$dapc_results$grp}. Required when
 \code{weight.background = TRUE}; must contain all environmental predictors used
 to fit the DAPC/PCA object (default: \code{NULL}).}
 
 \item{Sp2.background.data}{Optional \code{data.frame} of background environmental
-values for the second level of \code{factor(group.assignment)}. Required when
+values for the second level of \code{dapc_out$dapc_results$grp}. Required when
 \code{weight.background = TRUE}; must contain all environmental predictors used
 to fit the DAPC/PCA object (default: \code{NULL}).}
 
@@ -58,18 +50,37 @@ printed (default: \code{TRUE}).}
 \value{
 A named list containing:
 \describe{
-\item{Schoener_D}{Schoener's D overlap between the two groups along LD1.}
+\item{Schoener_D}{Schoener's D overlap between the two groups along
+discriminant axis.}
 \item{Niche_dissimilarity}{Niche dissimilarity based on density
 separation.}
 \item{Niche_breadth_exclusivity}{Niche breadth exclusivity based on
-non-overlap of occupied LD1 ranges.}
+non-overlap of occupied discriminant axis ranges.}
 \item{Niche_divergence_magnitude}{Composite divergence magnitude
 calculated from niche dissimilarity and niche breadth exclusivity.}
 \item{Niche_divergence_angle_degrees}{Divergence angle in degrees,
 describing the relative contribution of density dissimilarity versus
 breadth exclusivity.}
-\item{niche_limits}{A nested list with lower and upper LD1 limits for
-\code{group1} and \code{group2}.}
+\item{niche_limits}{A nested list with lower and upper discriminant axis
+limits for \code{group1} and \code{group2}.}
+\item{heldout_metrics}{List of unweighted niche divergence metrics
+calculated for each held-out repetition, or \code{NULL} when disabled.}
+\item{bootstrap_metric_means}{Bootstrap replicate mean held-out metrics,
+or \code{NULL} when unavailable.}
+\item{bootstrap_CI}{Matrix of percentile-based 95\% bootstrap confidence
+intervals for unweighted held-out metrics (lower and upper limits), or
+\code{NULL} when unavailable or incompatible with the metric settings.}
+\item{permutation_Schoener_D}{Unweighted Schoener's D permutation
+distribution, or directional lists for spatial background
+permutations.}
+\item{permutation_ND}{Unweighted niche divergence magnitude permutation
+distribution, or directional lists for spatial background
+permutations.}
+\item{p_val_Schoener_D}{Lower-tail permutation p-value for Schoener's D,
+or directional p-values for spatial background permutations.}
+\item{p_val_ND}{Upper-tail permutation p-value for niche divergence
+magnitude, or directional p-values for spatial background
+permutations.}
 }
 }
 \description{
@@ -95,39 +106,42 @@ multivariate environmental space most associated with group separation.
 
 The additional niche-divergence metrics extend the niche divergence plane of
 Ascanio et al. (2024) from single environmental variables to the multivariate
-DAPC discriminant axis. Niche dissimilarity (NDS) quantifies density separation
-along the axis, whereas niche breadth exclusivity (NE) quantifies how much of
-the occupied discriminant-axis range is not shared between groups. Together,
-these metrics distinguish divergence driven mainly by density differences
-within shared environmental space from divergence driven mainly by exclusive
-environmental ranges.
+DAPC discriminant axis. Niche dissimilarity (NDS) quantifies density
+separation along the axis, whereas niche breadth exclusivity (NE) quantifies
+how much of the occupied discriminant-axis range is not shared between
+groups. Together, these metrics distinguish divergence driven mainly by
+density differences within shared environmental space from divergence driven
+mainly by exclusive environmental ranges.
 
 Niche divergence magnitude (ND) combines density dissimilarity and breadth
 exclusivity into a single composite measure of divergence strength. The niche
 divergence angle (theta) describes the relative contribution of dissimilarity
-versus exclusivity: angles near zero indicate divergence dominated by exclusive
-range differences, angles near ninety degrees indicate divergence dominated by
-density differences within shared range, and intermediate values indicate mixed
-contributions. These quantities help classify divergence into interpretable
-forms such as weighted, soft, nested, or hard divergence (Ascanio et al.,
-2024).
+versus exclusivity: angles near zero indicate divergence dominated by
+exclusive range differences, angles near ninety degrees indicate divergence
+dominated by density differences within shared range, and intermediate values
+indicate mixed contributions. These quantities help classify divergence into
+interpretable forms such as weighted, soft, nested, or hard divergence
+(Ascanio et al., 2024).
 
 When \code{weight.background = TRUE}, density estimates are adjusted for unequal
 environmental availability along the discriminant axis. This is based on the
-background corrections in Humboldt (Brown & Carnaval, 2019) to reduce bias caused by common environments
-dominating density estimates and rare available environments being
-underrepresented. Such weighting can be useful when species differ in
-accessible background environments and when niche overlap should be
-interpreted relative to the environmental conditions available to both
-species (Brown & Carnaval, 2019).
+background corrections in Humboldt (Brown & Carnaval, 2019) to reduce bias
+caused by common environments dominating density estimates and rare available
+environments being underrepresented. Such weighting can be useful when
+species differ in accessible background environments and when niche overlap
+should be interpreted relative to the environmental conditions available to
+both species (Brown & Carnaval, 2019). Background weighting is restricted to
+analogous environmental conditions represented in both species' backgrounds
+along the discriminant axis.
 }
 \references{
-Ascanio, A. K., Owens, H. L., Sousa, M. C., & Peterson, A. T. (2024).
-Quantifying niche shifts in one-dimensional environmental space.
-\emph{Ecography}, 2024(5), e07127. https://doi.org/10.1111/ecog.07127
+Ascanio, A., Bracken, J. T., Stevens, M. H. H., & Jezkova, T. (2024).
+New theoretical and analytical framework for quantifying and classifying
+ecological niche differentiation. \emph{Ecological Monographs}, 94(4),
+e1622. https://doi.org/10.1002/ecm.1622
 
-Brown, J., & Carnaval, A. C. (2019). A tale of two niches: Methods, concepts,
-and evolution. \emph{Frontiers of Biogeography}, 11(4).
+Brown, J. L., & Carnaval, A. C. (2019). A tale of two niches: Methods,
+concepts, and evolution. \emph{Frontiers of Biogeography}, 11(4), e44158.
 https://doi.org/10.21425/F5FBG44158
 
 Jombart, T., Devillard, S., & Balloux, F. (2010). Discriminant analysis of
@@ -140,7 +154,7 @@ in a complex fauna. \emph{Ecology}, 49(4), 704-726.
 https://doi.org/10.2307/1935534
 
 Warren, D. L., Glor, R. E., & Turelli, M. (2008). Environmental niche
-equivalency versus conservatism: Quantitative approaches to niche evolution.
-\emph{Evolution}, 62(11), 2868-2883.
+equivalency versus conservatism: Quantitative approaches to niche
+evolution. \emph{Evolution}, 62(11), 2868-2883.
 https://doi.org/10.1111/j.1558-5646.2008.00482.x
 }

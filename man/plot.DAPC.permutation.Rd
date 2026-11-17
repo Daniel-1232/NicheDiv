@@ -2,7 +2,7 @@
 % Please edit documentation in R/NicheDiv-functions.R
 \name{plot.DAPC.permutation}
 \alias{plot.DAPC.permutation}
-\title{Plot permutation histogram for DAPC assignment accuracy}
+\title{Plot permutation distributions for DAPC assignment accuracy, D, and ND}
 \usage{
 \method{plot}{DAPC.permutation}(
   dapc_result,
@@ -12,7 +12,7 @@
   axis.ticks.font.size = 7,
   N.bar.breaks = 20,
   add.title = TRUE,
-  title.text = "Null distribution of DAPC mean assignment accuracy",
+  title.text = "Null distributions of DAPC metrics",
   show.plot = TRUE,
   save = FALSE,
   overwrite = FALSE,
@@ -27,14 +27,15 @@
 }
 \arguments{
 \item{dapc_result}{Result object returned by
-\code{run.DAPC.crossval.permutation()}. The object must contain
-\code{observed_assign_prop} and a numeric vector of \code{permutation_assign_props}.}
+\code{run.DAPC.crossval.permutation()} with label permutations. The object must
+contain the observed values, permutation distributions, and p-values for
+assignment accuracy, Schoener's D, and ND.}
 
-\item{bar.color}{A single character string giving the histogram bar fill color
-(default: \code{"lightgrey"}).}
+\item{bar.color}{A single character string giving the histogram bar fill
+color (default: \code{"lightgrey"}).}
 
 \item{line.color}{A single character string giving the color of the observed
-assignment-accuracy marker (default: \code{"firebrick"}).}
+metric marker (default: \code{"firebrick"}).}
 
 \item{axis.labels.font.size}{A single positive numeric value giving the axis
 title font size (default: \code{9.1}).}
@@ -48,7 +49,7 @@ number of histogram bins (default: \code{20}).}
 \item{add.title}{Logical; if \code{TRUE}, a plot title is added (default: \code{TRUE}).}
 
 \item{title.text}{A single character string giving the plot title when
-\code{add.title = TRUE} (default: \code{"Null distribution of DAPC mean assignment accuracy"}).}
+\code{add.title = TRUE} (default: \code{"Null distributions of DAPC metrics"}).}
 
 \item{show.plot}{Logical; if \code{TRUE}, the plot is returned visibly
 (default: \code{TRUE}).}
@@ -86,32 +87,15 @@ A \code{ggplot} object. If \code{show.plot = TRUE}, the plot is returned
 visibly; otherwise it is returned invisibly.
 }
 \description{
-Plot null distribution of permutation assignment accuracy together with
-the observed assignment accuracy from DAPC niche-divergence analysis.
+Plot null distributions of label-permutation assignment accuracy,
+Schoener's D, and niche divergence magnitude (ND), with their corresponding
+observed values and p-values as histograms.
 }
 \details{
-The permutation histogram visualizes the null expectation for DAPC assignment
-accuracy under the hypothesis of a single shared niche (k = 1).
-In this null model, group identity is treated as exchangeable, so the
-distribution of permuted assignment accuracies represents the level of
-discrimination expected when environmental predictors are not consistently
-associated with the given group labels.
-
-The observed assignment accuracy is shown relative to this null distribution.
-If the observed value falls in the upper tail of the permutation distribution,
-this indicates that the fitted discriminant separation is stronger than
-expected under random group membership. The plot therefore provides a visual
-complement to the permutation p-value returned by
-\code{run.DAPC.crossval.permutation()}.
-
-This diagnostic is important because apparent group separation can arise by
-chance, especially in high-dimensional environmental datasets. Comparing the
-empirical assignment accuracy against a random-label null distribution helps
-distinguish niche divergence from discrimination caused by model flexibility,
-random label structure, or sampling imbalance.
-
-A significant permutation result indicates that observed group separation
-exceeds the random-label null expectation. The plot and p-value should be
-interpreted together with niche-overlap metrics because a significant p-value
-can be obtained even when overall niche divergence is low.
+The three panels display the label-permutation null distributions for mean
+assignment accuracy, Schoener's D, and niche divergence magnitude (ND).
+Each panel marks the observed value and displays its permutation p-value.
+Assignment accuracy and ND use upper-tail tests, while Schoener's D uses a
+lower-tail test. P-values are extracted directly from the DAPC results.
+Spatial background permutations are not supported by this function.
 }

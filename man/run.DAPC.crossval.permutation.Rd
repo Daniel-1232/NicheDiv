@@ -2,13 +2,12 @@
 % Please edit documentation in R/NicheDiv-functions.R
 \name{run.DAPC.crossval.permutation}
 \alias{run.DAPC.crossval.permutation}
-\title{Run cross-validated DAPC with permutation testing}
+\title{Run cross-validated DAPC with optional permutation testing}
 \usage{
 run.DAPC.crossval.permutation(
   data.input,
-  N.crossval.replicates = 100,
+  N.crossval.replicates = 10,
   N.permutations = 999,
-  fixed.n.pcs = NULL,
   exclude.cols = NULL,
   species.col = "Species",
   max.NA.prop = 0.2,
@@ -17,12 +16,15 @@ run.DAPC.crossval.permutation(
   overwrite = FALSE,
   output.dir,
   output.filename,
+  N.heldout.replicates = 0,
+  N.bootstrap.replicates = 0,
   Sp1.background.data = NULL,
   Sp2.background.data = NULL,
   background.permutation.test = FALSE,
   use.parallel = c("auto", "Windows", "Unix", "none"),
   N.cores = 3,
   seed = 1,
+  message.N.permutations = 100,
   verbose = TRUE
 )
 }
@@ -32,17 +34,14 @@ variables and the grouping column specified by \code{species.col}. Non-numeric
 predictor columns are removed before analysis. Exactly two groups are
 required.}
 
-\item{N.crossval.replicates}{A single positive integer-like numeric value
-giving the number of cross-validation replicates (recommended default: \code{100}).}
+\item{N.crossval.replicates}{An integer-like numeric value of at least \code{2}
+giving the number of repetitions of stratified 5-fold cross-validation
+(recommended default: \code{10}, corresponding to 50 total fold evaluations
+per candidate PC count in each stage).}
 
 \item{N.permutations}{\code{NULL} or a single non-negative integer-like numeric
 value giving the number of permutation replicates (default: \code{999}).
 Use \code{NULL} or \code{0} to skip permutation testing while retaining the DAPC fit.}
-
-\item{fixed.n.pcs}{Optional positive integer-like numeric value giving a fixed
-number of PCs to retain. If \code{NULL}, the number of PCs is determined by
-cross-validation (default: \code{NULL}; recommended: \code{NULL} unless a fixed PC
-number is justified by prior analyses or sensitivity tests).}
 
 \item{exclude.cols}{Optional character vector of columns to remove before
 analysis (default: \code{NULL}).}
@@ -52,8 +51,7 @@ column name in \code{data.input} (default: \code{"Species"}).}
 
 \item{max.NA.prop}{A single numeric value between \code{0} and \code{1} giving the
 maximum allowed proportion of missing values per row before that row is
-removed (default: \code{0.2}; recommended: \code{0.2} to allow moderate missingness
-while limiting imputation-driven bias).}
+removed (recommended default: \code{0.2}).}
 
 \item{impute.NA.median}{Logical; if \code{TRUE}, remaining missing values are
 imputed using the median of each variable. If \code{FALSE}, incomplete rows are
@@ -70,6 +68,20 @@ when \code{save = TRUE} (default: \code{FALSE}).}
 
 \item{output.filename}{Character string giving the output file name used when
 \code{save = TRUE}. Required only when \code{save = TRUE}.}
+
+\item{N.heldout.replicates}{A non-negative integer giving the number of
+repeated stratified 50/50 held-out evaluations (default: \code{0}; disabled;
+recommended: \code{20} when enabled). When enabled, PC selection, PCA, and
+discriminant analysis are fitted on training records, and predictions and
+discriminant analysis scores are obtained for held-out records. Niche
+metrics can subsequently be calculated using
+\code{calc.niche.divergence.metrics()}.}
+
+\item{N.bootstrap.replicates}{A non-negative integer giving the number of
+bootstrap replicates for unweighted held-out niche-metric summaries,
+including 95\% confidence intervals (default: \code{0}; disabled; recommended:
+\code{199} for exploratory analyses and \code{499} or \code{999} for final analyses).
+Positive values require \code{N.heldout.replicates > 0}.}
 
 \item{Sp1.background.data}{Optional \code{data.frame} containing environmental
 predictors and longitude/latitude coordinates for the geographic
@@ -99,6 +111,9 @@ default: \code{3}).}
 \item{seed}{A single numeric value used to set the random seed for
 reproducibility (default: \code{1}).}
 
+\item{message.N.permutations}{A positive integer giving the number of
+permutations processed between progress messages (default: \code{100}).}
+
 \item{verbose}{Logical; if \code{TRUE}, progress messages are printed
 (default: \code{TRUE}).}
 }
@@ -109,7 +124,7 @@ A named list containing:
 the first stage was skipped.}
 \item{optimal_pcs_crossval_run1}{Optimal number of PCs from the first
 cross-validation stage, or \code{NA} if unavailable.}
-\item{crossval_run2}{Second-stage cross-validation object.}
+\item{crossval_run2}{Final stage cross-validation object.}
 \item{optimal_pcs_crossval_run2}{Final number of PCs retained for DAPC.}
 \item{dapc_results}{Fitted DAPC-like result object containing
 discriminant assignments, group labels, retained PC count, discriminant
@@ -118,66 +133,117 @@ and discriminant scaling.}
 \item{pca_object}{PCA object used to generate the retained PC scores.}
 \item{var_explained}{Cumulative proportion of variance explained by the
 retained PCs.}
-\item{observed_assign_prop}{Observed mean assignment accuracy.}
+\item{observed_assign_prop}{Observed (in-sample) mean assignment
+accuracy.}
 \item{permutation_assign_props}{Permutation null distribution of mean
 assignment accuracy. If \code{background.permutation.test = TRUE}, this is a
 list containing \code{species1_shifted} and \code{species2_shifted} distributions.
 When permutation testing is skipped, this is \code{numeric(0)}.}
-\item{p_val_assign}{Permutation p-value for assignment accuracy. If
-\code{background.permutation.test = TRUE}, this is a named vector containing
+\item{p_val_assign}{Permutation p-value for assignment accuracy
+(upper-tail for label permutations; two-sided for spatial background
+permutations). Background permutations return a named vector with
 \code{species1_shifted} and \code{species2_shifted} p-values. When permutation
 testing is skipped, this is \code{NA_real_}.}
 \item{ARI}{Adjusted Rand index comparing DAPC-predicted groupings to the
 supplied group labels.}
+\item{heldout_results}{Optional list containing held-out discriminant
+analysis scores, species assignments, selected PC counts, accuracy,
+ARI, and training/test indices for each repetition. \code{NULL} when
+disabled. Niche divergence metrics are calculated separately by
+\code{calc.niche.divergence.metrics}.}
+\item{bootstrap_metric_means}{Bootstrap replicate means for D, NDS, NE,
+ND, and theta, or \code{NULL} when bootstrap is disabled.}
+\item{bootstrap_CI}{Percentile-based 95\% confidence intervals for
+unweighted mean held-out niche metrics, or \code{NULL} when bootstrap is
+disabled.}
+\item{bootstrap_metric_grid_resolution}{KDE grid resolution used for the
+unweighted bootstrap metric calculations.}
+\item{observed_Schoener_D}{Observed unweighted Schoener's D, or \code{NA} if
+permutations are disabled.}
+\item{observed_ND}{Observed unweighted niche divergence magnitude, or
+\code{NA} if permutations are disabled.}
+\item{permutation_Schoener_D}{Permutation null distribution for D, or
+directional lists when spatial background permutations are enabled.}
+\item{permutation_ND}{Permutation null distribution for ND, or
+directional lists when spatial background permutations are enabled.}
+\item{p_val_Schoener_D}{Lower-tail permutation p-value for Schoener's D,
+or a directional named vector for spatial background permutations.}
+\item{p_val_ND}{Upper-tail permutation p-value for niche divergence,
+or a directional named vector for spatial background permutations.}
+\item{permutation_metric_grid_resolution}{Grid resolution used to
+calculate unweighted permutation D and ND metrics.}
 }
 }
 \description{
 Fit a DAPC-based niche divergence analysis for two groups and assess
-significance using permutation testing. The function preprocesses
-environmental predictors, selects the number of retained PCs by
-cross-validation (unless a fixed value is supplied), fits the final
-discriminant model, and evaluates whether observed group separation exceeds
-null expectations.
+significance using optional permutation testing. The function preprocesses
+environmental predictors, selects the number of retained PCs by two-stage
+cross-validation, fits the final discriminant model, and evaluates whether
+observed group separation exceeds null expectations. PC selection uses
+repeated stratified 5-fold cross-validation (80\% training and 20\% validation
+per fold).
 }
 \details{
 Discriminant analysis of principal components (DAPC; Jombart et al., 2010)
-is used here to test for niche divergence between two a priori groups,
-such as species, lineages, or populations, using environmental predictors
-associated with occurrence records.
+is used to test for niche divergence between two a priori groups, such as
+species, lineages, or populations, using environmental predictors associated
+with occurrence records.
 
-The method first reduces the predictor space with principal component
-analysis (PCA) before fitting a discriminant model. This PCA step transforms
-correlated environmental variables into orthogonal axes and reduces
-multicollinearity and high-dimensionality problems that can make discriminant
-analysis unstable. Discriminant analysis is then used to identify axes that
-maximize between-group separation while minimizing within-group variability,
+The method runs principal component analysis (PCA) before fitting a
+discriminant model. This PCA step transforms correlated environmental
+variables into orthogonal, uncorrelated axes, eliminating multicollinearity
+among the retained components. Retaining a subset of these components also
+reduces dimensionality, helping prevent overfitting and numerical instability
+in discriminant analysis. Discriminant analysis is then used to identify axes
+that maximize between-group separation relative to within-group variability,
 providing a supervised measure of environmental differentiation between the
 two groups (Lachenbruch & Goldstein, 1979; Jombart et al., 2010).
 
-Choosing the number of retained principal components (PCs) is important because
-retaining too few PCs can discard biologically meaningful environmental signal,
-whereas retaining too many PCs can overfit noise and inflate apparent
-classification accuracy. Cross-validation is therefore used to identify a PC
-number that balances information retention and predictive stability.
-The selected number of PCs is interpreted as a compromise between underfitting
-and overfitting, where additional PCs no longer improve out-of-sample
-group assignment (Jombart, 2022).
+Choosing the number of retained principal components (PCs) is important
+because retaining too few PCs can discard biologically meaningful
+environmental signal, whereas retaining too many PCs can overfit noise and
+inflate apparent classification accuracy. Cross-validation is therefore used
+to select a PC count that balances underfitting and overfitting by optimizing
+out-of-sample group assignment performance (Jombart & Collins, 2022). We use
+stratified cross-validation with training-only PCA to select the smallest
+number of PCs whose mean class-balanced classification error is within one
+standard error (SE) of the minimum mean error (Breiman et al., 1984). The
+five fold-level errors are averaged within each CV repetition, and the SE is
+calculated across repetition-level means. The maximum number of retained PCs
+is limited by the smaller training group size and mathematical constraints
+to reduce overfitting and numerical instability. Because exhaustive
+cross-validation can be computationally expensive, an adaptive search
+strategy balances computational efficiency with PC selection resolution.
+Up to 13 PCs are evaluated exhaustively; 14-30 PCs use a coarse grid of
+5, 15, and 25 PCs (capped at the maximum), followed by an 11-PC fine search.
+Above 30 PCs, both grid spacing and fine-search width adapt to minimize
+evaluations. Fine searches focus on the best coarse-stage count and respect
+PC limits. If the one-SE-selected PC count is at a fine-search boundary,
+the adjacent count is tested using the same CV splits. The search extends
+one PC at a time while the new boundary count is selected, up to the
+allowed PC limits. Each stage uses \code{N.crossval.replicates} repetitions of
+stratified 5-fold cross-validation.
 
-The final model is summarized using mean assignment accuracy and the adjusted
-Rand index. Mean assignment accuracy describes how often samples are assigned
-to their supplied groups, providing an intuitive measure of group
-distinctiveness in discriminant environmental space. The adjusted Rand index
-compares predicted and supplied groupings while accounting for agreement
-expected by chance, making it useful when evaluating whether discriminant
-assignments recover the original taxon labels.
+The final model is summarized using (in-sample) mean assignment accuracy and
+the adjusted Rand index (ARI; Hubert & Arabie, 1985). Mean assignment
+accuracy describes how often samples are assigned to their supplied groups,
+providing an intuitive measure of group distinctiveness in discriminant
+environmental space. The adjusted Rand index compares predicted and supplied
+groupings while accounting for agreement expected by chance, making it useful
+when evaluating whether discriminant assignments recover the original taxon
+labels.
 
 Permutation testing is used to evaluate whether the observed environmental
 separation between groups exceeds chance expectations. By randomly
-reassigning group labels while preserving sample sizes, the test constructs a
-null distribution representing a single shared niche with no fixed association
-between environmental predictors and group identity. Observed assignment
-accuracy is then compared with this null distribution to assess whether the
-fitted discrimination is stronger than expected under random group membership.
+reassigning group labels while preserving sample sizes, the test constructs
+null distributions representing a single shared niche with no fixed
+association between environmental predictors and group identity. The number
+of PCs is reselected by cross-validation for each permutation. Observed
+assignment accuracy, Schoener's D, and niche divergence magnitude (ND) are
+then compared with their respective null distributions to assess whether
+environmental differentiation exceeds random expectations. For label
+permutations, upper-tail tests are used for assignment accuracy and ND,
+whereas a lower-tail test is used for Schoener's D.
 
 The optional background permutation test provides a complementary assessment
 conditioned on the environments available to each species. Following the
@@ -187,67 +253,79 @@ geographic backgrounds. Invalid shifted locations are discarded, and
 samples from repeated shifts are pooled to retain the original sample size.
 Environmental conditions are extracted from the nearest background records.
 Each species is shifted separately while the other remains unchanged.
-DAPC assignment accuracy is recalculated for each permutation and compared
-with the observed accuracy to obtain directional background-conditioned
-p-values. This implementation approximates HUMBOLDT's spatial randomization
-but uses DAPC assignment accuracy rather than environmental niche overlap.
-In this framework, background-conditioned null comparisons help distinguish
-weak divergence from limited power caused by similar or constrained
-environmental availability.
+DAPC assignment accuracy, Schoener's D, and niche divergence magnitude
+(ND) are recalculated for each permutation and compared with their observed
+values to obtain background-conditioned p-values. Two-sided tests are used
+for assignment accuracy, whereas lower- and upper-tail tests are used for
+Schoener's D and ND, respectively. This implementation approximates
+HUMBOLDT's spatial randomization but evaluates DAPC-based statistics
+rather than relying solely on environmental niche overlap.
+Background-conditioned null comparisons help distinguish weak divergence
+from limited power caused by similar or constrained environmental
+availability.
 
 Missing values are handled before ordination and discrimination because these
-methods require complete numeric inputs. Rows with excessive missingness are
-removed, and remaining missing values can either be imputed by the median or
-handled by complete-case filtering. The default missingness threshold
-(\code{max.NA.prop = 0.2}) is intended as a practical compromise that permits
-moderate missingness while reducing the risk that ordination and
-discrimination are driven by imputation or incomplete records (Harrell, 2015;
-van Buuren, 2018).
+methods require complete numeric inputs. Rows with excessive missingness,
+determined by \code{max.NA.prop}, are removed, and remaining missing values can
+either be imputed using variable medians or handled by complete-case
+filtering. Missing-data handling involves trade-offs between excluding
+incomplete observations and introducing uncertainty through imputation
+(Harrell, 2015; van Buuren, 2018). The default threshold
+(\code{max.NA.prop = 0.2}) is a pragmatic implementation choice rather than
+a universally established optimal cutoff.
 
 Because DAPC maximizes discrimination between predefined groups based on
 multivariate mean differences relative to within-group variation, ecological
 differences arising primarily from contrasting relationships between
 environmental variables may not be fully represented along the discriminant
-axis, potentially reducing the accuracy of the inferred niche divergence
-metrics. For example, two variables may be positively correlated in one
-species but negatively correlated in another despite similar individual
-distributions. To identify such cases, the function implements a diagnostic
-comparing species-specific Pearson correlation matrices after predictor
-filtering and missing-value handling. Pairs are flagged when correlations
-have opposite signs, absolute values >= 0.4 in both species, and an absolute
-difference >= 0.8, provided both variables have similar individual
-distributions (Kolmogorov-Smirnov distance <= 0.25, absolute standardized
-mean difference <= 0.35, and SD ratio <= 1.5). These criteria assess
-distributional shape, location, and spread, while an approximate Fisher-z
-test with Benjamini-Hochberg FDR < 0.05 reduces false positives from
-multiple comparisons. The diagnostic requires at least 25 samples per
-species, excludes variables with negligible within-species variance, and
-is skipped when more than 1000 predictors remain to limit computational
-costs. Thresholds are exploratory, and Fisher-z tests assume independent
-observations and approximate bivariate normality, potentially yielding
-unreliable significance estimates with non-normal or spatially
-autocorrelated data. Furthermore, the diagnostic detects only pronounced
-pairwise correlation reversals, not all covariance differences or nonlinear
-relationships; thus, no flagged pairs does not guarantee that DAPC captures
-all ecological differences. When pairs are flagged, users should examine
-species-specific bivariate distributions, investigate outliers, sampling
-artifacts, and spatial autocorrelation, and assess the variables' ecological
-relevance and discriminant contributions. Sensitivity analyses should rerun
-the complete DAPC procedure, including PCA, cross-validation, and
-permutation testing, after excluding each implicated variable separately
-and, where appropriate, both together. The resulting niche divergence
-metrics should then be compared with the original estimates.
+axis, potentially reducing the accuracy of inferred niche divergence metrics.
+For example, two variables may be positively correlated in one species but
+negatively correlated in another despite similar individual distributions.
+To identify such cases, the function compares species-specific Pearson
+correlation matrices after predictor filtering and missing-value handling.
+Pairs are flagged when correlations have opposite signs, absolute values
+\verb{>= 0.4} in both species, and an absolute difference \verb{>= 0.8}, provided both
+variables have similar individual distributions (Kolmogorov-Smirnov distance
+<= 0.25, absolute standardized mean difference <= 0.35, and SD ratio <= 1.5).
+These criteria assess distributional shape, location, and spread, while an
+approximate Fisher-z test with Benjamini-Hochberg FDR < 0.05 (Benjamini &
+Hochberg, 1995) reduces false positives from multiple comparisons. The
+diagnostic requires at least twelve observations per group and no more than
+2,000 predictors, and excludes variables with negligible within-species
+variance. Fisher-z tests assume independent observations and approximate
+bivariate normality, potentially yielding unreliable significance estimates
+with non-normal or spatially autocorrelated data. When pairs are flagged,
+users should examine species-specific bivariate distributions, investigate
+outliers, sampling artifacts, and spatial autocorrelation, and assess the
+variables' ecological relevance and discriminant contributions. Sensitivity
+analyses should rerun the complete DAPC procedure, including PCA,
+cross-validation, and permutation testing, after excluding each implicated
+variable separately and, where appropriate, both together. The resulting
+niche divergence metrics should then be compared with the original estimates.
 }
 \references{
-Brown, J., & Carnaval, A. C. (2019). A tale of two niches: Methods, concepts,
-and evolution. \emph{Frontiers of Biogeography}, 11(4).
+Benjamini, Y., & Hochberg, Y. (1995). Controlling the false discovery rate:
+A practical and powerful approach to multiple testing.
+\emph{Journal of the Royal Statistical Society: Series B (Methodological)},
+57(1), 289-300. https://doi.org/10.1111/j.2517-6161.1995.tb02031.x
+
+Breiman, L., Friedman, J. H., Olshen, R. A., & Stone, C. J. (1984).
+\emph{Classification and regression trees}. Wadsworth.
+
+Brown, J. L., & Carnaval, A. C. (2019). A tale of two niches: Methods,
+concepts, and evolution. \emph{Frontiers of Biogeography}, 11(4), e44158.
 https://doi.org/10.21425/F5FBG44158
 
-Harrell, F. E. (2015). \emph{Regression modeling strategies: With applications
-to linear models, logistic and ordinal regression, and survival analysis}
-(2nd ed.). Springer.
+Harrell, F. E., Jr. (2015). \emph{Regression modeling strategies: With
+applications to linear models, logistic and ordinal regression, and
+survival analysis} (2nd ed.). Springer.
+https://doi.org/10.1007/978-3-319-19425-7
 
-Jombart, T. (2022). \emph{adegenet tutorials}.
+Hubert, L., & Arabie, P. (1985). Comparing partitions. \emph{Journal of
+Classification}, 2, 193-218. https://doi.org/10.1007/BF01908075
+
+Jombart, T., & Collins, C. (2022). \emph{A tutorial for discriminant
+analysis of principal components (DAPC) using adegenet 2.1.6}.
 https://github.com/thibautjombart/adegenet/wiki/Tutorials
 
 Jombart, T., Devillard, S., & Balloux, F. (2010). Discriminant analysis of
@@ -256,8 +334,8 @@ structured populations. \emph{BMC Genetics}, 11, 94.
 https://doi.org/10.1186/1471-2156-11-94
 
 Lachenbruch, P. A., & Goldstein, M. (1979). Discriminant analysis.
-\emph{Biometrics}, 35(1), 69. https://doi.org/10.2307/2529937
+\emph{Biometrics}, 35(1), 69-85. https://doi.org/10.2307/2529937
 
-van Buuren, S. (2018). \emph{Flexible imputation of missing data}. Chapman &
-Hall/CRC.
+van Buuren, S. (2018). \emph{Flexible imputation of missing data}
+(2nd ed.). Chapman & Hall/CRC.
 }

@@ -2601,37 +2601,47 @@ trim.to.analogous.environments <- function(Sp1.occurrence.data, #occurrence data
 }
 
 
-## Function to run DAPC niche divergence test with cross-validation and permutation test
-#' Run cross-validated DAPC with permutation testing
+## Function to run DAPC niche divergence test with cross-validation and permutation testing
+#' Run cross-validated DAPC with optional permutation testing
 #'
 #' Fit a DAPC-based niche divergence analysis for two groups and assess
-#' significance using permutation testing. The function preprocesses
-#' environmental predictors, selects the number of retained PCs by
-#' cross-validation (unless a fixed value is supplied), fits the final
-#' discriminant model, and evaluates whether observed group separation exceeds
-#' null expectations.
+#' significance using optional permutation testing. The function preprocesses
+#' environmental predictors, selects the number of retained PCs by two-stage
+#' cross-validation, fits the final discriminant model, and evaluates whether
+#' observed group separation exceeds null expectations. PC selection uses
+#' repeated stratified 5-fold cross-validation (80% training and 20% validation
+#' per fold).
 #'
 #' @param data.input A matrix or `data.frame` containing environmental predictor
 #'   variables and the grouping column specified by `species.col`. Non-numeric
 #'   predictor columns are removed before analysis. Exactly two groups are
 #'   required.
-#' @param N.crossval.replicates A single positive integer-like numeric value
-#'   giving the number of cross-validation replicates (recommended default: `100`).
+#' @param N.crossval.replicates An integer-like numeric value of at least `2`
+#'   giving the number of repetitions of stratified 5-fold cross-validation
+#'   (recommended default: `10`, corresponding to 50 total fold evaluations
+#'   per candidate PC count in each stage).
+#' @param N.heldout.replicates A non-negative integer giving the number of
+#'   repeated stratified 50/50 held-out evaluations (default: `0`; disabled;
+#'   recommended: `20` when enabled). When enabled, PC selection, PCA, and
+#'   discriminant analysis are fitted on training records, and predictions and
+#'   discriminant analysis scores are obtained for held-out records. Niche
+#'   metrics can subsequently be calculated using
+#'   `calc.niche.divergence.metrics()`.
+#' @param N.bootstrap.replicates A non-negative integer giving the number of
+#'   bootstrap replicates for unweighted held-out niche-metric summaries,
+#'   including 95% confidence intervals (default: `0`; disabled; recommended:
+#'   `199` for exploratory analyses and `499` or `999` for final analyses).
+#'   Positive values require `N.heldout.replicates > 0`.
 #' @param N.permutations `NULL` or a single non-negative integer-like numeric
 #'   value giving the number of permutation replicates (default: `999`).
 #'   Use `NULL` or `0` to skip permutation testing while retaining the DAPC fit.
-#' @param fixed.n.pcs Optional positive integer-like numeric value giving a fixed
-#'   number of PCs to retain. If `NULL`, the number of PCs is determined by
-#'   cross-validation (default: `NULL`; recommended: `NULL` unless a fixed PC
-#'   number is justified by prior analyses or sensitivity tests).
 #' @param exclude.cols Optional character vector of columns to remove before
 #'   analysis (default: `NULL`).
 #' @param species.col A single character string giving the species or group
 #'   column name in `data.input` (default: `"Species"`).
 #' @param max.NA.prop A single numeric value between `0` and `1` giving the
 #'   maximum allowed proportion of missing values per row before that row is
-#'   removed (default: `0.2`; recommended: `0.2` to allow moderate missingness
-#'   while limiting imputation-driven bias).
+#'   removed (recommended default: `0.2`).
 #' @param impute.NA.median Logical; if `TRUE`, remaining missing values are
 #'   imputed using the median of each variable. If `FALSE`, incomplete rows are
 #'   removed after applying `max.NA.prop` (default: `TRUE`).
@@ -2665,48 +2675,72 @@ trim.to.analogous.environments <- function(Sp1.occurrence.data, #occurrence data
 #'   default: `3`).
 #' @param seed A single numeric value used to set the random seed for
 #'   reproducibility (default: `1`).
+#' @param message.N.permutations A positive integer giving the number of
+#'   permutations processed between progress messages (default: `100`).
 #' @param verbose Logical; if `TRUE`, progress messages are printed
 #'   (default: `TRUE`).
 #'
 #' @details
 #' Discriminant analysis of principal components (DAPC; Jombart et al., 2010)
-#' is used here to test for niche divergence between two a priori groups,
-#' such as species, lineages, or populations, using environmental predictors
-#' associated with occurrence records.
+#' is used to test for niche divergence between two a priori groups, such as
+#' species, lineages, or populations, using environmental predictors associated
+#' with occurrence records.
 #'
-#' The method first reduces the predictor space with principal component
-#' analysis (PCA) before fitting a discriminant model. This PCA step transforms
-#' correlated environmental variables into orthogonal axes and reduces
-#' multicollinearity and high-dimensionality problems that can make discriminant
-#' analysis unstable. Discriminant analysis is then used to identify axes that
-#' maximize between-group separation while minimizing within-group variability,
+#' The method runs principal component analysis (PCA) before fitting a
+#' discriminant model. This PCA step transforms correlated environmental
+#' variables into orthogonal, uncorrelated axes, eliminating multicollinearity
+#' among the retained components. Retaining a subset of these components also
+#' reduces dimensionality, helping prevent overfitting and numerical instability
+#' in discriminant analysis. Discriminant analysis is then used to identify axes
+#' that maximize between-group separation relative to within-group variability,
 #' providing a supervised measure of environmental differentiation between the
 #' two groups (Lachenbruch & Goldstein, 1979; Jombart et al., 2010).
 #'
-#' Choosing the number of retained principal components (PCs) is important because
-#' retaining too few PCs can discard biologically meaningful environmental signal,
-#' whereas retaining too many PCs can overfit noise and inflate apparent
-#' classification accuracy. Cross-validation is therefore used to identify a PC
-#' number that balances information retention and predictive stability.
-#' The selected number of PCs is interpreted as a compromise between underfitting
-#' and overfitting, where additional PCs no longer improve out-of-sample
-#' group assignment (Jombart, 2022).
+#' Choosing the number of retained principal components (PCs) is important
+#' because retaining too few PCs can discard biologically meaningful
+#' environmental signal, whereas retaining too many PCs can overfit noise and
+#' inflate apparent classification accuracy. Cross-validation is therefore used
+#' to select a PC count that balances underfitting and overfitting by optimizing
+#' out-of-sample group assignment performance (Jombart & Collins, 2022). We use
+#' stratified cross-validation with training-only PCA to select the smallest
+#' number of PCs whose mean class-balanced classification error is within one
+#' standard error (SE) of the minimum mean error (Breiman et al., 1984). The
+#' five fold-level errors are averaged within each CV repetition, and the SE is
+#' calculated across repetition-level means. The maximum number of retained PCs
+#' is limited by the smaller training group size and mathematical constraints
+#' to reduce overfitting and numerical instability. Because exhaustive
+#' cross-validation can be computationally expensive, an adaptive search
+#' strategy balances computational efficiency with PC selection resolution.
+#' Up to 13 PCs are evaluated exhaustively; 14-30 PCs use a coarse grid of
+#' 5, 15, and 25 PCs (capped at the maximum), followed by an 11-PC fine search.
+#' Above 30 PCs, both grid spacing and fine-search width adapt to minimize
+#' evaluations. Fine searches focus on the best coarse-stage count and respect
+#' PC limits. If the one-SE-selected PC count is at a fine-search boundary,
+#' the adjacent count is tested using the same CV splits. The search extends
+#' one PC at a time while the new boundary count is selected, up to the
+#' allowed PC limits. Each stage uses `N.crossval.replicates` repetitions of
+#' stratified 5-fold cross-validation.
 #'
-#' The final model is summarized using mean assignment accuracy and the adjusted
-#' Rand index. Mean assignment accuracy describes how often samples are assigned
-#' to their supplied groups, providing an intuitive measure of group
-#' distinctiveness in discriminant environmental space. The adjusted Rand index
-#' compares predicted and supplied groupings while accounting for agreement
-#' expected by chance, making it useful when evaluating whether discriminant
-#' assignments recover the original taxon labels.
+#' The final model is summarized using (in-sample) mean assignment accuracy and
+#' the adjusted Rand index (ARI; Hubert & Arabie, 1985). Mean assignment
+#' accuracy describes how often samples are assigned to their supplied groups,
+#' providing an intuitive measure of group distinctiveness in discriminant
+#' environmental space. The adjusted Rand index compares predicted and supplied
+#' groupings while accounting for agreement expected by chance, making it useful
+#' when evaluating whether discriminant assignments recover the original taxon
+#' labels.
 #'
 #' Permutation testing is used to evaluate whether the observed environmental
 #' separation between groups exceeds chance expectations. By randomly
-#' reassigning group labels while preserving sample sizes, the test constructs a
-#' null distribution representing a single shared niche with no fixed association
-#' between environmental predictors and group identity. Observed assignment
-#' accuracy is then compared with this null distribution to assess whether the
-#' fitted discrimination is stronger than expected under random group membership.
+#' reassigning group labels while preserving sample sizes, the test constructs
+#' null distributions representing a single shared niche with no fixed
+#' association between environmental predictors and group identity. The number
+#' of PCs is reselected by cross-validation for each permutation. Observed
+#' assignment accuracy, Schoener's D, and niche divergence magnitude (ND) are
+#' then compared with their respective null distributions to assess whether
+#' environmental differentiation exceeds random expectations. For label
+#' permutations, upper-tail tests are used for assignment accuracy and ND,
+#' whereas a lower-tail test is used for Schoener's D.
 #'
 #' The optional background permutation test provides a complementary assessment
 #' conditioned on the environments available to each species. Following the
@@ -2716,56 +2750,55 @@ trim.to.analogous.environments <- function(Sp1.occurrence.data, #occurrence data
 #' samples from repeated shifts are pooled to retain the original sample size.
 #' Environmental conditions are extracted from the nearest background records.
 #' Each species is shifted separately while the other remains unchanged.
-#' DAPC assignment accuracy is recalculated for each permutation and compared
-#' with the observed accuracy to obtain directional background-conditioned
-#' p-values. This implementation approximates HUMBOLDT's spatial randomization
-#' but uses DAPC assignment accuracy rather than environmental niche overlap.
-#' In this framework, background-conditioned null comparisons help distinguish
-#' weak divergence from limited power caused by similar or constrained
-#' environmental availability.
+#' DAPC assignment accuracy, Schoener's D, and niche divergence magnitude
+#' (ND) are recalculated for each permutation and compared with their observed
+#' values to obtain background-conditioned p-values. Two-sided tests are used
+#' for assignment accuracy, whereas lower- and upper-tail tests are used for
+#' Schoener's D and ND, respectively. This implementation approximates
+#' HUMBOLDT's spatial randomization but evaluates DAPC-based statistics
+#' rather than relying solely on environmental niche overlap.
+#' Background-conditioned null comparisons help distinguish weak divergence
+#' from limited power caused by similar or constrained environmental
+#' availability.
 #'
 #' Missing values are handled before ordination and discrimination because these
-#' methods require complete numeric inputs. Rows with excessive missingness are
-#' removed, and remaining missing values can either be imputed by the median or
-#' handled by complete-case filtering. The default missingness threshold
-#' (`max.NA.prop = 0.2`) is intended as a practical compromise that permits
-#' moderate missingness while reducing the risk that ordination and
-#' discrimination are driven by imputation or incomplete records (Harrell, 2015;
-#' van Buuren, 2018).
+#' methods require complete numeric inputs. Rows with excessive missingness,
+#' determined by `max.NA.prop`, are removed, and remaining missing values can
+#' either be imputed using variable medians or handled by complete-case
+#' filtering. Missing-data handling involves trade-offs between excluding
+#' incomplete observations and introducing uncertainty through imputation
+#' (Harrell, 2015; van Buuren, 2018). The default threshold
+#' (`max.NA.prop = 0.2`) is a pragmatic implementation choice rather than
+#' a universally established optimal cutoff.
 #'
 #' Because DAPC maximizes discrimination between predefined groups based on
 #' multivariate mean differences relative to within-group variation, ecological
 #' differences arising primarily from contrasting relationships between
 #' environmental variables may not be fully represented along the discriminant
-#' axis, potentially reducing the accuracy of the inferred niche divergence
-#' metrics. For example, two variables may be positively correlated in one
-#' species but negatively correlated in another despite similar individual
-#' distributions. To identify such cases, the function implements a diagnostic
-#' comparing species-specific Pearson correlation matrices after predictor
-#' filtering and missing-value handling. Pairs are flagged when correlations
-#' have opposite signs, absolute values >= 0.4 in both species, and an absolute
-#' difference >= 0.8, provided both variables have similar individual
-#' distributions (Kolmogorov-Smirnov distance <= 0.25, absolute standardized
-#' mean difference <= 0.35, and SD ratio <= 1.5). These criteria assess
-#' distributional shape, location, and spread, while an approximate Fisher-z
-#' test with Benjamini-Hochberg FDR < 0.05 reduces false positives from
-#' multiple comparisons. The diagnostic requires at least 25 samples per
-#' species, excludes variables with negligible within-species variance, and
-#' is skipped when more than 1000 predictors remain to limit computational
-#' costs. Thresholds are exploratory, and Fisher-z tests assume independent
-#' observations and approximate bivariate normality, potentially yielding
-#' unreliable significance estimates with non-normal or spatially
-#' autocorrelated data. Furthermore, the diagnostic detects only pronounced
-#' pairwise correlation reversals, not all covariance differences or nonlinear
-#' relationships; thus, no flagged pairs does not guarantee that DAPC captures
-#' all ecological differences. When pairs are flagged, users should examine
-#' species-specific bivariate distributions, investigate outliers, sampling
-#' artifacts, and spatial autocorrelation, and assess the variables' ecological
-#' relevance and discriminant contributions. Sensitivity analyses should rerun
-#' the complete DAPC procedure, including PCA, cross-validation, and
-#' permutation testing, after excluding each implicated variable separately
-#' and, where appropriate, both together. The resulting niche divergence
-#' metrics should then be compared with the original estimates.
+#' axis, potentially reducing the accuracy of inferred niche divergence metrics.
+#' For example, two variables may be positively correlated in one species but
+#' negatively correlated in another despite similar individual distributions.
+#' To identify such cases, the function compares species-specific Pearson
+#' correlation matrices after predictor filtering and missing-value handling.
+#' Pairs are flagged when correlations have opposite signs, absolute values
+#' `>= 0.4` in both species, and an absolute difference `>= 0.8`, provided both
+#' variables have similar individual distributions (Kolmogorov-Smirnov distance
+#' <= 0.25, absolute standardized mean difference <= 0.35, and SD ratio <= 1.5).
+#' These criteria assess distributional shape, location, and spread, while an
+#' approximate Fisher-z test with Benjamini-Hochberg FDR < 0.05 (Benjamini &
+#' Hochberg, 1995) reduces false positives from multiple comparisons. The
+#' diagnostic requires at least twelve observations per group and no more than
+#' 2,000 predictors, and excludes variables with negligible within-species
+#' variance. Fisher-z tests assume independent observations and approximate
+#' bivariate normality, potentially yielding unreliable significance estimates
+#' with non-normal or spatially autocorrelated data. When pairs are flagged,
+#' users should examine species-specific bivariate distributions, investigate
+#' outliers, sampling artifacts, and spatial autocorrelation, and assess the
+#' variables' ecological relevance and discriminant contributions. Sensitivity
+#' analyses should rerun the complete DAPC procedure, including PCA,
+#' cross-validation, and permutation testing, after excluding each implicated
+#' variable separately and, where appropriate, both together. The resulting
+#' niche divergence metrics should then be compared with the original estimates.
 #'
 #' @return A named list containing:
 #'   \describe{
@@ -2773,7 +2806,7 @@ trim.to.analogous.environments <- function(Sp1.occurrence.data, #occurrence data
 #'       the first stage was skipped.}
 #'     \item{optimal_pcs_crossval_run1}{Optimal number of PCs from the first
 #'       cross-validation stage, or `NA` if unavailable.}
-#'     \item{crossval_run2}{Second-stage cross-validation object.}
+#'     \item{crossval_run2}{Final stage cross-validation object.}
 #'     \item{optimal_pcs_crossval_run2}{Final number of PCs retained for DAPC.}
 #'     \item{dapc_results}{Fitted DAPC-like result object containing
 #'       discriminant assignments, group labels, retained PC count, discriminant
@@ -2782,29 +2815,70 @@ trim.to.analogous.environments <- function(Sp1.occurrence.data, #occurrence data
 #'     \item{pca_object}{PCA object used to generate the retained PC scores.}
 #'     \item{var_explained}{Cumulative proportion of variance explained by the
 #'       retained PCs.}
-#'     \item{observed_assign_prop}{Observed mean assignment accuracy.}
+#'     \item{observed_assign_prop}{Observed (in-sample) mean assignment
+#'       accuracy.}
 #'     \item{permutation_assign_props}{Permutation null distribution of mean
 #'       assignment accuracy. If `background.permutation.test = TRUE`, this is a
 #'       list containing `species1_shifted` and `species2_shifted` distributions.
 #'       When permutation testing is skipped, this is `numeric(0)`.}
-#'     \item{p_val_assign}{Permutation p-value for assignment accuracy. If
-#'       `background.permutation.test = TRUE`, this is a named vector containing
+#'     \item{p_val_assign}{Permutation p-value for assignment accuracy
+#'       (upper-tail for label permutations; two-sided for spatial background
+#'       permutations). Background permutations return a named vector with
 #'       `species1_shifted` and `species2_shifted` p-values. When permutation
 #'       testing is skipped, this is `NA_real_`.}
 #'     \item{ARI}{Adjusted Rand index comparing DAPC-predicted groupings to the
 #'       supplied group labels.}
+#'     \item{heldout_results}{Optional list containing held-out discriminant
+#'       analysis scores, species assignments, selected PC counts, accuracy,
+#'       ARI, and training/test indices for each repetition. `NULL` when
+#'       disabled. Niche divergence metrics are calculated separately by
+#'       `calc.niche.divergence.metrics`.}
+#'     \item{bootstrap_metric_means}{Bootstrap replicate means for D, NDS, NE,
+#'       ND, and theta, or `NULL` when bootstrap is disabled.}
+#'     \item{bootstrap_CI}{Percentile-based 95% confidence intervals for
+#'       unweighted mean held-out niche metrics, or `NULL` when bootstrap is
+#'       disabled.}
+#'     \item{bootstrap_metric_grid_resolution}{KDE grid resolution used for the
+#'       unweighted bootstrap metric calculations.}
+#'     \item{observed_Schoener_D}{Observed unweighted Schoener's D, or `NA` if
+#'       permutations are disabled.}
+#'     \item{observed_ND}{Observed unweighted niche divergence magnitude, or
+#'       `NA` if permutations are disabled.}
+#'     \item{permutation_Schoener_D}{Permutation null distribution for D, or
+#'       directional lists when spatial background permutations are enabled.}
+#'     \item{permutation_ND}{Permutation null distribution for ND, or
+#'       directional lists when spatial background permutations are enabled.}
+#'     \item{p_val_Schoener_D}{Lower-tail permutation p-value for Schoener's D,
+#'       or a directional named vector for spatial background permutations.}
+#'     \item{p_val_ND}{Upper-tail permutation p-value for niche divergence,
+#'       or a directional named vector for spatial background permutations.}
+#'     \item{permutation_metric_grid_resolution}{Grid resolution used to
+#'       calculate unweighted permutation D and ND metrics.}
 #'   }
 #'
 #' @references
-#' Brown, J., & Carnaval, A. C. (2019). A tale of two niches: Methods, concepts,
-#'   and evolution. \emph{Frontiers of Biogeography}, 11(4).
+#' Benjamini, Y., & Hochberg, Y. (1995). Controlling the false discovery rate:
+#'   A practical and powerful approach to multiple testing.
+#'   \emph{Journal of the Royal Statistical Society: Series B (Methodological)},
+#'   57(1), 289-300. https://doi.org/10.1111/j.2517-6161.1995.tb02031.x
+#'
+#' Breiman, L., Friedman, J. H., Olshen, R. A., & Stone, C. J. (1984).
+#'   \emph{Classification and regression trees}. Wadsworth.
+#'
+#' Brown, J. L., & Carnaval, A. C. (2019). A tale of two niches: Methods,
+#'   concepts, and evolution. \emph{Frontiers of Biogeography}, 11(4), e44158.
 #'   https://doi.org/10.21425/F5FBG44158
 #'
-#' Harrell, F. E. (2015). \emph{Regression modeling strategies: With applications
-#'   to linear models, logistic and ordinal regression, and survival analysis}
-#'   (2nd ed.). Springer.
+#' Harrell, F. E., Jr. (2015). \emph{Regression modeling strategies: With
+#'   applications to linear models, logistic and ordinal regression, and
+#'   survival analysis} (2nd ed.). Springer.
+#'   https://doi.org/10.1007/978-3-319-19425-7
 #'
-#' Jombart, T. (2022). \emph{adegenet tutorials}.
+#' Hubert, L., & Arabie, P. (1985). Comparing partitions. \emph{Journal of
+#'   Classification}, 2, 193-218. https://doi.org/10.1007/BF01908075
+#'
+#' Jombart, T., & Collins, C. (2022). \emph{A tutorial for discriminant
+#'   analysis of principal components (DAPC) using adegenet 2.1.6}.
 #'   https://github.com/thibautjombart/adegenet/wiki/Tutorials
 #'
 #' Jombart, T., Devillard, S., & Balloux, F. (2010). Discriminant analysis of
@@ -2813,16 +2887,15 @@ trim.to.analogous.environments <- function(Sp1.occurrence.data, #occurrence data
 #'   https://doi.org/10.1186/1471-2156-11-94
 #'
 #' Lachenbruch, P. A., & Goldstein, M. (1979). Discriminant analysis.
-#'   \emph{Biometrics}, 35(1), 69. https://doi.org/10.2307/2529937
+#'   \emph{Biometrics}, 35(1), 69-85. https://doi.org/10.2307/2529937
 #'
-#' van Buuren, S. (2018). \emph{Flexible imputation of missing data}. Chapman &
-#'   Hall/CRC.
+#' van Buuren, S. (2018). \emph{Flexible imputation of missing data}
+#'   (2nd ed.). Chapman & Hall/CRC.
 #'
 #' @export
 run.DAPC.crossval.permutation <- function(data.input, #matrix or data.frame of predictors (rows = samples, cols = variables)
-                                          N.crossval.replicates = 100, #cross-validation replicates
+                                          N.crossval.replicates = 10, #repetitions of stratified 5-fold cross-validation
                                           N.permutations = 999, #number of permutations for test
-                                          fixed.n.pcs = NULL, #override n.pca used for DAPC/permutations
                                           exclude.cols = NULL, #extra columns to drop from predictors
                                           species.col = "Species", #name of column with species/group labels (character)
                                           max.NA.prop = 0.2, #max proportion of NA allowed for imputation
@@ -2831,37 +2904,43 @@ run.DAPC.crossval.permutation <- function(data.input, #matrix or data.frame of p
                                           overwrite = FALSE, #overwrite result file if exists (only if save = TRUE)
                                           output.dir, #directory for output (only if save = TRUE)
                                           output.filename, #Rdata filename for results (only if save = TRUE)
+                                          N.heldout.replicates = 0, #number of repeated 50/50 held-out evaluations (0 = skip)
+                                          N.bootstrap.replicates = 0, #number of bootstrap replicates for held-out metric confidence intervals (0 = skip)
                                           Sp1.background.data = NULL, #background data for species 1 (only required for background.permutation.test)
                                           Sp2.background.data = NULL, #background data for species 2 (only required for background.permutation.test)
                                           background.permutation.test = FALSE, #run Humboldt-style spatial background permutation instead of random label permutation
                                           use.parallel = c("auto", "Windows", "Unix", "none"), #whether to use parallel computing
                                           N.cores = 3, #number of cores used for parallel computing
                                           seed = 1, #set seed for reproducibility
+                                          message.N.permutations = 100, #frequency of permutation progress messages
                                           verbose = TRUE #print messages/warnings
 ) {
 
-  # Clear memory
-  invisible(gc())
-
-  # Set numeric tolerance for discriminant analysis
-  lda_tol <- 1e-8
-
-  # Save and restore RNG kind
-  oldRNG <- RNGkind()
-  on.exit({RNGkind(kind = oldRNG[1L], normal.kind = oldRNG[2L], sample.kind = if (length(oldRNG) >= 3) oldRNG[3L] else NULL)}, add = TRUE)
+  # Save and restore RNG kind and global random seed
+  previous_rng_kind <- RNGkind()
+  previous_rng_seed_exists <- exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE)
+  previous_rng_seed <- if (previous_rng_seed_exists) get(".Random.seed", envir = .GlobalEnv, inherits = FALSE) else NULL
+  on.exit({
+    RNGkind(kind = previous_rng_kind[1L], normal.kind = previous_rng_kind[2L], sample.kind = if (length(previous_rng_kind) >= 3) previous_rng_kind[3L] else NULL)
+    if (previous_rng_seed_exists) {
+      assign(".Random.seed", previous_rng_seed, envir = .GlobalEnv)
+    } else if (exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE)) {
+      rm(".Random.seed", envir = .GlobalEnv)
+    }
+  }, add = TRUE)
 
   # Validate input
   if (!is.data.frame(data.input) && !is.matrix(data.input)) stop("data.input must be a data.frame or matrix")
   if (is.matrix(data.input) && is.null(colnames(data.input))) stop("data.input must have column names")
-  if (!is.numeric(N.crossval.replicates) || length(N.crossval.replicates) != 1 || !is.finite(N.crossval.replicates) || N.crossval.replicates <= 0 || N.crossval.replicates %% 1 != 0) stop("N.crossval.replicates must be a positive integer (recommended: 100)")
+  if (!is.numeric(N.crossval.replicates) || length(N.crossval.replicates) != 1 || !is.finite(N.crossval.replicates) || N.crossval.replicates < 2 || N.crossval.replicates %% 1 != 0) stop("N.crossval.replicates must be an integer >= 2 (recommended: 10)")
   if (!is.null(N.permutations) && (!is.numeric(N.permutations) || length(N.permutations) != 1L || !is.finite(N.permutations) || N.permutations < 0 || N.permutations %% 1 != 0)) stop("N.permutations must be NULL or a non-negative integer (recommended: 999)")
   if (is.null(N.permutations)) N.permutations <- 0L
-  if (!is.null(fixed.n.pcs) && (!is.numeric(fixed.n.pcs) || length(fixed.n.pcs) != 1L || fixed.n.pcs < 1)) stop("fixed.n.pcs must be a positive numeric value or NULL")
   if (is.null(exclude.cols)) exclude.cols <- character(0)
   else if (!is.character(exclude.cols)) stop("exclude.cols must be a character vector or NULL")
   if (!is.character(species.col) || length(species.col) != 1 || is.na(species.col) || !nzchar(species.col)) stop("species.col must be a single non-empty character")
-  if (!is.numeric(max.NA.prop) || max.NA.prop < 0 || max.NA.prop > 1) stop("max.NA.prop must be between 0 and 1 (recommended: 0.2)")
-  if (!is.logical(impute.NA.median) || length(impute.NA.median) != 1) stop("impute.NA.median must be TRUE or FALSE")
+  if (!species.col %in% colnames(data.input)) stop("species.col not found in data.input")
+  if (!is.numeric(max.NA.prop) || length(max.NA.prop) != 1L || !is.finite(max.NA.prop) || max.NA.prop < 0 || max.NA.prop > 1) stop("max.NA.prop must be between 0 and 1 (recommended: 0.2)")
+  if (!is.logical(impute.NA.median) || length(impute.NA.median) != 1L || is.na(impute.NA.median)) stop("impute.NA.median must be TRUE or FALSE")
   if (!is.logical(save) || length(save) != 1 || is.na(save)) stop("save must be TRUE or FALSE")
   if (!is.logical(overwrite) || length(overwrite) != 1 || is.na(overwrite)) stop("overwrite must be TRUE or FALSE")
   if (save) {
@@ -2872,17 +2951,46 @@ run.DAPC.crossval.permutation <- function(data.input, #matrix or data.frame of p
     if (!dir.exists(output.dir)) stop("Failed to create output.dir: ", output.dir)
     output_path <- file.path(output.dir, output.filename)
   }
+  if (!is.numeric(N.heldout.replicates) || length(N.heldout.replicates) != 1L || !is.finite(N.heldout.replicates) || N.heldout.replicates < 0 || N.heldout.replicates %% 1 != 0) stop("N.heldout.replicates must be a non-negative integer")
+  if (!is.numeric(N.bootstrap.replicates) || length(N.bootstrap.replicates) != 1L || !is.finite(N.bootstrap.replicates) || N.bootstrap.replicates < 0 || N.bootstrap.replicates %% 1 != 0) stop("N.bootstrap.replicates must be a non-negative integer")
+  if (N.bootstrap.replicates > 0L && N.bootstrap.replicates < 2L) stop("N.bootstrap.replicates must be 0 or at least 2")
+  if (N.bootstrap.replicates > 0L && N.heldout.replicates == 0L) stop("Bootstrap confidence intervals require N.heldout.replicates > 0")
   if (!is.null(Sp1.background.data) && !is.data.frame(Sp1.background.data)) stop("Sp1.background.data must be a data frame or NULL")
   if (!is.null(Sp2.background.data) && !is.data.frame(Sp2.background.data)) stop("Sp2.background.data must be a data frame or NULL")
   if (!is.logical(background.permutation.test) || length(background.permutation.test) != 1 || is.na(background.permutation.test)) stop("background.permutation.test must be TRUE or FALSE")
   if (isTRUE(background.permutation.test) && N.permutations > 0L) {
+    if (!requireNamespace("sf", quietly = TRUE)) stop("Package 'sf' is required for spatial background randomization")
+    if (!requireNamespace("RANN", quietly = TRUE)) stop("Package 'RANN' is required for spatial background randomization")
     if (is.null(Sp1.background.data) || is.null(Sp2.background.data)) stop("background.permutation.test = TRUE but background datasets (Sp1.background.data and Sp2.background.data) are missing")
     if (!is.data.frame(Sp1.background.data) || !is.data.frame(Sp2.background.data)) stop("Both Sp1.background.data and Sp2.background.data must be data frames when background.permutation.test = TRUE")
+    coordinate.names <- c("Longitude", "Latitude")
+    if (!all(coordinate.names %in% colnames(data.input))) stop("Occurrence coordinates are missing Longitude or Latitude")
+    if (!all(coordinate.names %in% names(Sp1.background.data))) stop("Species 1 background coordinates are missing Longitude or Latitude")
+    if (!all(coordinate.names %in% names(Sp2.background.data))) stop("Species 2 background coordinates are missing Longitude or Latitude")
   }
-  if (!is.character(use.parallel) || !any(use.parallel %in% c("auto", "Windows", "Unix", "none"))) stop("use.parallel must be one of: 'auto', 'Windows', 'Unix', or 'none'")
-  if (!is.numeric(N.cores) || length(N.cores) != 1L || N.cores < 1 || N.cores %% 1 != 0) stop("N.cores must be a positive integer")
+  if (!is.character(use.parallel) || length(use.parallel) < 1L || anyNA(use.parallel) || !all(use.parallel %in% c("auto", "Windows", "Unix", "none"))) stop("use.parallel must be one of: 'auto', 'Windows', 'Unix', or 'none'")
+  if (!is.numeric(N.cores) || length(N.cores) != 1L || !is.finite(N.cores) || N.cores < 1 || N.cores %% 1 != 0) stop("N.cores must be a positive integer")
   if (!is.numeric(seed) || length(seed) != 1 || !is.finite(seed)) stop("seed must be a single finite numeric value")
+  if (!is.numeric(message.N.permutations) || length(message.N.permutations) != 1L || !is.finite(message.N.permutations) || message.N.permutations < 1L || message.N.permutations %% 1 != 0) stop("message.N.permutations must be a positive integer (default: 100)")
   if (!is.logical(verbose) || length(verbose) != 1 || is.na(verbose)) stop("verbose must be TRUE or FALSE")
+
+  # Validate required packages and metric function
+  required.packages <- c("ade4", "MASS", "mclust", "matrixStats")
+  if (background.permutation.test && N.permutations > 0L) required.packages <- c(required.packages, "sf", "RANN")
+  missing.packages <- required.packages[!vapply(required.packages, requireNamespace, logical(1), quietly = TRUE)]
+  if (length(missing.packages)) stop("Required packages are not installed: ", paste(missing.packages, collapse = ", "))
+  if ((N.permutations > 0L || N.bootstrap.replicates > 0L) && !exists("calc.niche.divergence.metrics", mode = "function")) stop("Load calc.niche.divergence.metrics() before running permutation or bootstrap analyses")
+  if (N.permutations > 0L && (identical(use.parallel[1L], "Windows") || (identical(use.parallel[1L], "auto") && .Platform$OS.type == "windows"))) calc.niche.divergence.metrics <- get("calc.niche.divergence.metrics", envir = parent.env(environment()), mode = "function", inherits = TRUE)
+
+  # Clear memory
+  invisible(gc())
+
+  # Set numeric tolerance for discriminant analysis
+  lda_tol <- 1e-8
+
+  # Set PCA settings
+  pca.center <- TRUE
+  pca.scale <- TRUE
 
   # Normalize parallel backend selection
   use.parallel <- match.arg(use.parallel)
@@ -2891,6 +2999,12 @@ run.DAPC.crossval.permutation <- function(data.input, #matrix or data.frame of p
   N.cores <- as.integer(max(1L, N.cores))
   .backend_for_boot <- switch(parallel, "Windows" = "snow", "Unix" = "multicore", "none" = NULL)
   .use_parallel <- !is.null(.backend_for_boot) && N.cores > 1L
+
+  # Reuse one Windows PSOCK cluster across all cross-validation calls
+  shared_cv_cluster <- NULL
+  on.exit({
+    if (!is.null(shared_cv_cluster)) try(parallel::stopCluster(shared_cv_cluster), silent = TRUE)
+  }, add = TRUE)
 
   # Set seed for reproducibility
   set.seed(seed)
@@ -2905,12 +3019,12 @@ run.DAPC.crossval.permutation <- function(data.input, #matrix or data.frame of p
     coordinate.names <- c(spatial.longitude.col, spatial.latitude.col)
     if (!all(coordinate.names %in% colnames(data.input))) stop("Spatial background test requires Longitude and Latitude columns in data.input")
     occurrence.spatial.coordinates <- as.data.frame(data.input[, coordinate.names, drop = FALSE])
+    if (!all(vapply(occurrence.spatial.coordinates, is.numeric, logical(1)))) stop("Spatial background test requires numeric occurrence coordinates")
     if (any(!is.finite(as.matrix(occurrence.spatial.coordinates)))) stop("Spatial background test requires finite occurrence coordinates")
   }
 
   # Extract species factor
-  if (!species.col %in% colnames(data.input)) stop("species.col not found in data.input")
-  group.assignment <- data.input[[species.col]]
+  group.assignment <- if (is.matrix(data.input)) data.input[, species.col] else data.input[[species.col]]
   if (!is.factor(group.assignment)) {
     if (is.character(group.assignment) || is.numeric(group.assignment)) {
       group.assignment <- as.factor(group.assignment)
@@ -2918,11 +3032,13 @@ run.DAPC.crossval.permutation <- function(data.input, #matrix or data.frame of p
       stop("species.col must contain factor/character/numeric values")
     }
   }
+  if (anyNA(group.assignment)) stop("species.col contains missing group labels")
+  group.assignment <- droplevels(group.assignment)
 
-  # Starting message
+  # Print starting message
   if (verbose) message("Processing input data ...")
 
-  # Drop excluded columns and add species
+  # Remove excluded and grouping columns from environmental predictors
   drop_cols <- union(exclude.cols, species.col)
   if (background.permutation.test) drop_cols <- union(drop_cols, c("Longitude", "Latitude"))
   if (is.data.frame(data.input)) {
@@ -2949,111 +3065,126 @@ run.DAPC.crossval.permutation <- function(data.input, #matrix or data.frame of p
   storage.mode(data.input) <- "double"
 
   # Check lengths and groups
-  if (length(group.assignment) != nrow(data.input)) {
-    stop("Length of species labels (", length(group.assignment), ") does not match number of rows in data.input (", nrow(data.input), ")")
-  }
+  if (length(group.assignment) != nrow(data.input)) stop("Length of species labels (", length(group.assignment), ") does not match number of rows in data.input (", nrow(data.input), ")")
   if (nlevels(group.assignment) != 2) stop("Need two groups to run DAPC niche divergence test (found ", nlevels(group.assignment), ")")
 
   # Replace invalid numeric values (NaN, Inf, -Inf) with NA
   data.input[!is.finite(data.input)] <- NA
 
   # Remove columns with all NA or zero variance
-  n_cols_before <- ncol(data.input)
-  drop_col <- apply(data.input, 2, function(x) {
+  N.predictors.before <- ncol(data.input)
+  excluded_predictor_reasons <- apply(data.input, 2, function(x) {
     if (all(is.na(x))) return("all_NA")
-    sd_x <- stats::sd(x, na.rm = TRUE)
-    if (!is.finite(sd_x) || sd_x < 1e-9) return("zero_var")
+    predictor_sd <- stats::sd(x, na.rm = TRUE)
+    if (!is.finite(predictor_sd) || predictor_sd < 1e-9) return("zero_var")
     return(NA)
   })
-  drop_col_reason <- drop_col[!is.na(drop_col)]
-  if (length(drop_col_reason) > 0) {
-    n_all_na <- sum(drop_col_reason == "all_NA")
-    n_zero_var <- sum(drop_col_reason == "zero_var")
+  excluded_predictor_summary <- excluded_predictor_reasons[!is.na(excluded_predictor_reasons)]
+  if (length(excluded_predictor_summary) > 0) {
+    n_all_na <- sum(excluded_predictor_summary == "all_NA")
+    n_zero_var <- sum(excluded_predictor_summary == "zero_var")
     if (verbose) {
-      if (n_all_na > 0) message(n_all_na, " of ", n_cols_before, " columns dropped due to all NA")
-      if (n_zero_var > 0) message(n_zero_var, " of ", n_cols_before, " columns dropped due to ~zero variance")
+      if (n_all_na > 0) message(n_all_na, " of ", N.predictors.before, " columns dropped due to all NA")
+      if (n_zero_var > 0) message(n_zero_var, " of ", N.predictors.before, " columns dropped due to zero variance")
     }
-    data.input <- data.input[, is.na(drop_col), drop = FALSE]
+    data.input <- data.input[, is.na(excluded_predictor_reasons), drop = FALSE]
   }
   if (ncol(data.input) == 0) stop("No informative columns remain after variance filtering")
 
   # Handle missing values
   if (impute.NA.median) {
-    n_before <- nrow(data.input)
-    na_prop_row <- rowMeans(is.na(data.input))
-    keep_rows <- na_prop_row <= max.NA.prop
-    group.assignment <- droplevels(group.assignment[keep_rows])
-    data.input <- data.input[keep_rows, , drop = FALSE]
-    if (!is.null(occurrence.spatial.coordinates)) occurrence.spatial.coordinates <- occurrence.spatial.coordinates[keep_rows, , drop = FALSE]
-    n_after <- nrow(data.input)
-    n_dropped <- n_before - n_after
-    if (verbose && n_dropped > 0) message(n_dropped, " of ", n_before, " rows dropped due to NA higher than max.NA.prop")
+    N.rows.before <- nrow(data.input)
+    row_missing_proportions <- rowMeans(is.na(data.input))
+    retained_row_flags <- row_missing_proportions <= max.NA.prop
+    group.assignment <- droplevels(group.assignment[retained_row_flags])
+    data.input <- data.input[retained_row_flags, , drop = FALSE]
+    if (!is.null(occurrence.spatial.coordinates)) occurrence.spatial.coordinates <- occurrence.spatial.coordinates[retained_row_flags, , drop = FALSE]
+    N.rows.after <- nrow(data.input)
+    N.rows.dropped <- N.rows.before - N.rows.after
+    if (verbose && N.rows.dropped > 0) message(N.rows.dropped, " of ", N.rows.before, " rows dropped due to NA higher than max.NA.prop")
     if (nrow(data.input) == 0) stop("No rows remain after applying max.NA.prop filter")
-    for (j in seq_len(ncol(data.input))) {
-      if (anyNA(data.input[, j])) {
-        med <- stats::median(data.input[, j], na.rm = TRUE)
-        if (is.finite(med)) data.input[is.na(data.input[, j]), j] <- med
+    for (predictor_index in seq_len(ncol(data.input))) {
+      if (anyNA(data.input[, predictor_index])) {
+        predictor_median <- stats::median(data.input[, predictor_index], na.rm = TRUE)
+        if (is.finite(predictor_median)) data.input[is.na(data.input[, predictor_index]), predictor_index] <- predictor_median
       }
     }
   } else {
-    n_before <- nrow(data.input)
-    na_prop_row <- rowMeans(is.na(data.input))
-    keep_rows <- na_prop_row <= max.NA.prop
-    data.input <- data.input[keep_rows, , drop = FALSE]
-    group.assignment <- droplevels(group.assignment[keep_rows])
-    if (!is.null(occurrence.spatial.coordinates)) occurrence.spatial.coordinates <- occurrence.spatial.coordinates[keep_rows, , drop = FALSE]
-    n_after <- nrow(data.input)
-    n_dropped <- n_before - n_after
-    if (verbose && n_dropped > 0) message(n_dropped, " of ", n_before, " rows dropped due to NA higher than max.NA.prop")
+    N.rows.before <- nrow(data.input)
+    row_missing_proportions <- rowMeans(is.na(data.input))
+    retained_row_flags <- row_missing_proportions <= max.NA.prop
+    data.input <- data.input[retained_row_flags, , drop = FALSE]
+    group.assignment <- droplevels(group.assignment[retained_row_flags])
+    if (!is.null(occurrence.spatial.coordinates)) occurrence.spatial.coordinates <- occurrence.spatial.coordinates[retained_row_flags, , drop = FALSE]
+    N.rows.after <- nrow(data.input)
+    N.rows.dropped <- N.rows.before - N.rows.after
+    if (verbose && N.rows.dropped > 0) message(N.rows.dropped, " of ", N.rows.before, " rows dropped due to NA higher than max.NA.prop")
     if (nrow(data.input) == 0) stop("No rows remain after applying max.NA.prop filter")
-    keep_complete <- stats::complete.cases(data.input)
-    data.input <- data.input[keep_complete, , drop = FALSE]
-    group.assignment <- droplevels(group.assignment[keep_complete])
-    if (!is.null(occurrence.spatial.coordinates)) occurrence.spatial.coordinates <- occurrence.spatial.coordinates[keep_complete, , drop = FALSE]
+    complete_row_flags <- stats::complete.cases(data.input)
+    data.input <- data.input[complete_row_flags, , drop = FALSE]
+    group.assignment <- droplevels(group.assignment[complete_row_flags])
+    if (!is.null(occurrence.spatial.coordinates)) occurrence.spatial.coordinates <- occurrence.spatial.coordinates[complete_row_flags, , drop = FALSE]
     if (nrow(data.input) == 0) stop("No rows remain after removing incomplete cases")
   }
   data.input <- data.input[, colMeans(is.na(data.input)) < 1, drop = FALSE]
   if (length(group.assignment) != nrow(data.input)) stop("Internal mismatch: group labels and data rows differ after filtering")
+  if (nlevels(group.assignment) != 2L) stop("Exactly two groups must remain after missing-value filtering (found ", nlevels(group.assignment), ")")
 
   # Re-check for zero-variance or all-NA columns after row removal
-  n_cols_before2 <- ncol(data.input)
-  drop_col <- apply(data.input, 2, function(x) {
+  N.predictors.before <- ncol(data.input)
+  excluded_predictor_reasons <- apply(data.input, 2, function(x) {
     if (all(is.na(x))) return("all_NA")
-    sd_x <- stats::sd(x, na.rm = TRUE)
-    if (!is.finite(sd_x) || sd_x < 1e-9) return("zero_var")
+    predictor_sd <- stats::sd(x, na.rm = TRUE)
+    if (!is.finite(predictor_sd) || predictor_sd < 1e-9) return("zero_var")
     return(NA)
   })
-  drop_col_reason <- drop_col[!is.na(drop_col)]
-  if (length(drop_col_reason) > 0) {
-    n_all_na <- sum(drop_col_reason == "all_NA")
-    n_zero_var <- sum(drop_col_reason == "zero_var")
+  excluded_predictor_summary <- excluded_predictor_reasons[!is.na(excluded_predictor_reasons)]
+  if (length(excluded_predictor_summary) > 0) {
+    n_all_na <- sum(excluded_predictor_summary == "all_NA")
+    n_zero_var <- sum(excluded_predictor_summary == "zero_var")
     if (verbose) {
-      if (n_all_na > 0) message(n_all_na, " of ", n_cols_before2, " columns dropped after row filtering due to all NA")
-      if (n_zero_var > 0) message(n_zero_var, " of ", n_cols_before2, " columns dropped after row filtering due to ~zero variance")
+      if (n_all_na > 0) message(n_all_na, " of ", N.predictors.before, " columns dropped after row filtering due to all NA")
+      if (n_zero_var > 0) message(n_zero_var, " of ", N.predictors.before, " columns dropped after row filtering due to zero variance")
     }
-    data.input <- data.input[, is.na(drop_col), drop = FALSE]
+    data.input <- data.input[, is.na(excluded_predictor_reasons), drop = FALSE]
   }
   if (ncol(data.input) == 0) stop("No informative columns remain after final variance filtering")
 
+  # Validate retained DAPC predictors against spatial backgrounds
+  if (background.permutation.test && N.permutations > 0L) {
+    required.predictors <- colnames(data.input)
+    required.columns <- c("Longitude", "Latitude", required.predictors)
+    for (background.name in c("Sp1.background.data", "Sp2.background.data")) {
+      background.data <- get(background.name)
+      missing.predictors <- setdiff(required.predictors, names(background.data))
+      if (length(missing.predictors)) stop(background.name, " is missing predictors: ", paste(missing.predictors, collapse = ", "))
+      background.subset <- background.data[, required.columns, drop = FALSE]
+      if (!all(vapply(background.subset, is.numeric, logical(1)))) stop(background.name, " must contain numeric coordinates and environmental predictors")
+      valid.background.rows <- rowSums(!is.finite(as.matrix(background.subset))) == 0L
+      if (sum(valid.background.rows) < 5L) stop(background.name, " contains fewer than five complete background records")
+    }
+  }
+
   # Check sample sizes
   group_sizes <- table(group.assignment)
-  if (any(group_sizes < 3)) stop("Each group must have at least three samples (found: ", paste(group_sizes, collapse = ", "), ")")
-  if (any(group_sizes < 25)) warning("Each group should have at least 25 samples (found: ", paste(group_sizes, collapse = ", "), ")")
+  if (any(group_sizes < 5L)) stop("Stratified 5-fold cross-validation requires at least five observations per species (currently used: ", paste(group_sizes, collapse = ", "), ")")
+  if (N.heldout.replicates > 0L && any(group_sizes < 10L)) stop("50/50 held-out validation with inner 5-fold cross-validation requires at least ten observations per species (found: ", paste(group_sizes, collapse = ", "), ")")
+  if (any(group_sizes < 20)) warning("Each group should have at least 20 samples (currently used: ", paste(group_sizes, collapse = ", "), ")")
 
   # Screen for strong, opposing correlations despite similar individual distributions that might reduce accuracy of inferred niche divergence metrics
   if (ncol(data.input) >= 2L) {
-    if (any(group_sizes < 25L)) {
-      if (verbose) message("Correlation diagnostic skipped: fewer than 25 samples in at least one group")
-    } else if (ncol(data.input) > 1000L) {
-      warning("Correlation diagnostic skipped: more than 1000 predictors - use separate blockwise correlation analysis", call. = FALSE)
+    if (any(group_sizes < 12L)) {
+      if (verbose) message("Screening for opposing correlations between environmental predictors skipped: fewer than 12 samples in at least one group")
+    } else if (ncol(data.input) > 2000L) {
+      warning("Screening for opposing correlations between environmental predictors skipped: more than 2000 predictors - use separate blockwise correlation analysis", call. = FALSE)
     } else {
 
       # Prepare species-specific predictor matrices and remove variables with zero variance
       species_levels <- levels(group.assignment)
       Sp1_corr_data <- data.input[group.assignment == species_levels[1], , drop = FALSE]
       Sp2_corr_data <- data.input[group.assignment == species_levels[2], , drop = FALSE]
-      Sp1_sds <- apply(Sp1_corr_data, 2, stats::sd)
-      Sp2_sds <- apply(Sp2_corr_data, 2, stats::sd)
+      Sp1_sds <- matrixStats::colSds(Sp1_corr_data)
+      Sp2_sds <- matrixStats::colSds(Sp2_corr_data)
       valid_corr_vars <- is.finite(Sp1_sds) & is.finite(Sp2_sds) & Sp1_sds > 1e-9 & Sp2_sds > 1e-9
       if (sum(valid_corr_vars) >= 2L) {
         Sp1_corr_data <- Sp1_corr_data[, valid_corr_vars, drop = FALSE]
@@ -3065,12 +3196,11 @@ run.DAPC.crossval.permutation <- function(data.input, #matrix or data.frame of p
         correlation_indices <- which(upper.tri(Sp1_correlation_matrix), arr.ind = TRUE)
 
         # Check similarity of each variable's individual distribution between groups
-        KS_distances <- vapply(seq_len(ncol(Sp1_corr_data)), function(j) {
-          values <- sort(unique(c(Sp1_corr_data[, j], Sp2_corr_data[, j])))
-          max(abs(stats::ecdf(Sp1_corr_data[, j])(values) - stats::ecdf(Sp2_corr_data[, j])(values)))
+        KS_distances <- vapply(seq_len(ncol(Sp1_corr_data)), function(predictor_index) {
+          combined_predictor_values <- sort(unique(c(Sp1_corr_data[, predictor_index], Sp2_corr_data[, predictor_index])))
+          max(abs(stats::ecdf(Sp1_corr_data[, predictor_index])(combined_predictor_values) - stats::ecdf(Sp2_corr_data[, predictor_index])(combined_predictor_values)))
         }, numeric(1))
-        standardized_mean_differences <- abs(colMeans(Sp1_corr_data) - colMeans(Sp2_corr_data)) /
-          sqrt((Sp1_sds^2 + Sp2_sds^2) / 2)
+        standardized_mean_differences <- abs(colMeans(Sp1_corr_data) - colMeans(Sp2_corr_data)) / sqrt((Sp1_sds^2 + Sp2_sds^2) / 2)
         SD_ratios <- pmax(Sp1_sds, Sp2_sds) / pmin(Sp1_sds, Sp2_sds)
         similar_distributions <- KS_distances <= 0.25 & standardized_mean_differences <= 0.35 & SD_ratios <= 1.5
 
@@ -3083,304 +3213,549 @@ run.DAPC.crossval.permutation <- function(data.input, #matrix or data.frame of p
         Fisher_z <- (atanh(Sp1_correlations[valid_Fisher]) - atanh(Sp2_correlations[valid_Fisher])) / sqrt(1 / (nrow(Sp1_corr_data) - 3) + 1 / (nrow(Sp2_corr_data) - 3))
         correlation_P[valid_Fisher] <- 2 * stats::pnorm(-abs(Fisher_z))
         correlation_FDR <- stats::p.adjust(correlation_P, method = "BH")
-        flagged_pairs <- which(is.finite(Sp1_correlations) & is.finite(Sp2_correlations) &
-                                 Sp1_correlations * Sp2_correlations < 0 &
-                                 pmin(abs(Sp1_correlations), abs(Sp2_correlations)) >= 0.4 &
-                                 correlation_differences >= 0.8 & correlation_FDR < 0.05 &
-                                 similar_distributions[correlation_indices[, 1]] &
-                                 similar_distributions[correlation_indices[, 2]])
+        flagged_pairs <- which(is.finite(Sp1_correlations) & is.finite(Sp2_correlations) & Sp1_correlations * Sp2_correlations < 0 & pmin(abs(Sp1_correlations), abs(Sp2_correlations)) >= 0.4 & correlation_differences >= 0.8 & correlation_FDR < 0.05 & similar_distributions[correlation_indices[, 1]] & similar_distributions[correlation_indices[, 2]])
         if (length(flagged_pairs) > 0L) {
           flagged_pairs <- flagged_pairs[order(-correlation_differences[flagged_pairs])]
           report_pairs <- head(flagged_pairs, 5L)
-          flagged_labels <- vapply(report_pairs, function(i) {
-            sprintf("%s / %s (r = %.2f vs %.2f)", colnames(Sp1_corr_data)[correlation_indices[i, 1]], colnames(Sp1_corr_data)[correlation_indices[i, 2]], Sp1_correlations[i], Sp2_correlations[i])
+          flagged_labels <- vapply(report_pairs, function(pair_index) {
+            sprintf("%s / %s (r = %.2f vs %.2f)", colnames(Sp1_corr_data)[correlation_indices[pair_index, 1]], colnames(Sp1_corr_data)[correlation_indices[pair_index, 2]], Sp1_correlations[pair_index], Sp2_correlations[pair_index])
           }, character(1))
-          warning("Detected ", length(flagged_pairs), " variable pair(s) with strong, opposing correlations between ",
-                  species_levels[1], " and ", species_levels[2], " despite similar individual distributions: ",
-                  paste(flagged_labels, collapse = "; "),
-                  if (length(flagged_pairs) > length(report_pairs)) paste0("; plus ", length(flagged_pairs) - length(report_pairs), " more") else "",
-                  ". Such pairs might reduce the accuracy of the inferred DAPC-based niche divergence metrics. It is recommended to examine these pairs and assess the sensitivity of the results by rerunning the analysis after excluding each implicated variable separately.",
-                  call. = FALSE)
+          warning("Detected ", length(flagged_pairs), if (length(flagged_pairs) == 1L) " variable pair" else " variable pairs", " with strong, opposing correlations between ", species_levels[1], " and ", species_levels[2], " despite similar individual distributions: ", paste(flagged_labels, collapse = ", "), if (length(flagged_pairs) > length(report_pairs)) paste0(", plus ", length(flagged_pairs) - length(report_pairs), " more") else "", " - such pairs can reduce accuracy of inferred DAPC-based niche divergence metrics so that it is recommended to examine these pairs and assess sensitivity of results by rerunning analysis after excluding each implicated variable separately", call. = FALSE)
         }
       } else if (verbose) {
-        warning("Correlation diagnostic skipped: fewer than two variables vary in both groups")
+        warning("Screening for opposing correlations between environmental predictors skipped: fewer than two variables vary in both groups")
       }
     }
   }
 
-  # Decide whether we need to compute or can load from file
+  # Identify input and analysis settings for safe reuse of saved results
+  if (save) {
+    signature_path <- tempfile(fileext = ".rds")
+    on.exit(unlink(signature_path), add = TRUE)
+    saveRDS(list(predictors = data.input,
+                 groups = group.assignment,
+                 seed = seed,
+                 use.parallel = use.parallel,
+                 N.cores = N.cores,
+                 N.crossval.replicates = N.crossval.replicates,
+                 N.permutations = N.permutations,
+                 N.heldout.replicates = N.heldout.replicates,
+                 N.bootstrap.replicates = N.bootstrap.replicates,
+                 max.NA.prop = max.NA.prop,
+                 impute.NA.median = impute.NA.median,
+                 background.permutation.test = background.permutation.test,
+                 occurrence.spatial.coordinates = if (background.permutation.test && N.permutations > 0L) occurrence.spatial.coordinates else NULL,
+                 Sp1.background.data = if (background.permutation.test && N.permutations > 0L) Sp1.background.data else NULL,
+                 Sp2.background.data = if (background.permutation.test && N.permutations > 0L) Sp2.background.data else NULL),
+            file = signature_path, version = 3L)
+    analysis_signature <- unname(tools::md5sum(signature_path))
+    unlink(signature_path)
+  }
+
+  # Decide whether to compute or load from file
   if (save) {
     need_compute <- overwrite || !file.exists(output_path)
   } else {
     need_compute <- TRUE
   }
 
-  # Create function to calculate CV parallel with Windows
-  xval.DAPC.batched <- function(x, grp, n.pca.grid, training.set, center, scale, n.rep, ncores, base_seed) {
-    predictor_matrix <- x
-    group_labels <- grp
-    result_metric <- "groupMean"
+  # Calculate conservative training-group sizes for stratified 5-fold cross-validation
+  calculate.cv.training.sizes <- function(group.assignment, source.ids = NULL) {
+    if (is.null(source.ids)) source.ids <- seq_along(group.assignment)
+    if (length(source.ids) != length(group.assignment) || anyNA(source.ids)) stop("source.ids must identify every observation")
+    vapply(split(seq_along(group.assignment), group.assignment), function(group_indices) {
+      source_counts <- sort(as.integer(table(source.ids[group_indices])), decreasing = TRUE)
+      if (length(source_counts) < 5L) stop("Stratified 5-fold cross-validation requires at least five distinct original observations per group")
+      as.integer(sum(source_counts) - sum(head(source_counts, ceiling(length(source_counts) / 5L))))
+    }, integer(1))
+  }
 
-    # Perform PCA once
-    pca_for_cv <- ade4::dudi.pca(predictor_matrix,
-                                 nf = min(max(n.pca.grid), ncol(predictor_matrix), nrow(predictor_matrix) - 1),
-                                 scannf = FALSE,
-                                 center = center,
-                                 scale = scale)
-    pc_scores_matrix <- as.matrix(pca_for_cv$li)
-    n_pc_available <- ncol(pc_scores_matrix)
-    if (n_pc_available == 0L) stop("PCA produced no components")
-    colnames(pc_scores_matrix) <- sprintf("PC%03d", seq_len(n_pc_available))
-    if (any(n.pca.grid > n_pc_available)) {
-      warning("PCA produced only ", n_pc_available, " components - trimming CV grid")
-      n.pca.grid <- n.pca.grid[n.pca.grid <= n_pc_available]
-      if (length(n.pca.grid) == 0L) n.pca.grid <- 1L
+  # Create function to evaluate five stratified folds with one training-only PCA per fold
+  run.one.cv.repetition <- function(replicate_index) {
+
+    # Generate stratified 5-fold assignments and initialize cross-validation results
+    RNGkind("L'Ecuyer-CMRG")
+    set.seed(base_seed + replicate_index)
+    fold_assignment <- integer(length(group_labels))
+    for (group_indices in split(seq_along(group_labels), group_labels)) {
+      distinct_sources <- unique(source.ids[group_indices])
+      distinct_sources <- distinct_sources[sample.int(length(distinct_sources))]
+      source_folds <- rep(seq_len(5L), length.out = length(distinct_sources))
+      fold_assignment[group_indices] <- source_folds[match(source.ids[group_indices], distinct_sources)]
     }
+    fold_success <- matrix(NA_real_, nrow = 5L, ncol = length(n.pca.grid))
+    for (fold_index in seq_len(5L)) {
+      training_indices <- which(fold_assignment != fold_index)
+      testing_indices <- which(fold_assignment == fold_index)
+      if (!length(testing_indices)) next
 
-    # Create function to robustly replicate loop for single npc (serial inside "chunk")
-    run.replicates.for.npc <- function(npc, reps) {
-      success_rates <- rep(NA_real_, reps)
-      n_pcs_use <- min(as.integer(npc), n_pc_available)
-      if (!is.finite(n_pcs_use) || n_pcs_use < 1L) return(success_rates)
+      # Fit PCA using training observations only
+      training_predictor_data <- predictor_matrix[training_indices, , drop = FALSE]
+      testing_predictor_data <- predictor_matrix[testing_indices, , drop = FALSE]
+      training_predictor_sd <- matrixStats::colSds(training_predictor_data)
+      informative_training_predictors <- is.finite(training_predictor_sd) & training_predictor_sd > 1e-9
+      if (!any(informative_training_predictors)) next
+      training_predictor_data <- training_predictor_data[, informative_training_predictors, drop = FALSE]
+      testing_predictor_data <- testing_predictor_data[, informative_training_predictors, drop = FALSE]
+      maximum_training_pcs <- min(max(n.pca.grid), ncol(training_predictor_data), nrow(training_predictor_data) - 1L)
+      if (maximum_training_pcs < 1L) next
 
-      # Replicate loop for single npc (serial inside "chunk")
-      for (rep_idx in seq_len(reps)) {
-        RNGkind("L'Ecuyer-CMRG")
-        set.seed(base_seed + npc * 1000L + rep_idx)
-
-        # Stratified split with >=2 per class in train, >=1 in test
-        idx_train <- unlist(lapply(split(seq_along(group_labels), group_labels), function(ix) {
-          n_train <- floor(length(ix) * training.set)
-          n_train <- max(2L, min(n_train, length(ix) - 1L))
-          sample(ix, n_train, replace = FALSE)
-        }), use.names = FALSE)
-        idx_train <- sort(unique(idx_train))
-        idx_test <- setdiff(seq_along(group_labels), idx_train)
-        if (length(idx_test) == 0L) next
-        train_scores <- pc_scores_matrix[idx_train, seq_len(n_pcs_use), drop = FALSE]
-        test_scores  <- pc_scores_matrix[idx_test, seq_len(n_pcs_use), drop = FALSE]
-        train_priors <- prop.table(table(group_labels[idx_train]))
-        if (length(train_priors) < nlevels(group_labels)) {
-          missing_lvls <- setdiff(levels(group_labels), names(train_priors))
-          for (lv in missing_lvls) {
-            cand <- which(group_labels == lv)
-            add <- setdiff(cand, idx_train)[1]
-            if (!is.na(add)) idx_train <- sort(c(idx_train, add))
-          }
-          train_scores <- pc_scores_matrix[idx_train, seq_len(n_pcs_use), drop = FALSE]
-          test_scores <- pc_scores_matrix[idx_test, seq_len(n_pcs_use), drop = FALSE]
-          idx_test <- setdiff(seq_along(group_labels), idx_train)
-          if (length(idx_test) == 0L) next
-          test_scores <- pc_scores_matrix[idx_test, seq_len(n_pcs_use), drop = FALSE]
-        }
-        lda_fit <- try(MASS::lda(x = train_scores, grouping = group_labels[idx_train], prior = as.vector(train_priors), tol = lda_tol), silent = TRUE)
-        if (inherits(lda_fit, "try-error")) next
-        predicted_classes <- try(predict(lda_fit, test_scores)$class, silent = TRUE)
-        if (inherits(predicted_classes, "try-error")) next
-        true_labels <- group_labels[idx_test]
-        success_rates[rep_idx] <- mean(tapply(predicted_classes == true_labels, true_labels, mean))
+      # Fit PCA using covariance eigendecomposition for tall matrices
+      covariance_pca <- NULL
+      if (isTRUE(center) && isTRUE(scale) && nrow(training_predictor_data) >= 3L * ncol(training_predictor_data)) {
+        covariance_pca <- tryCatch({
+          standardized_training <- base::scale(training_predictor_data, center = TRUE, scale = TRUE)
+          pca_eigen <- eigen(crossprod(standardized_training), symmetric = TRUE)
+          eigenvalues <- pca_eigen$values
+          if (!is.finite(eigenvalues[1L]) || eigenvalues[1L] <= 0 || !is.finite(eigenvalues[maximum_training_pcs]) || eigenvalues[maximum_training_pcs] <= 1e-10 * eigenvalues[1L]) stop("Numerically unstable PCA")
+          pc_boundaries <- n.pca.grid[n.pca.grid <= maximum_training_pcs & n.pca.grid < ncol(training_predictor_data)]
+          if (length(pc_boundaries) && any(eigenvalues[pc_boundaries] - eigenvalues[pc_boundaries + 1L] <= 1e-8 * eigenvalues[1L])) stop("Nearly tied PC eigenvalues")
+          pc_loadings <- pca_eigen$vectors[, seq_len(maximum_training_pcs), drop = FALSE]
+          standardized_testing <- base::scale(testing_predictor_data, center = attr(standardized_training, "scaled:center"), scale = attr(standardized_training, "scaled:scale"))
+          list(training = standardized_training %*% pc_loadings, testing = standardized_testing %*% pc_loadings)
+        }, error = function(e) NULL)
       }
-      success_rates
+      if (is.null(covariance_pca)) {
+        training_pca <- try(stats::prcomp(training_predictor_data, center = center, scale. = scale, rank. = maximum_training_pcs), silent = TRUE)
+        if (inherits(training_pca, "try-error")) next
+        training_pc_scores_all <- as.matrix(training_pca$x)
+        testing_pc_scores_all <- try(as.matrix(predict(training_pca, newdata = testing_predictor_data)), silent = TRUE)
+        if (inherits(testing_pc_scores_all, "try-error")) next
+      } else {
+        training_pc_scores_all <- as.matrix(covariance_pca$training)
+        testing_pc_scores_all <- as.matrix(covariance_pca$testing)
+      }
+      N.available.pcs <- min(ncol(training_pc_scores_all), ncol(testing_pc_scores_all))
+
+      # Calculate pooled within-group covariance once per fold
+      training_group_labels <- droplevels(group_labels[training_indices])
+      training_group_codes <- as.integer(training_group_labels)
+      training_group_counts <- tabulate(training_group_codes, nbins = 2L)
+      training_class_priors <- training_group_counts / sum(training_group_counts)
+      group_levels <- levels(training_group_labels)
+      first_group_rows <- training_group_codes == 1L
+      second_group_rows <- training_group_codes == 2L
+      training_group_means <- rbind(colMeans(training_pc_scores_all[first_group_rows, , drop = FALSE]), colMeans(training_pc_scores_all[second_group_rows, , drop = FALSE]))
+      centered_training_pc_scores <- training_pc_scores_all - training_group_means[training_group_codes, , drop = FALSE]
+      pooled_within_group_covariance <- crossprod(centered_training_pc_scores) / (nrow(training_pc_scores_all) - 2L)
+      log_prior_ratio <- log(training_class_priors[1L] / training_class_priors[2L])
+      minimum_training_group_size <- min(training_group_counts)
+
+      # Cache two-group test labels for class-balanced CV accuracy
+      testing_group_codes <- as.integer(group_labels[testing_indices])
+      first_testing_rows <- testing_group_codes == 1L
+      second_testing_rows <- testing_group_codes == 2L
+
+      # Try one Cholesky of largest valid leading PC block
+      N.chol.pcs <- min(max(n.pca.grid), N.available.pcs, minimum_training_group_size)
+      leading_cholesky <- try(chol(pooled_within_group_covariance[seq_len(N.chol.pcs), seq_len(N.chol.pcs), drop = FALSE]), silent = TRUE)
+
+      # Evaluate nested PC counts using precomputed covariance
+      for (pc_index in seq_along(n.pca.grid)) {
+        N.selected.pcs <- n.pca.grid[pc_index]
+        if (N.selected.pcs > N.available.pcs || N.selected.pcs >= nrow(training_predictor_data) - 1L) next
+        if (N.selected.pcs > minimum_training_group_size) next
+        selected_pc_columns <- seq_len(N.selected.pcs)
+        covariance_subset <- pooled_within_group_covariance[selected_pc_columns, selected_pc_columns, drop = FALSE]
+        covariance_cholesky <- if (!inherits(leading_cholesky, "try-error") && N.selected.pcs <= N.chol.pcs) {
+          leading_cholesky[selected_pc_columns, selected_pc_columns, drop = FALSE]
+        } else {
+          try(chol(covariance_subset), silent = TRUE)
+        }
+        covariance_condition <- if (inherits(covariance_cholesky, "try-error") || any(sqrt(diag(covariance_subset)) < lda_tol)) NA_real_ else rcond(covariance_subset)
+        if (!inherits(covariance_cholesky, "try-error") && is.finite(covariance_condition) && covariance_condition > 1e-8) {
+          group_mean_difference <- training_group_means[1L, selected_pc_columns] - training_group_means[2L, selected_pc_columns]
+          lda_coefficients <- backsolve(covariance_cholesky, forwardsolve(t(covariance_cholesky), group_mean_difference))
+          group_mean_midpoint <- (training_group_means[1L, selected_pc_columns] + training_group_means[2L, selected_pc_columns]) / 2
+          decision_scores <- drop(testing_pc_scores_all[, selected_pc_columns, drop = FALSE] %*% lda_coefficients) - sum(group_mean_midpoint * lda_coefficients) + log_prior_ratio
+          predicted_group_codes <- ifelse(decision_scores >= 0, 1L, 2L)
+        } else {
+
+          # Use lda function in MASS for singular or poorly conditioned covariance
+          training_pc_scores <- training_pc_scores_all[, selected_pc_columns, drop = FALSE]
+          testing_pc_scores <- testing_pc_scores_all[, selected_pc_columns, drop = FALSE]
+          training_lda <- try(MASS::lda(x = training_pc_scores, grouping = training_group_labels, prior = training_class_priors, tol = lda_tol), silent = TRUE)
+          if (inherits(training_lda, "try-error")) next
+          predicted_classes <- try(predict(training_lda, testing_pc_scores)$class, silent = TRUE)
+          if (inherits(predicted_classes, "try-error")) next
+          predicted_group_codes <- as.integer(predicted_classes)
+        }
+        fold_success[fold_index, pc_index] <- (mean(predicted_group_codes[first_testing_rows] == 1L) + mean(predicted_group_codes[second_testing_rows] == 2L)) / 2
+      }
+    }
+    vapply(seq_along(n.pca.grid), function(pc_index) {
+      fold_values <- fold_success[, pc_index]
+      if (any(!is.finite(fold_values))) return(NA_real_)
+      mean(fold_values)
+    }, numeric(1))
+  }
+
+  # Create function to calculate repeated stratified 5-fold cross-validation with training-only PCA
+  CV.DAPC.PC.count <- function(predictor_data, supplied_group_labels, n.pca.grid, center, scale, N.cv.repetitions, N.cv.cores, base_seed, source.ids = NULL, previous_results = NULL) {
+
+    # Prepare predictor matrix and restrict PC grid to valid training-group sizes
+    predictor_matrix <- as.matrix(predictor_data)
+    group_labels <- supplied_group_labels
+    lda_tol <- get("lda_tol", envir = parent.env(environment()), inherits = TRUE)
+    if (is.null(source.ids)) source.ids <- seq_along(group_labels)
+    minimum_training_group_sizes <- calculate.cv.training.sizes(group_labels, source.ids)
+    n.pca.grid <- sort(unique(as.integer(n.pca.grid)))
+    n.pca.grid <- n.pca.grid[n.pca.grid >= 1L & n.pca.grid <= min(ncol(predictor_matrix), nrow(predictor_matrix) - 1L, minimum_training_group_sizes)]
+    if (length(n.pca.grid) == 0L) stop("No valid PC counts available for cross-validation")
+
+    # Bind cross-validation worker to current predictor data and settings
+    cv_repetition_worker <- run.one.cv.repetition
+    if (.use_parallel && N.cv.cores > 1L && parallel == "Windows") {
+      environment(cv_repetition_worker) <- list2env(list(
+        predictor_matrix = predictor_matrix,
+        group_labels = group_labels,
+        source.ids = source.ids,
+        n.pca.grid = n.pca.grid,
+        center = center,
+        scale = scale,
+        base_seed = base_seed,
+        lda_tol = lda_tol
+      ), parent = asNamespace("stats"))
+    } else {
+      environment(cv_repetition_worker) <- environment()
     }
 
-    # Dispatch across PC grid with chunky jobs
-    if (.use_parallel && parallel == "Unix") {
-      successes_list <- parallel::mclapply(n.pca.grid, run.replicates.for.npc, reps = n.rep, mc.cores = ncores)
-    } else if (.use_parallel && parallel == "Windows") {
-      cl <- parallel::makeCluster(ncores, type = "PSOCK")
-      on.exit(parallel::stopCluster(cl), add = TRUE)
-      parallel::clusterSetRNGStream(cl, iseed = base_seed)
-      parallel::clusterExport(cl,
-                              c("pc_scores_matrix",
-                                "group_labels",
-                                "training.set",
-                                "run.replicates.for.npc",
-                                "base_seed",
-                                "lda_tol"),
-                              envir = environment())
-      parallel::clusterEvalQ(cl, {
+    # Dispatch independent five-fold cross-validation repetitions in parallel
+    if (.use_parallel && N.cv.cores > 1L && parallel == "Unix") {
+      replicate_success_list <- parallel::mclapply(seq_len(N.cv.repetitions), cv_repetition_worker, mc.cores = N.cv.cores)
+    } else if (.use_parallel && N.cv.cores > 1L && parallel == "Windows") {
+      if (is.null(shared_cv_cluster)) shared_cv_cluster <<- parallel::makeCluster(N.cv.cores, type = "PSOCK")
+      replicate_success_list <- parallel::parLapplyLB(shared_cv_cluster, seq_len(N.cv.repetitions), cv_repetition_worker)
+    } else {
+      replicate_success_list <- lapply(seq_len(N.cv.repetitions), cv_repetition_worker)
+    }
+
+    # Assemble per-repetition mean five-fold validation accuracy
+    failed_cv_workers <- which(vapply(replicate_success_list, inherits, logical(1), what = "try-error"))
+    if (length(failed_cv_workers)) stop("CV worker failed in repetitions: ", paste(failed_cv_workers, collapse = ", "))
+    replicate_success_matrix <- do.call(rbind, replicate_success_list)
+    crossval_data <- data.frame(n.pca = rep(n.pca.grid, each = N.cv.repetitions), success = as.vector(replicate_success_matrix))
+
+    # Combine previous and new CV results and calculate mean assignment success by PC count
+    if (!is.null(previous_results)) {
+      if (!is.list(previous_results) || !is.data.frame(previous_results$`Cross-Validation Results`)) stop("Invalid previous cross-validation results")
+      previous_cv_data <- previous_results$`Cross-Validation Results`
+      if (any(n.pca.grid %in% previous_cv_data$n.pca)) stop("Expanded CV candidate was already evaluated")
+      crossval_data <- rbind(previous_cv_data, crossval_data)
+      crossval_data <- crossval_data[order(crossval_data$n.pca), , drop = FALSE]
+      rownames(crossval_data) <- NULL
+    }
+    pc_count_factor <- as.factor(crossval_data$n.pca)
+    assignment_success_values <- crossval_data$success
+    mean_success_by_pc <- tapply(assignment_success_values, pc_count_factor, function(success_values) {
+      success_values <- success_values[is.finite(success_values)]
+      if (!length(success_values)) return(NA_real_)
+      mean(success_values)
+    })
+
+    # Estimate mean error and SE from five-fold averages across CV repetitions
+    mean_error_by_pc <- tapply(assignment_success_values, pc_count_factor, function(success_values) {
+      if (length(success_values) != N.cv.repetitions || any(!is.finite(success_values))) return(NA_real_)
+      mean(1 - success_values)
+    })
+    se_error_by_pc <- tapply(assignment_success_values, pc_count_factor, function(success_values) {
+      if (length(success_values) != N.cv.repetitions || any(!is.finite(success_values))) return(NA_real_)
+      stats::sd(1 - success_values) / sqrt(length(success_values))
+    })
+    if (!any(is.finite(mean_error_by_pc))) stop("No PC count has complete CV repetitions for one-SE selection")
+    minimum_error_index <- which.min(mean_error_by_pc)
+    minimum_error <- unname(mean_error_by_pc[minimum_error_index])
+    one_se_threshold <- minimum_error + unname(se_error_by_pc[minimum_error_index])
+    if (!is.finite(one_se_threshold)) stop("Cannot estimate one-SE threshold")
+    eligible_pcs <- as.integer(names(mean_error_by_pc)[is.finite(mean_error_by_pc) & mean_error_by_pc <= one_se_threshold])
+    selected_pcs <- min(eligible_pcs)
+
+    # Assemble cross-validation output
+    crossval_results <- list(
+      `Cross-Validation Results` = crossval_data,
+      `Number of CV folds` = 5L,
+      `Number of CV repetitions` = N.cv.repetitions,
+      `Mean Successful Assignment by Number of PCs of PCA` = mean_success_by_pc,
+      `Mean CV Classification Error by Number of PCs` = mean_error_by_pc,
+      `SE of Mean CV Classification Error by Number of PCs` = se_error_by_pc,
+      `Number of PCs Achieving Lowest Mean Error` = as.character(names(mean_error_by_pc)[minimum_error_index]),
+      `One-SE Classification Error Threshold` = one_se_threshold,
+      `PCs Eligible Under One-SE` = eligible_pcs,
+      DAPC = list(n.pca = selected_pcs)
+    )
+    crossval_results
+  }
+
+  # Create function to select optimal PCs using adaptive two-stage cross-validation
+  select.pcs.crossval <- function(predictor_data, group_labels, maximum_pcs, N.cv.cores, stage1_seed, stage2_seed, source.ids = NULL) {
+    if (length(maximum_pcs) != 1L || !is.finite(maximum_pcs) || maximum_pcs < 1L || maximum_pcs != floor(maximum_pcs)) stop("No valid PC count available for cross-validation")
+    maximum_pcs <- as.integer(maximum_pcs)
+    crossval_stage1 <- NULL
+    selected_pcs_stage1 <- NA_integer_
+    if (maximum_pcs > 13L) {
+      if (maximum_pcs <= 30L) {
+        pc_grid_stage1 <- unique(pmin(maximum_pcs, c(5L, 15L, 25L)))
+        pc_window_length <- 11L
+      } else {
+        pc_step_candidates <- seq.int(5L, maximum_pcs)
+        pc_total_candidates <- vapply(pc_step_candidates, function(pc_step) {
+          pc_window <- max(11L, pc_step + as.integer(pc_step %% 2L == 0L))
+          length(unique(c(5L, seq.int(pc_step, maximum_pcs, by = pc_step), maximum_pcs))) + pc_window
+        }, integer(1))
+        pc_step <- pc_step_candidates[which.min(pc_total_candidates)]
+        pc_window_length <- max(11L, pc_step + as.integer(pc_step %% 2L == 0L))
+        pc_grid_stage1 <- unique(sort(c(5L, seq.int(pc_step, maximum_pcs, by = pc_step), maximum_pcs)))
+      }
+      crossval_stage1 <- CV.DAPC.PC.count(predictor_data = predictor_data, supplied_group_labels = group_labels, n.pca.grid = pc_grid_stage1, center = TRUE, scale = TRUE, N.cv.repetitions = N.crossval.replicates, N.cv.cores = N.cv.cores, base_seed = stage1_seed, source.ids = source.ids)
+      selected_pcs_stage1 <- as.integer(crossval_stage1$DAPC$n.pca)
+      if (length(selected_pcs_stage1) != 1L || !is.finite(selected_pcs_stage1) || !(selected_pcs_stage1 %in% pc_grid_stage1)) stop("No valid PC count selected by stage 1 cross-validation")
+    }
+    if (maximum_pcs <= 13L) {
+      pc_grid_stage2 <- seq_len(maximum_pcs)
+    } else {
+      pc_lower_bound <- max(1L, selected_pcs_stage1 - (pc_window_length %/% 2L))
+      pc_upper_bound <- min(maximum_pcs, pc_lower_bound + pc_window_length - 1L)
+      pc_lower_bound <- max(1L, pc_upper_bound - pc_window_length + 1L)
+      pc_grid_stage2 <- seq.int(pc_lower_bound, pc_upper_bound)
+    }
+    crossval_stage2 <- CV.DAPC.PC.count(predictor_data = predictor_data, supplied_group_labels = group_labels, n.pca.grid = pc_grid_stage2, center = TRUE, scale = TRUE, N.cv.repetitions = N.crossval.replicates, N.cv.cores = N.cv.cores, base_seed = stage2_seed, source.ids = source.ids)
+
+    # Extend fine-search window if one-SE-selected PC count is at edge
+    repeat {
+      selected_pcs <- as.integer(crossval_stage2$DAPC$n.pca)
+      if (selected_pcs == min(pc_grid_stage2) && selected_pcs > 1L) {
+        adjacent_pc <- selected_pcs - 1L
+      } else if (selected_pcs == max(pc_grid_stage2) && selected_pcs < maximum_pcs) {
+        adjacent_pc <- selected_pcs + 1L
+      } else {
+        break
+      }
+      crossval_stage2 <- CV.DAPC.PC.count(predictor_data = predictor_data, supplied_group_labels = group_labels, n.pca.grid = adjacent_pc, center = TRUE, scale = TRUE, N.cv.repetitions = N.crossval.replicates, N.cv.cores = N.cv.cores, base_seed = stage2_seed, source.ids = source.ids, previous_results = crossval_stage2)
+      pc_grid_stage2 <- sort(c(pc_grid_stage2, adjacent_pc))
+    }
+    selected_pcs <- as.integer(crossval_stage2$DAPC$n.pca)
+    if (length(selected_pcs) != 1L || !is.finite(selected_pcs) || !(selected_pcs %in% pc_grid_stage2)) stop("No valid PC count selected by stage 2 cross-validation")
+    list(crossval_stage1 = crossval_stage1, selected_pcs_stage1 = selected_pcs_stage1, crossval_stage2 = crossval_stage2, selected_pcs = selected_pcs)
+  }
+
+  # Create function to select number of PCs for permuted dataset
+  select.permutation.pcs <- function(permutation.data, permutation.groups, permutation.seed, permutation.rank = NULL) {
+
+    # Calculate maximum number of PCs based on smaller training group size
+    training.group.sizes <- calculate.cv.training.sizes(permutation.groups)
+    if (is.null(permutation.rank)) {
+      predictor.sd <- matrixStats::colSds(permutation.data)
+      if (any(!is.finite(predictor.sd) | predictor.sd <= 1e-9)) return(NA_integer_)
+      permutation.rank <- qr(scale(permutation.data, center = pca.center, scale = pca.scale))$rank
+    }
+    mathematical.maximum <- min(ncol(permutation.data), permutation.rank, nrow(permutation.data) - 1L, sum(training.group.sizes) - 2L)
+    maximum.pcs <- as.integer(min(mathematical.maximum, min(training.group.sizes)))
+    if (maximum.pcs < 1L) return(NA_integer_)
+
+    # Select PCs using two-stage cross-validation
+    pc_selection <- select.pcs.crossval(permutation.data, permutation.groups, maximum.pcs, N.cv.cores = 1L, stage1_seed = permutation.seed + 10000L, stage2_seed = permutation.seed + 20000L)
+    pc_selection$selected_pcs
+  }
+
+  # Create function to generate held-out discriminant axis scores on pre-imputed input
+  evaluate.heldout.DA.scores <- function(predictor_data, group_labels, repetitions, bootstrap_index = NULL) {
+    if (repetitions == 0L) return(NULL)
+    heldout.single.repetition <- function(replicate_index) {
+      if (isTRUE(getOption("dapc_outer_serial_cv", FALSE))) {
+        heldout_rng_kind <- RNGkind()
+        on.exit(do.call(RNGkind, setNames(as.list(heldout_rng_kind), c("kind", "normal.kind", "sample.kind"))), add = TRUE)
+      }
+      tryCatch({
+        bootstrap_seed_offset <- if (is.null(bootstrap_index)) 0 else bootstrap_index * 1000000
+        RNGkind("L'Ecuyer-CMRG")
+        set.seed(seed + 600000L + replicate_index + bootstrap_seed_offset)
+        training_indices <- unlist(lapply(split(seq_along(group_labels), group_labels), function(group_indices) {
+          N.training.group <- floor(length(group_indices) * 0.5)
+          sample(group_indices, N.training.group, replace = FALSE)
+        }), use.names = FALSE)
+        training_indices <- sort(training_indices)
+        testing_indices <- setdiff(seq_along(group_labels), training_indices)
+        if (!is.null(bootstrap_index)) {
+          training_indices <- unlist(lapply(split(training_indices, group_labels[training_indices]), function(group_indices) sample(group_indices, length(group_indices), replace = TRUE)), use.names = FALSE)
+          testing_indices <- unlist(lapply(split(testing_indices, group_labels[testing_indices]), function(group_indices) sample(group_indices, length(group_indices), replace = TRUE)), use.names = FALSE)
+        }
+        training_group_labels <- droplevels(group_labels[training_indices])
+        testing_group_labels <- factor(group_labels[testing_indices], levels = levels(group_labels))
+        training_predictor_data <- predictor_data[training_indices, , drop = FALSE]
+        testing_predictor_data <- predictor_data[testing_indices, , drop = FALSE]
+
+        # Remove predictors with zero variance in outer training set
+        training_predictor_sd <- matrixStats::colSds(training_predictor_data)
+        informative_training_predictors <- is.finite(training_predictor_sd) & training_predictor_sd > 1e-9
+        if (!any(informative_training_predictors)) stop("No informative training predictors in held-out repetition ", replicate_index)
+        training_predictor_data <- training_predictor_data[, informative_training_predictors, drop = FALSE]
+        testing_predictor_data <- testing_predictor_data[, informative_training_predictors, drop = FALSE]
+        inner_training_group_sizes <- calculate.cv.training.sizes(training_group_labels, source.ids = training_indices)
+        maximum_pcs <- as.integer(min(ncol(training_predictor_data), nrow(training_predictor_data) - 2L, min(inner_training_group_sizes)))
+        if (maximum_pcs < 1L) stop("Too few training observations in held-out repetition ", replicate_index)
+
+        # Select PCs using two-stage cross-validation on training data only
+        pc_selection <- select.pcs.crossval(training_predictor_data, training_group_labels, maximum_pcs, N.cv.cores = if (isTRUE(getOption("dapc_outer_serial_cv", FALSE))) 1L else N.cores, stage1_seed = seed + 700000L + replicate_index * 1000L + if (is.null(bootstrap_index)) 0L else bootstrap_seed_offset, stage2_seed = seed + 800000L + replicate_index * 1000L + if (is.null(bootstrap_index)) 0L else bootstrap_seed_offset, source.ids = training_indices)
+        selected_pcs <- pc_selection$selected_pcs
+
+        # Fit PCA and discriminant analysis on outer training data only
+        training_pca <- stats::prcomp(training_predictor_data, center = TRUE, scale. = TRUE, rank. = selected_pcs)
+        training_pc_scores <- as.matrix(training_pca$x[, seq_len(selected_pcs), drop = FALSE])
+        testing_pc_scores <- as.matrix(predict(training_pca, newdata = testing_predictor_data)[, seq_len(selected_pcs), drop = FALSE])
+        training_class_priors <- as.vector(prop.table(table(training_group_labels)))
+        training_lda <- MASS::lda(training_pc_scores, grouping = training_group_labels, prior = training_class_priors, tol = lda_tol)
+
+        # Project held-out observations onto fitted discriminant analysis
+        heldout_predictions <- predict(training_lda, testing_pc_scores)
+        heldout_DA_scores <- as.matrix(heldout_predictions$x)
+        colnames(heldout_DA_scores) <- "discriminant_axis"
+
+        # Assemble predictions and metrics for one held-out repetition
+        list(
+          ld = heldout_DA_scores,
+          grp = testing_group_labels,
+          assign = heldout_predictions$class,
+          n.pca = selected_pcs,
+          accuracy = mean(heldout_predictions$class == testing_group_labels),
+          ARI = mclust::adjustedRandIndex(heldout_predictions$class, testing_group_labels),
+          train.indices = training_indices,
+          test.indices = testing_indices
+        )
+      }, error = function(e) {
+        if (is.null(bootstrap_index)) stop(e)
         NULL
       })
-      successes_list <- parallel::parLapplyLB(cl, n.pca.grid, run.replicates.for.npc, reps = n.rep)
-    } else {
-      successes_list <- lapply(n.pca.grid, run.replicates.for.npc, reps = n.rep)
     }
 
-    # Assemble to xval-like structure
-    xval_df <- data.frame(n.pca = rep(n.pca.grid, each = n.rep), success = unlist(successes_list, use.names = FALSE))
-    n.pcaF <- as.factor(xval_df$n.pca)
-    successV <- xval_df$success
-    mean_success_by_pc <- tapply(successV, n.pcaF, function(v) mean(v, na.rm = TRUE))
-    RMSE <- tapply(successV, n.pcaF, function(v) {
-      v <- v[is.finite(v)]
-      if (!length(v)) return(NA_real_)
-      sqrt(mean((v - 1)^2))
-    })
-    best_by_RMSE <- names(which(RMSE == min(RMSE, na.rm = TRUE)))
-    if (length(best_by_RMSE) == 0L) {
-      best_by_RMSE <- as.character(stats::median(n.pca.grid))
-    }
-    if (length(best_by_RMSE) > 1) best_by_RMSE <- tail(best_by_RMSE, 1)
-    best_by_RMSE <- as.integer(best_by_RMSE)
-    out <- list(
-      `Cross-Validation Results` = xval_df,
-      `Median and Confidence Interval for Random Chance` = {
+    # Execute held-out repetitions using parallel or sequential processing
+    if (is.null(bootstrap_index) && .use_parallel && parallel == "Unix" && repetitions >= 2L && N.cores > 1L) {
+      heldout_repetition_results <- parallel::mclapply(seq_len(repetitions), function(replicate_index) {
+        options(dapc_outer_serial_cv = TRUE)
+        heldout.single.repetition(replicate_index)
+      }, mc.cores = N.cores, mc.set.seed = FALSE)
+      if (verbose) message("Completed held-out repetitions: ", repetitions, "/", repetitions)
+    } else if (is.null(bootstrap_index) && .use_parallel && parallel == "Windows" && repetitions >= 2L && N.cores > 1L) {
+      if (is.null(shared_cv_cluster)) shared_cv_cluster <<- parallel::makeCluster(N.cores, type = "PSOCK")
+      heldout_runtime <- new.env(parent = globalenv())
+      heldout_runtime$predictor_data <- predictor_data
+      heldout_runtime$group_labels <- group_labels
+      heldout_runtime$bootstrap_index <- bootstrap_index
+      heldout_runtime$seed <- seed
+      heldout_runtime$N.cores <- 1L
+      heldout_runtime$N.crossval.replicates <- N.crossval.replicates
+      heldout_runtime$lda_tol <- lda_tol
+      heldout_runtime$verbose <- FALSE
+      heldout_runtime$.use_parallel <- FALSE
+      heldout_runtime$parallel <- "none"
+      heldout_runtime$calculate.cv.training.sizes <- calculate.cv.training.sizes
+      heldout_runtime$run.one.cv.repetition <- run.one.cv.repetition
+      heldout_runtime$CV.DAPC.PC.count <- CV.DAPC.PC.count
+      heldout_runtime$select.pcs.crossval <- select.pcs.crossval
+      heldout_runtime$heldout.single.repetition <- heldout.single.repetition
+      for (function_name in c("calculate.cv.training.sizes", "run.one.cv.repetition", "CV.DAPC.PC.count", "select.pcs.crossval", "heldout.single.repetition")) {
+        environment(heldout_runtime[[function_name]]) <- heldout_runtime
+      }
+      parallel::clusterExport(shared_cv_cluster, "heldout_runtime", envir = environment())
+      heldout_dispatch_worker <- evalq(function(replicate_index) {
         RNGkind("L'Ecuyer-CMRG")
-        set.seed(base_seed + 500000L)
-        phen <- group_labels
-        random <- replicate(300, mean(tapply(sample(phen) == phen, phen, mean)))
-        stats::quantile(random, c(0.025, 0.5, 0.975))
-      },
-      `Mean Successful Assignment by Number of PCs of PCA` = mean_success_by_pc,
-      `Number of PCs Achieving Highest Mean Success` = names(which.max(mean_success_by_pc)),
-      `Root Mean Squared Error by Number of PCs of PCA` = RMSE,
-      `Number of PCs Achieving Lowest MSE` = as.character(best_by_RMSE),
-      DAPC = list(n.pca = best_by_RMSE)
-    )
-    out
-  }
-
-  # Create function to generate one permutation replicate (deterministic per-replicate seeding)
-  permute.once <- function(rep_id, n_pcs_keep, pc_scores_full) {
-    RNGkind("L'Ecuyer-CMRG")
-    set.seed(seed + as.integer(rep_id))
-    permuted_groups <- sample(group.assignment)
-    permuted_groups <- factor(permuted_groups, levels = levels(group.assignment))
-    if (nlevels(droplevels(permuted_groups)) < 2) return(c(NA_real_, NA_real_))
-    n_pcs_use <- min(as.integer(n_pcs_keep), ncol(pc_scores_full))
-    if (!is.finite(n_pcs_use) || n_pcs_use < 1L) return(c(NA_real_, NA_real_))
-    pc_scores_selected <- pc_scores_full[, seq_len(n_pcs_use), drop = FALSE]
-    priors_perm <- as.vector(prop.table(table(permuted_groups)))
-    lda_fit_perm <- try(MASS::lda(pc_scores_selected, grouping = permuted_groups, prior = priors_perm, tol = lda_tol), silent = TRUE)
-    if (inherits(lda_fit_perm, "try-error")) return(c(NA_real_, NA_real_))
-    predicted_perm <- try(predict(lda_fit_perm, pc_scores_selected)$class, silent = TRUE)
-    if (inherits(predicted_perm, "try-error")) return(c(NA_real_, NA_real_))
-    c(mean(predicted_perm == permuted_groups), sum(predicted_perm != permuted_groups))
-  }
-
-  # Create function to facilitate PSOCK (Windows) to reduce per-job overhead and keep IDs unique
-  permute.chunk <- function(start_id, chunk_size, n_pcs_keep, pc_scores_full) {
-    out_mat <- matrix(NA_real_, nrow = chunk_size, ncol = 2)
-    for (i in seq_len(chunk_size)) {
-      rep_id <- start_id + i - 1L
-      out_mat[i, ] <- permute.once(rep_id, n_pcs_keep, pc_scores_full)
+        heldout_runtime$heldout.single.repetition(replicate_index)
+      }, envir = globalenv())
+      heldout_repetition_results <- parallel::parLapplyLB(shared_cv_cluster, seq_len(repetitions), heldout_dispatch_worker)
+      if (verbose) message("Completed held-out repetitions: ", repetitions, "/", repetitions)
+      rm(heldout_runtime, heldout_dispatch_worker)
+    } else {
+      heldout_repetition_results <- lapply(seq_len(repetitions), function(replicate_index) {
+        repetition_result <- heldout.single.repetition(replicate_index)
+        if (verbose && is.null(bootstrap_index) && (replicate_index %% 10L == 0L || replicate_index == repetitions)) message("Completed held-out repetitions: ", replicate_index, "/", repetitions)
+        repetition_result
+      })
     }
-    out_mat
+
+    # Remove failed bootstrap repetitions and return held-out results
+    failed_heldout_workers <- which(vapply(heldout_repetition_results, inherits, logical(1), what = "try-error"))
+    if (length(failed_heldout_workers)) stop("Held-out worker failed in repetitions: ", paste(failed_heldout_workers, collapse = ", "))
+    if (!is.null(bootstrap_index)) heldout_repetition_results <- Filter(Negate(is.null), heldout_repetition_results)
+    heldout_repetition_results
   }
 
-  # Perform crossvalidation
+  # Calculate unweighted D and ND on discriminant axis of fitted model
+  calculate.permutation.metrics <- function(ld.scores, labels) {
+    if (!exists("calc.niche.divergence.metrics", mode = "function")) stop("Load calc.niche.divergence.metrics() to run permutation tests for D and ND")
+    metric_results <- try(calc.niche.divergence.metrics(
+      dapc_out = list(dapc_results = list(ld = as.matrix(ld.scores), grp = labels)),
+      weight.background = FALSE,
+      verbose = FALSE
+    ), silent = TRUE)
+    if (inherits(metric_results, "try-error")) return(c(Schoener_D = NA_real_, ND = NA_real_))
+    c(Schoener_D = as.numeric(metric_results$Schoener_D), ND = as.numeric(metric_results$Niche_divergence_magnitude))
+  }
+
+  # Calculate one-sided permutation p-values using valid null replicates
+  calculate.metric.pvalue <- function(null_values, observed_value, tail = c("lower", "upper")) {
+    tail <- match.arg(tail)
+    valid_values <- null_values[is.finite(null_values)]
+    if (!length(valid_values) || !is.finite(observed_value)) return(NA_real_)
+    extreme_count <- if (tail == "lower") sum(valid_values <= observed_value) else sum(valid_values >= observed_value)
+    (extreme_count + 1) / (length(valid_values) + 1)
+  }
+
+  # Create function to generate permutation replicate with independent PC selection
+  permute.once <- function(permutation_index) {
+    RNGkind("L'Ecuyer-CMRG")
+    set.seed(seed + as.integer(permutation_index))
+    invalid_statistics <- c(accuracy = NA_real_, errors = NA_real_, Schoener_D = NA_real_, ND = NA_real_)
+    permuted_groups <- factor(sample(group.assignment), levels = levels(group.assignment))
+    permutation.seed <- seed + 100000L + as.integer(permutation_index) * 100L
+    selected.pcs <- try(select.permutation.pcs(data.input, permuted_groups, permutation.seed, permutation.rank = pca_prelim$rank), silent = TRUE)
+    if (inherits(selected.pcs, "try-error") || length(selected.pcs) != 1L || !is.finite(selected.pcs) || selected.pcs < 1L || selected.pcs > ncol(pca_prelim$li)) return(invalid_statistics)
+    permuted.scores <- as.matrix(pca_prelim$li[, seq_len(selected.pcs), drop = FALSE])
+    permutation.priors <- as.vector(prop.table(table(permuted_groups)))
+    permutation.lda <- try(MASS::lda(permuted.scores, grouping = permuted_groups, prior = permutation.priors, tol = lda_tol), silent = TRUE)
+    if (inherits(permutation.lda, "try-error")) return(invalid_statistics)
+    predicted.permutation <- try(predict(permutation.lda, permuted.scores), silent = TRUE)
+    if (inherits(predicted.permutation, "try-error")) return(invalid_statistics)
+    metric_values <- calculate.permutation.metrics(predicted.permutation$x, permuted_groups)
+    c(accuracy = mean(predicted.permutation$class == permuted_groups),
+      errors = sum(predicted.permutation$class != permuted_groups),
+      Schoener_D = unname(metric_values["Schoener_D"]),
+      ND = unname(metric_values["ND"]))
+  }
+
+  # Perform cross-validation
   if (need_compute) {
     if (verbose) message("")
     if (verbose) message("Running cross-validation ...")
     max_possible_pcs <- min(nrow(data.input), ncol(data.input))
-    smallest_group_size <- min(group_sizes)
-    training_set_fraction <- min(0.9, (smallest_group_size - 1) / smallest_group_size)
-    N.training <- max(2L, round(nrow(data.input) * training_set_fraction))
+    training_group_sizes <- calculate.cv.training.sizes(group.assignment)
+    N.training <- sum(training_group_sizes)
     if (any(apply(data.input, 2, function(x) all(is.na(x))))) stop("Some variables contain only NA values after preprocessing - cannot run PCA")
-    pca_prelim <- ade4::dudi.pca(data.input,
-                                 nf = max_possible_pcs,
-                                 scannf = FALSE,
-                                 center = TRUE,
-                                 scale = TRUE)
-    n.pca.max <- min(max_possible_pcs, pca_prelim$rank, N.training - 1L)
+    pca_prelim <- ade4::dudi.pca(data.input, nf = max_possible_pcs, scannf = FALSE, center = pca.center, scale = pca.scale)
+    mathematical_maximum <- as.integer(min(max_possible_pcs, pca_prelim$rank, N.training - 2L))
+    n.pca.max <- as.integer(min(mathematical_maximum, min(training_group_sizes)))
+    if (n.pca.max < 1L) stop("Too few training observations for DAPC")
+    if (verbose) message("Maximum PCs limited by smallest training group: ", n.pca.max)
 
-    # Report if PCA rank or LDA training-size constraint capped maximum PCs
+    # Report if PCA rank or discriminant analysis training-size constraint capped maximum PCs
     if (verbose) {
-      if (n.pca.max == pca_prelim$rank && pca_prelim$rank < max_possible_pcs) {
-        message("n.pca.max limited by PCA rank (max number of non-redundant PCs): ", pca_prelim$rank)
-      }
-      if (n.pca.max == (N.training - 1L) && (N.training - 1L) < max_possible_pcs) {
-        message("n.pca.max limited by training-set size (DA requires PCs < number of training samples): N.training - 1 = ", N.training - 1L)
-      }
+      if (n.pca.max == pca_prelim$rank && pca_prelim$rank < max_possible_pcs) message("n.pca.max is limited by PCA rank (max number of non-redundant PCs): ", pca_prelim$rank)
+      if (mathematical_maximum == (N.training - 2L) && (N.training - 2L) < min(max_possible_pcs, pca_prelim$rank)) message("PC maximum limited by training-set size: N.training - 2 = ", N.training - 2L)
     }
 
-    # Stage 1 cross-validation
-    skip_stage1 <- (n.pca.max <= 30L)
-    if (!skip_stage1) {
-      pc_grid_stage1 <- unique(sort(pmin(n.pca.max - 1L, seq(10L, n.pca.max, by = 10L))))
-      pc_grid_stage1 <- pc_grid_stage1[pc_grid_stage1 > 0L]
-      if (length(pc_grid_stage1) == 0L) pc_grid_stage1 <- 1L
-      xval1 <- xval.DAPC.batched(x = data.input,
-                                 grp = group.assignment,
-                                 n.pca.grid = pc_grid_stage1,
-                                 training.set = training_set_fraction,
-                                 center = TRUE,
-                                 scale = TRUE,
-                                 n.rep = N.crossval.replicates,
-                                 ncores = N.cores,
-                                 base_seed = seed + 10000L)
-      optimal_pcs_1 <- NA_integer_
-      if (!is.null(xval1$DAPC) && !is.null(xval1$DAPC$n.pca)) {
-        optimal_pcs_1 <- as.integer(xval1$DAPC$n.pca)
-      } else if (!is.null(xval1$`Number of PCs Achieving Lowest MSE`)) {
-        optimal_pcs_1 <- as.integer(xval1$`Number of PCs Achieving Lowest MSE`)
-      } else if (!is.null(xval1$MSE) && !is.null(xval1$`Number of PCs tested`)) {
-        pcs_tested1 <- xval1$`Number of PCs tested`
-        metric1 <- -xval1$MSE
-        optimal_pcs_1 <- as.integer(pcs_tested1[which.max(metric1)])
-      } else if (!is.null(xval1$`Mean Successful Assignment`) && !is.null(xval1$`Number of PCs tested`)) {
-        pcs_tested1 <- xval1$`Number of PCs tested`
-        metric1 <- xval1$`Mean Successful Assignment`
-        optimal_pcs_1 <- as.integer(pcs_tested1[which.max(metric1)])
-      }
-      if (!is.finite(optimal_pcs_1)) optimal_pcs_1 <- max(1L, min(10L, n.pca.max - 1L))
-    } else {
-      if (verbose) message("Skipping stage 1 cross-validation because n.pca.max is <= 30")
-      xval1 <- NULL
-      optimal_pcs_1 <- max(1L, min(10L, n.pca.max - 1L))
-    }
-
-    # Stage 2 cross-validation (fine-tuning)
-    window_len <- 30L
-    lower_bound <- max(1L, optimal_pcs_1 - 14L)
-    upper_bound <- lower_bound + (window_len - 1L)
-    upper_bound <- min(upper_bound, n.pca.max - 1L)
-    lower_bound <- max(1L, upper_bound - (window_len - 1L))
-    pc_grid_stage2 <- seq.int(lower_bound, upper_bound, by = 1L)
-    if (length(pc_grid_stage2) == 0L) pc_grid_stage2 <- max(1L, min(n.pca.max - 1L, optimal_pcs_1))
-    xval2 <- xval.DAPC.batched(x = data.input,
-                               grp = group.assignment,
-                               n.pca.grid = pc_grid_stage2,
-                               training.set = training_set_fraction,
-                               center = TRUE,
-                               scale = TRUE,
-                               n.rep = N.crossval.replicates,
-                               ncores = N.cores,
-                               base_seed = seed + 20000L)
-    optimal_pcs_2 <- NA_integer_
-    if (!is.null(xval2$DAPC) && !is.null(xval2$DAPC$n.pca)) {
-      optimal_pcs_2 <- as.integer(xval2$DAPC$n.pca)
-    } else if (!is.null(xval2$`Number of PCs Achieving Lowest MSE`)) {
-      optimal_pcs_2 <- as.integer(xval2$`Number of PCs Achieving Lowest MSE`)
-    } else if (!is.null(xval2$MSE) && !is.null(xval2$`Number of PCs tested`)) {
-      pcs_tested2 <- xval2$`Number of PCs tested`
-      metric2 <- -xval2$MSE
-      optimal_pcs_2 <- as.integer(pcs_tested2[which.max(metric2)])
-    } else if (!is.null(xval2$`Mean Successful Assignment`) && !is.null(xval2$`Number of PCs tested`)) {
-      pcs_tested2 <- xval2$`Number of PCs tested`
-      metric2 <- xval2$`Mean Successful Assignment`
-      optimal_pcs_2 <- as.integer(pcs_tested2[which.max(metric2)])
-    }
-    if (!is.null(fixed.n.pcs)) {
-      optimal_pcs_2 <- as.integer(fixed.n.pcs)
-      if (verbose) message("Overriding n.pca for DAPC or permutations: ", optimal_pcs_2)
-    }
-    if (!is.finite(optimal_pcs_2) || optimal_pcs_2 < 1) optimal_pcs_2 <- 1L
-    optimal_pcs_2 <- min(optimal_pcs_2, n.pca.max)
-    if (verbose) message("Optimal number of PCs retained for DAPC: ", optimal_pcs_2)
+    # Run two-stage cross-validation
+    if (verbose && n.pca.max <= 13L) message("Skipping stage 1 cross-validation because n.pca.max is <= 13")
+    pc_selection <- select.pcs.crossval(data.input, group.assignment, n.pca.max, N.cv.cores = N.cores, stage1_seed = seed + 10000L, stage2_seed = seed + 20000L)
+    xval1 <- pc_selection$crossval_stage1
+    optimal_pcs_1 <- pc_selection$selected_pcs_stage1
+    xval2 <- pc_selection$crossval_stage2
+    optimal_pcs_2 <- pc_selection$selected_pcs
+    if (verbose) message("Number of PCs retained for DAPC: ", optimal_pcs_2)
     cumulative_variance_explained <- sum(pca_prelim$eig[seq_len(optimal_pcs_2)]) / sum(pca_prelim$eig)
-    if (verbose) message("Cumulative variance explained by retained PCs: ", round(cumulative_variance_explained * 100, 1), "%")
+    if (verbose) message(sprintf("Cumulative variance explained by retained PCs: %.1f%%", cumulative_variance_explained * 100))
 
-    # Run DAPC (PCA + LDA on retained PCs)
-    if (verbose) {
-      message("")
-      message("Running DAPC ...")
-    }
-    pca_full <- ade4::dudi.pca(data.input,
-                               nf = max(optimal_pcs_2, 2L),
-                               scannf = FALSE,
-                               center = TRUE,
-                               scale = TRUE)
+    # Run DAPC (PCA + discriminant analysis on retained PCs)
+    if (verbose) message("")
+    if (verbose) message("Running DAPC ...")
+    pca_full <- ade4::dudi.pca(data.input, nf = optimal_pcs_2, scannf = FALSE, center = pca.center, scale = pca.scale)
     pc_scores_full <- as.matrix(pca_full$li)
     pc_names <- sprintf("PC%03d", seq_len(ncol(pc_scores_full)))
     colnames(pc_scores_full) <- pc_names
@@ -3400,33 +3775,28 @@ run.DAPC.crossval.permutation <- function(data.input, #matrix or data.frame of p
     pca_loading_matrix <- as.matrix(pca_full$c1) #variables x PCs
     lda_scaling_matrix <- as.matrix(lda_fit_observed$scaling) #PCs x LDs
 
-    # Align by index
-    var_load_matrix <- pca_loading_matrix[, seq_len(n_pcs_use), drop = FALSE] %*%
-      lda_scaling_matrix[seq_len(n_pcs_use), , drop = FALSE]
+    # Align PCA loadings and discriminant analysis coefficients by PC index
+    var_load_matrix <- pca_loading_matrix[, seq_len(n_pcs_use), drop = FALSE] %*% lda_scaling_matrix[seq_len(n_pcs_use), , drop = FALSE]
 
-    # Safe dimnames for var.load
+    # Assign dimension names to variable loadings
     if (!is.null(colnames(lda_scaling_matrix)) && ncol(var_load_matrix) == ncol(lda_scaling_matrix)) {
       colnames(var_load_matrix) <- colnames(lda_scaling_matrix)
     } else {
       colnames(var_load_matrix) <- paste0("LD", seq_len(ncol(var_load_matrix)))
     }
-    if (!is.null(rownames(pca_loading_matrix)) && nrow(var_load_matrix) == nrow(pca_loading_matrix)) {
-      rownames(var_load_matrix) <- rownames(pca_loading_matrix)
-    }
+    if (!is.null(rownames(pca_loading_matrix)) && nrow(var_load_matrix) == nrow(pca_loading_matrix)) rownames(var_load_matrix) <- rownames(pca_loading_matrix)
 
-    # Normalized squared contributions per LD (sum to 1 per LD)
-    sq <- var_load_matrix^2
-    den <- colSums(sq)
-    den[!is.finite(den) | den == 0] <- NA_real_
-    var_contrib_matrix <- sweep(sq, 2, den, "/")
-    var_contrib_matrix[!is.finite(var_contrib_matrix)] <- 0
+    # Calculate normalized squared contributions per discriminant axis (sum to 1 per discriminant axis)
+    squared_variable_loadings <- var_load_matrix^2
+    variable_contribution_totals <- colSums(squared_variable_loadings)
+    variable_contribution_totals[!is.finite(variable_contribution_totals) | variable_contribution_totals == 0] <- NA_real_
+    var_contrib_matrix <- sweep(squared_variable_loadings, 2, variable_contribution_totals, "/")
 
-    # Back-compat 1D contribution for LD1
+    # Retain backward-compatible 1D contribution for discriminant axis
     var_contrib <- var_contrib_matrix[, 1, drop = TRUE]
 
-    # Group centroids in LD space (robust with 1 LD)
-    grp_coord_matrix <- rowsum(discriminant_scores, group.assignment) /
-      as.vector(table(group.assignment))
+    # Calculate group centroids in discriminant axis space (robust with 1 discriminant axis)
+    grp_coord_matrix <- rowsum(discriminant_scores, group.assignment) / as.vector(table(group.assignment))
 
     # Ensure row order matches factor levels
     grp_coord_matrix <- grp_coord_matrix[levels(group.assignment), , drop = FALSE]
@@ -3452,9 +3822,155 @@ run.DAPC.crossval.permutation <- function(data.input, #matrix or data.frame of p
     ARI <- mclust::adjustedRandIndex(predicted_groups, group.assignment)
     if (verbose) message(sprintf("Adjusted Rand Index (ARI) = %.2f", ARI))
 
-    # Permutation null distributions
+    # Run optional held-out discriminant axis validation
+    heldout_results <- NULL
+    if (N.heldout.replicates > 0L) {
+      if (verbose) message("")
+      if (verbose) message("Running held-out discriminant axis validation (", N.heldout.replicates, " replicates) ...")
+      heldout_results <- evaluate.heldout.DA.scores(data.input, group.assignment, as.integer(N.heldout.replicates))
+    }
+
+    # Bootstrap mean held-out niche metrics using separate training and test resampling
+    bootstrap_metric_means <- NULL
+    bootstrap_metric_grid_resolution <- 1024L
+    if (N.bootstrap.replicates > 0L) {
+      if (!exists("calc.niche.divergence.metrics", mode = "function")) stop("Load calc.niche.divergence.metrics() before bootstrap confidence interval estimation")
+      bootstrap_metric_names <- c("Schoener_D", "Niche_dissimilarity", "Niche_breadth_exclusivity", "Niche_divergence_magnitude", "Niche_divergence_angle_degrees")
+      bootstrap_primary_metric_names <- setdiff(bootstrap_metric_names, "Niche_divergence_angle_degrees")
+      bootstrap_metric_means <- matrix(NA_real_, nrow = N.bootstrap.replicates, ncol = length(bootstrap_metric_names), dimnames = list(NULL, bootstrap_metric_names))
+      attr(bootstrap_metric_means, "metric_implementation_id") <- paste(deparse(body(get("calc.niche.divergence.metrics", mode = "function")), width.cutoff = 500L), collapse = "\n")
+      if (verbose) message("")
+      if (verbose) message("Bootstrapping held-out niche metrics (", N.bootstrap.replicates, " replicates) ...")
+
+      # Divide bootstrap replicates into batches for progress reporting
+      bootstrap_batch_size <- if (N.bootstrap.replicates <= 100L) 20L else 100L
+      bootstrap_batches <- split(seq_len(N.bootstrap.replicates), ceiling(seq_len(N.bootstrap.replicates) / bootstrap_batch_size))
+
+      # Evaluate independent bootstrap replicates with identical resampling and model fitting
+      bootstrap_replicate_once <- function(bootstrap_index) {
+        bootstrap_metric_values <- rep(NA_real_, length(bootstrap_metric_names))
+        bootstrap_heldout_results <- try(evaluate.heldout.DA.scores(data.input, group.assignment, as.integer(N.heldout.replicates), bootstrap_index = bootstrap_index), silent = TRUE)
+        if (!inherits(bootstrap_heldout_results, "try-error") && length(bootstrap_heldout_results) > 0L) {
+          bootstrap_repetition_metrics <- lapply(bootstrap_heldout_results, function(heldout_repetition) {
+            bootstrap_metrics <- try(calc.niche.divergence.metrics(
+              dapc_out = list(dapc_results = list(ld = heldout_repetition$ld, grp = heldout_repetition$grp)),
+              weight.background = FALSE,
+              verbose = FALSE
+            ), silent = TRUE)
+            if (inherits(bootstrap_metrics, "try-error")) return(rep(NA_real_, length(bootstrap_metric_names)))
+            metric_values <- try(vapply(bootstrap_metric_names, function(metric_name) as.numeric(bootstrap_metrics[[metric_name]]), numeric(1)), silent = TRUE)
+            if (inherits(metric_values, "try-error")) return(rep(NA_real_, length(bootstrap_metric_names)))
+            metric_values
+          })
+          bootstrap_repetition_matrix <- do.call(rbind, bootstrap_repetition_metrics)
+          primary_metric_indices <- seq_len(length(bootstrap_metric_names) - 1L)
+          angle_metric_index <- length(bootstrap_metric_names)
+          valid_bootstrap_repetitions <- rowSums(!is.finite(bootstrap_repetition_matrix[, primary_metric_indices, drop = FALSE])) == 0L
+          if (sum(valid_bootstrap_repetitions) >= ceiling(0.8 * N.heldout.replicates)) {
+            bootstrap_metric_values[primary_metric_indices] <- colMeans(bootstrap_repetition_matrix[valid_bootstrap_repetitions, primary_metric_indices, drop = FALSE])
+            valid_angle_repetitions <- valid_bootstrap_repetitions & is.finite(bootstrap_repetition_matrix[, angle_metric_index])
+            if (sum(valid_angle_repetitions) >= ceiling(0.8 * N.heldout.replicates)) bootstrap_metric_values[angle_metric_index] <- mean(bootstrap_repetition_matrix[valid_angle_repetitions, angle_metric_index])
+          }
+        }
+        bootstrap_metric_values
+      }
+      if (.use_parallel && parallel == "Unix" && N.bootstrap.replicates >= 2L) {
+        for (batch_indices in bootstrap_batches) {
+          bootstrap_rows <- parallel::mclapply(batch_indices, function(bootstrap_index) {
+            options(dapc_outer_serial_cv = TRUE)
+            bootstrap_replicate_once(bootstrap_index)
+          }, mc.cores = N.cores, mc.set.seed = FALSE)
+          failed_bootstrap_workers <- which(vapply(bootstrap_rows, inherits, logical(1), what = "try-error"))
+          if (length(failed_bootstrap_workers)) stop("Bootstrap worker failed in replicates: ", paste(batch_indices[failed_bootstrap_workers], collapse = ", "))
+          bootstrap_metric_means[batch_indices, ] <- do.call(rbind, bootstrap_rows)
+          if (verbose) message("Completed bootstrap replicates: ", max(batch_indices), "/", N.bootstrap.replicates)
+        }
+      } else if (.use_parallel && parallel == "Windows" && N.bootstrap.replicates >= 2L) {
+
+        # Distribute whole bootstrap replicates
+        if (is.null(shared_cv_cluster)) shared_cv_cluster <- parallel::makeCluster(N.cores, type = "PSOCK")
+        bootstrap_runtime <- new.env(parent = globalenv())
+        bootstrap_runtime$data.input <- data.input
+        bootstrap_runtime$group.assignment <- group.assignment
+        bootstrap_runtime$N.heldout.replicates <- N.heldout.replicates
+        bootstrap_runtime$N.crossval.replicates <- N.crossval.replicates
+        bootstrap_runtime$N.cores <- N.cores
+        bootstrap_runtime$seed <- seed
+        bootstrap_runtime$lda_tol <- lda_tol
+        bootstrap_runtime$verbose <- FALSE
+        bootstrap_runtime$.use_parallel <- FALSE
+        bootstrap_runtime$parallel <- "none"
+        bootstrap_runtime$bootstrap_metric_names <- bootstrap_metric_names
+        bootstrap_runtime$calculate.cv.training.sizes <- calculate.cv.training.sizes
+        bootstrap_runtime$run.one.cv.repetition <- run.one.cv.repetition
+        bootstrap_runtime$CV.DAPC.PC.count <- CV.DAPC.PC.count
+        bootstrap_runtime$select.pcs.crossval <- select.pcs.crossval
+        bootstrap_runtime$evaluate.heldout.DA.scores <- evaluate.heldout.DA.scores
+        bootstrap_runtime$calc.niche.divergence.metrics <- get("calc.niche.divergence.metrics", mode = "function")
+        bootstrap_runtime$bootstrap_replicate_once <- bootstrap_replicate_once
+        for (function_name in c("calculate.cv.training.sizes", "run.one.cv.repetition", "CV.DAPC.PC.count", "select.pcs.crossval", "evaluate.heldout.DA.scores", "calc.niche.divergence.metrics", "bootstrap_replicate_once")) {
+          environment(bootstrap_runtime[[function_name]]) <- bootstrap_runtime
+        }
+        parallel::clusterExport(shared_cv_cluster, "bootstrap_runtime", envir = environment())
+        bootstrap_dispatch_worker <- evalq(function(bootstrap_index) {
+          RNGkind("L'Ecuyer-CMRG")
+          bootstrap_runtime$bootstrap_replicate_once(bootstrap_index)
+        }, envir = globalenv())
+        for (batch_indices in bootstrap_batches) {
+          bootstrap_rows <- parallel::parLapplyLB(shared_cv_cluster, batch_indices, bootstrap_dispatch_worker)
+          bootstrap_metric_means[batch_indices, ] <- do.call(rbind, bootstrap_rows)
+          if (verbose) message("Completed bootstrap replicates: ", max(batch_indices), "/", N.bootstrap.replicates)
+        }
+        rm(bootstrap_runtime, bootstrap_rows, bootstrap_dispatch_worker)
+      } else {
+        for (bootstrap_index in seq_len(N.bootstrap.replicates)) {
+          bootstrap_metric_means[bootstrap_index, ] <- bootstrap_replicate_once(bootstrap_index)
+          if (verbose && (bootstrap_index %% bootstrap_batch_size == 0L || bootstrap_index == N.bootstrap.replicates)) message("Completed bootstrap replicates: ", bootstrap_index, "/", N.bootstrap.replicates)
+        }
+      }
+      bootstrap_valid_count <- sum(rowSums(!is.finite(bootstrap_metric_means[, bootstrap_primary_metric_names, drop = FALSE])) == 0L)
+      if (bootstrap_valid_count < ceiling(0.8 * N.bootstrap.replicates)) warning("Fewer than 80% of bootstrap replicates succeeded (", bootstrap_valid_count, "/", N.bootstrap.replicates, ") - bootstrap confidence intervals will be unavailable", call. = FALSE)
+      if (bootstrap_valid_count < N.bootstrap.replicates) {
+        if (verbose) message("Valid bootstrap replicates: ", bootstrap_valid_count, "/", N.bootstrap.replicates)
+      }
+    }
+
+    # Calculate confidence intervals from bootstrap replicate means
+    bootstrap_CI <- NULL
+    if (!is.null(bootstrap_metric_means)) {
+      bootstrap_CI <- calc.niche.divergence.metrics(
+        dapc_out = list(
+          dapc_results = dapc_results,
+          bootstrap_metric_means = bootstrap_metric_means,
+          bootstrap_metric_grid_resolution = bootstrap_metric_grid_resolution
+        ),
+        weight.background = FALSE,
+        verbose = FALSE
+      )$bootstrap_CI
+    }
+
+    # Release reused CV workers before starting parallel permutation workers
+    if (!is.null(shared_cv_cluster)) {
+      try(parallel::stopCluster(shared_cv_cluster), silent = TRUE)
+      shared_cv_cluster <- NULL
+    }
+
+    # Initiate permutation null distributions for accuracy, Schoener's D, and ND
     permutation_assign_props <- numeric(0)
     p_val_assign <- NA_real_
+    observed_Schoener_D <- NA_real_
+    observed_ND <- NA_real_
+    permutation_Schoener_D <- numeric(0)
+    permutation_ND <- numeric(0)
+    p_val_Schoener_D <- NA_real_
+    p_val_ND <- NA_real_
+    permutation_metric_grid_resolution <- 1024L
+    if (N.permutations > 0L) {
+      observed_metric_values <- calculate.permutation.metrics(discriminant_scores, group.assignment)
+      if (any(!is.finite(observed_metric_values))) stop("Could not calculate observed unweighted D and ND for permutation testing")
+      observed_Schoener_D <- unname(observed_metric_values["Schoener_D"])
+      observed_ND <- unname(observed_metric_values["ND"])
+    }
 
     # Run permutation test
     if (N.permutations > 0L) {
@@ -3462,10 +3978,12 @@ run.DAPC.crossval.permutation <- function(data.input, #matrix or data.frame of p
       RNGkind("L'Ecuyer-CMRG")
       set.seed(seed + 30000L)
     } else if (verbose) {
+      message("")
       message("Skipping DAPC permutation tests (N.permutations = 0)")
     }
     if (N.permutations > 0L && background.permutation.test) {
-      if (verbose) message("Running HUMBOLDT-inspired spatial background permutations")
+      if (verbose) message("")
+      if (verbose) message("Running spatial background permutation test with ", N.permutations, " permutations ...")
 
       # Match environmental predictors used by DAPC
       required.predictors <- colnames(data.input)
@@ -3486,14 +4004,8 @@ run.DAPC.crossval.permutation <- function(data.input, #matrix or data.frame of p
                                                     latitude.col = "Latitude",
                                                     max.match.distance.km = 15,
                                                     max.attempts = 1000) {
-
-        # Validate coordinates and predictor columns
-        if (!requireNamespace("sf", quietly = TRUE)) stop("Package 'sf' is required for spatial background randomization")
-        if (!requireNamespace("RANN", quietly = TRUE)) stop("Package 'RANN' is required for spatial background randomization")
+        # Identify required coordinate columns
         coordinate.names <- c(longitude.col, latitude.col)
-        if (!all(coordinate.names %in% names(occurrence.coordinates))) stop("Occurrence coordinates are missing longitude or latitude")
-        if (!all(coordinate.names %in% names(target.background.data))) stop("Background coordinates are missing longitude or latitude")
-        if (!all(predictor.names %in% names(target.background.data))) stop("Target background is missing predictors: ", paste(setdiff(predictor.names, names(target.background.data)), collapse = ", "))
 
         # Retain only finite target-background rows with required predictors
         target.background.data <- target.background.data[, unique(c(coordinate.names, predictor.names)), drop = FALSE]
@@ -3518,6 +4030,18 @@ run.DAPC.crossval.permutation <- function(data.input, #matrix or data.frame of p
         background.hull <- sf::st_convex_hull(sf::st_sfc(sf::st_multipoint(background.xy), crs = metric.crs))
         if (any(sf::st_geometry_type(background.hull) != "POLYGON")) stop("Background records do not define a valid convex polygon")
 
+        # Cache counter-clockwise convex hull vertices for arithmetic containment checks
+        hull.vertices <- sf::st_coordinates(background.hull)[, c("X", "Y"), drop = FALSE]
+        if (nrow(hull.vertices) > 1L && isTRUE(all(hull.vertices[1L, ] == hull.vertices[nrow(hull.vertices), ]))) hull.vertices <- hull.vertices[-nrow(hull.vertices), , drop = FALSE]
+        if (nrow(hull.vertices) < 3L) stop("Background convex hull has fewer than three distinct vertices")
+        following.vertices <- hull.vertices[c(seq.int(2L, nrow(hull.vertices)), 1L), , drop = FALSE]
+        signed.area.twice <- sum(hull.vertices[, 1L] * following.vertices[, 2L] - following.vertices[, 1L] * hull.vertices[, 2L])
+        if (!is.finite(signed.area.twice) || abs(signed.area.twice) <= .Machine$double.eps) stop("Background convex hull has invalid area")
+        if (signed.area.twice < 0) hull.vertices <- hull.vertices[rev(seq_len(nrow(hull.vertices))), , drop = FALSE]
+        hull.edges <- hull.vertices[c(seq.int(2L, nrow(hull.vertices)), 1L), , drop = FALSE] - hull.vertices
+        hull.extent <- max(diff(range(background.xy[, 1L])), diff(range(background.xy[, 2L])))
+        hull.cross.tolerance <- 1e-12 * hull.extent^2
+
         # Follow HUMBOLDT's bounded translation principle: one-third of background extent
         maximum.longitude.shift <- diff(range(background.xy[, 1])) / 3
         maximum.latitude.shift <- diff(range(background.xy[, 2])) / 3
@@ -3530,8 +4054,12 @@ run.DAPC.crossval.permutation <- function(data.input, #matrix or data.frame of p
           for (attempt in seq_len(max.attempts)) {
             displacement <- c(stats::runif(1L, -maximum.longitude.shift, maximum.longitude.shift), stats::runif(1L, -maximum.latitude.shift, maximum.latitude.shift))
             shifted.xy <- sweep(occurrence.xy, 2, displacement, FUN = "+")
-            shifted.points <- sf::st_sfc(lapply(seq_len(nrow(shifted.xy)), function(point.index) sf::st_point(shifted.xy[point.index, ])), crs = metric.crs)
-            within.background <- lengths(sf::st_covered_by(shifted.points, background.hull)) > 0L
+            within.background <- rep(TRUE, nrow(shifted.xy))
+            for (edge.index in seq_len(nrow(hull.vertices))) {
+              cross.products <- hull.edges[edge.index, 1L] * (shifted.xy[, 2L] - hull.vertices[edge.index, 2L]) - hull.edges[edge.index, 2L] * (shifted.xy[, 1L] - hull.vertices[edge.index, 1L])
+              within.background <- within.background & cross.products >= -hull.cross.tolerance
+              if (!any(within.background)) break
+            }
             if (!any(within.background)) next
 
             # Extract background environments only at accepted shifted coordinates
@@ -3551,95 +4079,173 @@ run.DAPC.crossval.permutation <- function(data.input, #matrix or data.frame of p
       }
 
       # Shift each species within its own geographic background
-      draw.Sp1.within.Sp1 <- create.spatial.background.sampler(
-        occurrence.coordinates = occurrence.spatial.coordinates[group.assignment == Sp1.label, , drop = FALSE],
-        target.background.data = Sp1.background.data,
-        predictor.names = required.predictors,
-        longitude.col = spatial.longitude.col,
-        latitude.col = spatial.latitude.col,
-        max.match.distance.km = spatial.max.match.distance.km,
-        max.attempts = spatial.max.attempts)
-      draw.Sp2.within.Sp2 <- create.spatial.background.sampler(
-        occurrence.coordinates = occurrence.spatial.coordinates[group.assignment == Sp2.label, , drop = FALSE],
-        target.background.data = Sp2.background.data,
-        predictor.names = required.predictors,
-        longitude.col = spatial.longitude.col,
-        latitude.col = spatial.latitude.col,
-        max.match.distance.km = spatial.max.match.distance.km,
-        max.attempts = spatial.max.attempts)
+      draw.Sp1.within.Sp1 <- create.spatial.background.sampler(occurrence.coordinates = occurrence.spatial.coordinates[group.assignment == Sp1.label, , drop = FALSE],
+                                                               target.background.data = Sp1.background.data,
+                                                               predictor.names = required.predictors,
+                                                               longitude.col = spatial.longitude.col,
+                                                               latitude.col = spatial.latitude.col,
+                                                               max.match.distance.km = spatial.max.match.distance.km,
+                                                               max.attempts = spatial.max.attempts)
+      draw.Sp2.within.Sp2 <- create.spatial.background.sampler(occurrence.coordinates = occurrence.spatial.coordinates[group.assignment == Sp2.label, , drop = FALSE],
+                                                               target.background.data = Sp2.background.data,
+                                                               predictor.names = required.predictors,
+                                                               longitude.col = spatial.longitude.col,
+                                                               latitude.col = spatial.latitude.col,
+                                                               max.match.distance.km = spatial.max.match.distance.km,
+                                                               max.attempts = spatial.max.attempts)
 
-      # Create function to calculate background permutation accuracy
-      calculate.background.accuracy <- function(pseudo.combined, pseudo.labels) {
-        if (any(!is.finite(pseudo.combined))) return(NA_real_)
-        pseudo.pca <- try(ade4::dudi.pca(pseudo.combined, nf = n_pcs_use, scannf = FALSE, center = TRUE, scale = TRUE), silent = TRUE)
-        if (inherits(pseudo.pca, "try-error")) return(NA_real_)
-        pseudo.scores <- as.matrix(pseudo.pca$li[, seq_len(min(n_pcs_use, ncol(pseudo.pca$li))), drop = FALSE])
+      # Create function to calculate background permutation accuracy, D, and ND with independent PC selection
+      calculate.background.statistics <- function(pseudo.combined, pseudo.labels) {
+        invalid_statistics <- c(accuracy = NA_real_, Schoener_D = NA_real_, ND = NA_real_)
+        if (any(!is.finite(pseudo.combined))) return(invalid_statistics)
+        permutation.seed <- sample.int(100000000L, 1L)
+        selected.pcs <- try(select.permutation.pcs(pseudo.combined, pseudo.labels, permutation.seed), silent = TRUE)
+        if (inherits(selected.pcs, "try-error") || length(selected.pcs) != 1L || !is.finite(selected.pcs) || selected.pcs < 1L) return(invalid_statistics)
+        pseudo.pca <- try(ade4::dudi.pca(pseudo.combined, nf = selected.pcs, scannf = FALSE, center = pca.center, scale = pca.scale), silent = TRUE)
+        if (inherits(pseudo.pca, "try-error")) return(invalid_statistics)
+        pseudo.scores <- as.matrix(pseudo.pca$li[, seq_len(selected.pcs), drop = FALSE])
         pseudo.priors <- as.vector(prop.table(table(pseudo.labels)))
         pseudo.lda <- try(MASS::lda(pseudo.scores, grouping = pseudo.labels, prior = pseudo.priors, tol = lda_tol), silent = TRUE)
-        if (inherits(pseudo.lda, "try-error")) return(NA_real_)
-        predicted <- try(predict(pseudo.lda, pseudo.scores)$class, silent = TRUE)
-        if (inherits(predicted, "try-error")) return(NA_real_)
-        mean(predicted == pseudo.labels)
+        if (inherits(pseudo.lda, "try-error")) return(invalid_statistics)
+        predicted_background <- try(predict(pseudo.lda, pseudo.scores), silent = TRUE)
+        if (inherits(predicted_background, "try-error")) return(invalid_statistics)
+        metric_values <- calculate.permutation.metrics(predicted_background$x, pseudo.labels)
+        c(accuracy = mean(predicted_background$class == pseudo.labels), Schoener_D = unname(metric_values["Schoener_D"]), ND = unname(metric_values["ND"]))
       }
 
-      # Generate spatial background permutation distributions
-      permutation.assign.forward <- rep(NA_real_, N.permutations)
-      permutation.assign.reverse <- rep(NA_real_, N.permutations)
+      # Define group labels for spatial background permutations
       pseudo.labels <- factor(c(rep(Sp1.label, nrow(Sp1.data)), rep(Sp2.label, nrow(Sp2.data))), levels = species.levels)
-      for (permutation.index in seq_len(N.permutations)) {
+
+      # Create function to calculate one background permutation replicate
+      background.permute.once <- function(permutation.index) {
+        RNGkind("L'Ecuyer-CMRG")
+        set.seed(seed + 40000L + as.integer(permutation.index))
+        forward_statistics <- c(accuracy = NA_real_, Schoener_D = NA_real_, ND = NA_real_)
+        reverse_statistics <- c(accuracy = NA_real_, Schoener_D = NA_real_, ND = NA_real_)
         pseudo.Sp1 <- draw.Sp1.within.Sp1()
-        if (!is.null(pseudo.Sp1)) permutation.assign.forward[permutation.index] <- calculate.background.accuracy(rbind(pseudo.Sp1, Sp2.data), pseudo.labels)
+        if (!is.null(pseudo.Sp1)) forward_statistics <- calculate.background.statistics(rbind(pseudo.Sp1, Sp2.data), pseudo.labels)
         pseudo.Sp2 <- draw.Sp2.within.Sp2()
-        if (!is.null(pseudo.Sp2)) permutation.assign.reverse[permutation.index] <- calculate.background.accuracy(rbind(Sp1.data, pseudo.Sp2), pseudo.labels)
+        if (!is.null(pseudo.Sp2)) reverse_statistics <- calculate.background.statistics(rbind(Sp1.data, pseudo.Sp2), pseudo.labels)
+        c(forward_accuracy = unname(forward_statistics["accuracy"]),
+          reverse_accuracy = unname(reverse_statistics["accuracy"]),
+          forward_D = unname(forward_statistics["Schoener_D"]),
+          reverse_D = unname(reverse_statistics["Schoener_D"]),
+          forward_ND = unname(forward_statistics["ND"]),
+          reverse_ND = unname(reverse_statistics["ND"]))
       }
 
-      # Calculate background permutation p-values
+      # Run spatial permutations in batches and report progress
+      spatial_batch_size <- as.integer(message.N.permutations)
+      spatial_batches <- split(seq_len(N.permutations), ceiling(seq_len(N.permutations) / spatial_batch_size))
+      background.results <- vector("list", N.permutations)
+      if (.use_parallel && parallel == "Windows") {
+        background_cluster <- parallel::makeCluster(N.cores, type = "PSOCK")
+        on.exit(try(parallel::stopCluster(background_cluster), silent = TRUE), add = TRUE)
+        parallel::clusterExport(background_cluster, varlist = c("background.permute.once", "calculate.background.statistics", "calculate.permutation.metrics", "calc.niche.divergence.metrics", "select.permutation.pcs", "select.pcs.crossval", "CV.DAPC.PC.count", "calculate.cv.training.sizes", "seed", "N.crossval.replicates", "lda_tol", ".use_parallel", "parallel"), envir = environment())
+        worker.function <- evalq(function(i) background.permute.once(i), envir = globalenv())
+      }
+      for (batch_indices in spatial_batches) {
+        if (!.use_parallel) {
+          batch_results <- lapply(batch_indices, background.permute.once)
+        } else if (parallel == "Unix") {
+          batch_results <- parallel::mclapply(batch_indices, background.permute.once, mc.cores = N.cores, mc.set.seed = FALSE)
+        } else {
+          batch_results <- parallel::parLapplyLB(background_cluster, batch_indices, worker.function)
+        }
+        failed_background_workers <- which(vapply(batch_results, inherits, logical(1), what = "try-error"))
+        if (length(failed_background_workers)) stop("Spatial permutation workers failed for indices: ", paste(batch_indices[failed_background_workers], collapse = ", "))
+        background.results[batch_indices] <- batch_results
+        if (verbose) message("Completed spatial permutations: ", max(batch_indices), "/", N.permutations)
+      }
+
+      # Assemble background permutation null distributions for accuracy, D, and ND
+      background.results <- do.call(rbind, background.results)
+      permutation.assign.forward <- background.results[, "forward_accuracy"]
+      permutation.assign.reverse <- background.results[, "reverse_accuracy"]
+      permutation_Schoener_D <- list(species1_shifted = background.results[, "forward_D"], species2_shifted = background.results[, "reverse_D"])
+      permutation_ND <- list(species1_shifted = background.results[, "forward_ND"], species2_shifted = background.results[, "reverse_ND"])
+
+      # Preserve existing two-sided background accuracy test
       valid.forward <- permutation.assign.forward[is.finite(permutation.assign.forward)]
       valid.reverse <- permutation.assign.reverse[is.finite(permutation.assign.reverse)]
-      minimum.valid <- ceiling(0.8 * N.permutations)
+      minimum.valid <- 1L
       p.forward <- if (length(valid.forward) >= minimum.valid) min(1, 2 * (min(sum(valid.forward >= observed.acc), sum(valid.forward <= observed.acc)) + 1) / (length(valid.forward) + 1)) else NA_real_
       p.reverse <- if (length(valid.reverse) >= minimum.valid) min(1, 2 * (min(sum(valid.reverse >= observed.acc), sum(valid.reverse <= observed.acc)) + 1) / (length(valid.reverse) + 1)) else NA_real_
-      if (length(valid.forward) < minimum.valid || length(valid.reverse) < minimum.valid) warning("Fewer than 80% of background permutations succeeded in at least one direction")
-      if (verbose) message("Valid background permutations: species 1 shifted ", length(valid.forward), "/", N.permutations, "; species 2 shifted ", length(valid.reverse), "/", N.permutations)
+
+      # Warn if more than 10 background permutations fail in either direction
+      N.failed.background.forward <- N.permutations - length(valid.forward)
+      N.failed.background.reverse <- N.permutations - length(valid.reverse)
+      if (N.failed.background.forward > 10L || N.failed.background.reverse > 10L) warning("Background permutations failed: species 1 shifted = ", N.failed.background.forward, "/", N.permutations, ", species 2 shifted = ", N.failed.background.reverse, "/", N.permutations, call. = FALSE)
       permutation_assign_props <- list(species1_shifted = permutation.assign.forward, species2_shifted = permutation.assign.reverse)
       p_val_assign <- c(species1_shifted = p.forward, species2_shifted = p.reverse)
+
+      # Calculate background permutation p-values for Schoener's D and ND
+      p_val_Schoener_D <- vapply(permutation_Schoener_D, calculate.metric.pvalue, numeric(1), observed_value = observed_Schoener_D, tail = "lower")
+      p_val_ND <- vapply(permutation_ND, calculate.metric.pvalue, numeric(1), observed_value = observed_ND, tail = "upper")
+      if (verbose) {
+        message(sprintf("Background permutation test for Schoener's D: observed = %.3f, p(species 1 shifted) = %s, p(species 2 shifted) = %s", observed_Schoener_D, format(signif(p_val_Schoener_D[1], 2), scientific = FALSE, trim = TRUE), format(signif(p_val_Schoener_D[2], 2), scientific = FALSE, trim = TRUE)))
+        message(sprintf("Background permutation test for ND: observed = %.3f, p(species 1 shifted) = %s, p(species 2 shifted) = %s", observed_ND, format(signif(p_val_ND[1], 2), scientific = FALSE, trim = TRUE), format(signif(p_val_ND[2], 2), scientific = FALSE, trim = TRUE)))
+      }
     } else if (N.permutations > 0L) {
       if (verbose) message("Running permutation test with ", N.permutations, " permutations ...")
-      if (!.use_parallel) {
-        out <- lapply(seq_len(N.permutations), permute.once, n_pcs_keep = n_pcs_use, pc_scores_full = pc_scores_full)
-        out <- do.call(rbind, out)
-      } else if (parallel == "Unix") {
-        out <- parallel::mclapply(seq_len(N.permutations), permute.once, n_pcs_keep = n_pcs_use, pc_scores_full = pc_scores_full, mc.cores = N.cores)
-        out <- do.call(rbind, out)
-      } else {
-        cl <- parallel::makeCluster(N.cores, type = "PSOCK")
-        on.exit(parallel::stopCluster(cl), add = TRUE)
-        parallel::clusterSetRNGStream(cl, seed + 30000L)
-        parallel::clusterExport(cl, varlist = c("permute.chunk", "permute.once", "seed", "lda_tol", "n_pcs_use", "pc_scores_full", "group.assignment"), envir = environment())
-        parallel::clusterEvalQ(cl, {
-          NULL
-        })
-        chunk_sizes <- rep(N.permutations %/% N.cores, N.cores)
-        remainder <- N.permutations %% N.cores
-        if (remainder > 0) chunk_sizes[seq_len(remainder)] <- chunk_sizes[seq_len(remainder)] + 1L
-        starts <- cumsum(c(1L, head(chunk_sizes, -1)))
-        chunk_results <- parallel::parLapplyLB(cl, seq_along(chunk_sizes), function(i) {
-          permute.chunk(start_id = starts[i], chunk_size = chunk_sizes[i], n_pcs_keep = n_pcs_use, pc_scores_full = pc_scores_full)
-        })
-        out <- do.call(rbind, chunk_results)
+
+      # Divide permutations into batches for progress reporting
+      progress_batch_size <- if (.use_parallel && parallel == "Unix" && N.permutations > 800L) as.integer(N.permutations) else as.integer(message.N.permutations)
+      permutation_batches <- split(seq_len(N.permutations), ceiling(seq_len(N.permutations) / progress_batch_size))
+      permutation_result_list <- vector("list", N.permutations)
+
+      # Initialize Windows parallel workers
+      if (.use_parallel && parallel == "Windows") {
+        permutation_cluster <- parallel::makeCluster(N.cores, type = "PSOCK")
+        on.exit(parallel::stopCluster(permutation_cluster), add = TRUE)
+        parallel::clusterSetRNGStream(permutation_cluster, seed + 30000L)
+        parallel::clusterExport(permutation_cluster, varlist = c("permute.once", "calculate.permutation.metrics", "calc.niche.divergence.metrics", "select.permutation.pcs", "select.pcs.crossval", "CV.DAPC.PC.count", "calculate.cv.training.sizes", "seed", "lda_tol", "group.assignment", "data.input", "pca_prelim", "N.crossval.replicates", ".use_parallel", "parallel"), envir = environment())
+        worker.function <- evalq(function(i) permute.once(i), envir = globalenv())
       }
-      permutation_assign_props <- out[, 1]
+
+      # Run permutations and report progress
+      for (batch_indices in permutation_batches) {
+        if (!.use_parallel) {
+          batch_results <- lapply(batch_indices, permute.once)
+        } else if (parallel == "Unix") {
+          batch_results <- parallel::mclapply(batch_indices, permute.once, mc.cores = N.cores, mc.set.seed = FALSE)
+        } else {
+          batch_results <- parallel::parLapplyLB(permutation_cluster, batch_indices, worker.function)
+        }
+        failed_permutation_workers <- which(vapply(batch_results, inherits, logical(1), what = "try-error"))
+        if (length(failed_permutation_workers)) stop("Label permutation workers failed for indices: ", paste(batch_indices[failed_permutation_workers], collapse = ", "))
+        permutation_result_list[batch_indices] <- batch_results
+        if (verbose) {
+          completed_permutations <- max(batch_indices)
+          message(sprintf("Completed permutations: %d/%d", completed_permutations, N.permutations))
+        }
+      }
+      permutation_results <- do.call(rbind, permutation_result_list)
+
+      # Check permutation success and calculate p-value
+      permutation_assign_props <- permutation_results[, 1]
       perm_assign_props_finite <- permutation_assign_props[is.finite(permutation_assign_props)]
-      p_val_assign <- if (length(perm_assign_props_finite) > 0L) {
-        (sum(perm_assign_props_finite >= observed_assign_prop) + 1) / (length(perm_assign_props_finite) + 1)
+      N.failed.permutations <- sum(!is.finite(permutation_assign_props))
+      N.valid.permutations <- length(perm_assign_props_finite)
+      if (N.failed.permutations > 10L) warning(N.failed.permutations, " of ", N.permutations, " label permutations failed", call. = FALSE)
+      p_val_assign <- if (N.valid.permutations > 0L) {
+        (sum(perm_assign_props_finite >= observed_assign_prop) + 1) / (N.valid.permutations + 1)
       } else {
         NA_real_
       }
-      if (verbose) message(sprintf("Permutation test for mean accuracy: p-value = %.3f, mean = %.2f", p_val_assign, mean(perm_assign_props_finite)))
+      if (verbose) message(sprintf("Permutation test for mean accuracy: p-value = %s, mean = %.2f", format(signif(p_val_assign, 2), scientific = FALSE, trim = TRUE), if (N.valid.permutations > 0L) mean(perm_assign_props_finite) else NA_real_))
+
+      # Calculate label permutation p-values for Schoener's D and ND
+      permutation_Schoener_D <- permutation_results[, "Schoener_D"]
+      permutation_ND <- permutation_results[, "ND"]
+      p_val_Schoener_D <- calculate.metric.pvalue(permutation_Schoener_D, observed_Schoener_D, tail = "lower")
+      p_val_ND <- calculate.metric.pvalue(permutation_ND, observed_ND, tail = "upper")
     }
 
     # Save results
     if (save) {
+      saved_bootstrap_replicates <- as.integer(N.bootstrap.replicates)
+      saved_analysis_signature <- analysis_signature
       save(list = c("xval1",
                     "optimal_pcs_1",
                     "xval2",
@@ -3650,9 +4256,21 @@ run.DAPC.crossval.permutation <- function(data.input, #matrix or data.frame of p
                     "permutation_assign_props",
                     "p_val_assign",
                     "pca_object_full",
-                    "ARI"),
+                    "ARI",
+                    "heldout_results",
+                    "bootstrap_metric_means",
+                    "bootstrap_CI",
+                    "bootstrap_metric_grid_resolution",
+                    "saved_bootstrap_replicates",
+                    "observed_Schoener_D",
+                    "observed_ND",
+                    "permutation_Schoener_D",
+                    "permutation_ND",
+                    "p_val_Schoener_D",
+                    "p_val_ND",
+                    "permutation_metric_grid_resolution",
+                    "saved_analysis_signature"),
            file = output_path)
-
       if (verbose) message("DAPC finished - results saved to: ", output_path)
     }
 
@@ -3668,13 +4286,51 @@ run.DAPC.crossval.permutation <- function(data.input, #matrix or data.frame of p
       observed_assign_prop = observed_assign_prop,
       permutation_assign_props = permutation_assign_props,
       p_val_assign = p_val_assign,
-      ARI = ARI
+      ARI = ARI,
+      heldout_results = heldout_results,
+      bootstrap_metric_means = bootstrap_metric_means,
+      bootstrap_CI = bootstrap_CI,
+      bootstrap_metric_grid_resolution = bootstrap_metric_grid_resolution,
+      observed_Schoener_D = observed_Schoener_D,
+      observed_ND = observed_ND,
+      permutation_Schoener_D = permutation_Schoener_D,
+      permutation_ND = permutation_ND,
+      p_val_Schoener_D = p_val_Schoener_D,
+      p_val_ND = p_val_ND,
+      permutation_metric_grid_resolution = permutation_metric_grid_resolution
     ))
   } else {
 
     # Load results from existing file
     if (verbose) message("Results file exists - loading results from ", output_path)
-    load(output_path)
+    loaded_result_names <- load(output_path)
+    if (!("saved_analysis_signature" %in% loaded_result_names) || !identical(saved_analysis_signature, analysis_signature)) stop("Saved results correspond to different data or analysis settings, or lack provenance - set overwrite = TRUE to recompute")
+    if (!is.list(xval2) || !identical(xval2$`Number of CV folds`, 5L) || !identical(as.integer(xval2$`Number of CV repetitions`), as.integer(N.crossval.replicates))) stop("Saved results were generated with another cross-validation design or repetition count - set overwrite = TRUE to recompute")
+    if (is.null(xval2$`One-SE Classification Error Threshold`) || !length(xval2$`PCs Eligible Under One-SE`) || length(optimal_pcs_2) != 1L || !is.finite(optimal_pcs_2) || !identical(as.integer(optimal_pcs_2), as.integer(min(xval2$`PCs Eligible Under One-SE`))) || !identical(as.integer(optimal_pcs_2), as.integer(xval2$DAPC$n.pca))) stop("Saved results were not selected using one-SE rule - set overwrite = TRUE to recompute")
+    saved_permutation_count <- if (is.list(permutation_assign_props)) length(permutation_assign_props[[1L]]) else length(permutation_assign_props)
+    saved_spatial_permutations <- is.list(permutation_assign_props)
+    if (saved_permutation_count != N.permutations || (N.permutations > 0L && saved_spatial_permutations != background.permutation.test)) stop("Saved results were generated with another permutation count or permutation method - set overwrite = TRUE to recompute")
+    saved_heldout_repetitions <- if ("heldout_results" %in% loaded_result_names && !is.null(heldout_results)) length(heldout_results) else 0L
+    if (saved_heldout_repetitions != as.integer(N.heldout.replicates)) stop("Saved results contain ", saved_heldout_repetitions, " held-out repetitions but ", N.heldout.replicates, " were requested - set overwrite = TRUE to recompute")
+    saved_bootstrap_count <- if ("saved_bootstrap_replicates" %in% loaded_result_names) as.integer(saved_bootstrap_replicates) else 0L
+    if (saved_bootstrap_count != as.integer(N.bootstrap.replicates)) stop("Saved results contain ", saved_bootstrap_count, " bootstrap replicates but ", N.bootstrap.replicates, " were requested - set overwrite = TRUE to recompute")
+    if (saved_bootstrap_count > 0L && (!"bootstrap_metric_means" %in% loaded_result_names || is.null(bootstrap_metric_means))) stop("Saved results do not contain the requested bootstrap metric means - set overwrite = TRUE to recompute")
+
+    # Calculate confidence intervals when loading results
+    if (!"bootstrap_CI" %in% loaded_result_names) {
+      bootstrap_CI <- NULL
+      if (saved_bootstrap_count > 0L) {
+        bootstrap_CI <- calc.niche.divergence.metrics(
+          dapc_out = list(
+            dapc_results = dapc_results,
+            bootstrap_metric_means = bootstrap_metric_means,
+            bootstrap_metric_grid_resolution = if ("bootstrap_metric_grid_resolution" %in% loaded_result_names) bootstrap_metric_grid_resolution else NULL
+          ),
+          weight.background = FALSE,
+          verbose = FALSE
+        )$bootstrap_CI
+      }
+    }
 
     # Return loaded results
     return(list(
@@ -3688,7 +4344,18 @@ run.DAPC.crossval.permutation <- function(data.input, #matrix or data.frame of p
       observed_assign_prop = observed_assign_prop,
       permutation_assign_props = permutation_assign_props,
       p_val_assign = p_val_assign,
-      ARI = ARI
+      ARI = ARI,
+      heldout_results = if (exists("heldout_results", inherits = FALSE)) heldout_results else NULL,
+      bootstrap_metric_means = if ("bootstrap_metric_means" %in% loaded_result_names) bootstrap_metric_means else NULL,
+      bootstrap_CI = bootstrap_CI,
+      bootstrap_metric_grid_resolution = if ("bootstrap_metric_grid_resolution" %in% loaded_result_names) bootstrap_metric_grid_resolution else NULL,
+      observed_Schoener_D = if ("observed_Schoener_D" %in% loaded_result_names) observed_Schoener_D else NA_real_,
+      observed_ND = if ("observed_ND" %in% loaded_result_names) observed_ND else NA_real_,
+      permutation_Schoener_D = if ("permutation_Schoener_D" %in% loaded_result_names) permutation_Schoener_D else numeric(0),
+      permutation_ND = if ("permutation_ND" %in% loaded_result_names) permutation_ND else numeric(0),
+      p_val_Schoener_D = if ("p_val_Schoener_D" %in% loaded_result_names) p_val_Schoener_D else NA_real_,
+      p_val_ND = if ("p_val_ND" %in% loaded_result_names) p_val_ND else NA_real_,
+      permutation_metric_grid_resolution = if ("permutation_metric_grid_resolution" %in% loaded_result_names) permutation_metric_grid_resolution else NULL
     ))
   }
 }
@@ -3975,18 +4642,20 @@ plot.DAPC.niche.divergence <- function(dapc.results, #DAPC result object
 }
 
 
-#' Plot permutation histogram for DAPC assignment accuracy
+#' Plot permutation distributions for DAPC assignment accuracy, D, and ND
 #'
-#' Plot null distribution of permutation assignment accuracy together with
-#' the observed assignment accuracy from DAPC niche-divergence analysis.
+#' Plot null distributions of label-permutation assignment accuracy,
+#' Schoener's D, and niche divergence magnitude (ND), with their corresponding
+#' observed values and p-values as histograms.
 #'
 #' @param dapc_result Result object returned by
-#'   `run.DAPC.crossval.permutation()`. The object must contain
-#'   `observed_assign_prop` and a numeric vector of `permutation_assign_props`.
-#' @param bar.color A single character string giving the histogram bar fill color
-#'   (default: `"lightgrey"`).
+#'   `run.DAPC.crossval.permutation()` with label permutations. The object must
+#'   contain the observed values, permutation distributions, and p-values for
+#'   assignment accuracy, Schoener's D, and ND.
+#' @param bar.color A single character string giving the histogram bar fill
+#'   color (default: `"lightgrey"`).
 #' @param line.color A single character string giving the color of the observed
-#'   assignment-accuracy marker (default: `"firebrick"`).
+#'   metric marker (default: `"firebrick"`).
 #' @param axis.labels.font.size A single positive numeric value giving the axis
 #'   title font size (default: `9.1`).
 #' @param axis.ticks.font.size A single positive numeric value giving the axis
@@ -3995,8 +4664,7 @@ plot.DAPC.niche.divergence <- function(dapc.results, #DAPC result object
 #'   number of histogram bins (default: `20`).
 #' @param add.title Logical; if `TRUE`, a plot title is added (default: `TRUE`).
 #' @param title.text A single character string giving the plot title when
-#'   `add.title = TRUE` (default: `"Null distribution of DAPC mean assignment
-#'   accuracy"`).
+#'   `add.title = TRUE` (default: `"Null distributions of DAPC metrics"`).
 #' @param show.plot Logical; if `TRUE`, the plot is returned visibly
 #'   (default: `TRUE`).
 #' @param save Logical; if `TRUE`, the plot is saved to disk
@@ -4020,30 +4688,12 @@ plot.DAPC.niche.divergence <- function(dapc.results, #DAPC result object
 #'   (default: `TRUE`).
 #'
 #' @details
-#' The permutation histogram visualizes the null expectation for DAPC assignment
-#' accuracy under the hypothesis of a single shared niche (k = 1).
-#' In this null model, group identity is treated as exchangeable, so the
-#' distribution of permuted assignment accuracies represents the level of
-#' discrimination expected when environmental predictors are not consistently
-#' associated with the given group labels.
-#'
-#' The observed assignment accuracy is shown relative to this null distribution.
-#' If the observed value falls in the upper tail of the permutation distribution,
-#' this indicates that the fitted discriminant separation is stronger than
-#' expected under random group membership. The plot therefore provides a visual
-#' complement to the permutation p-value returned by
-#' `run.DAPC.crossval.permutation()`.
-#'
-#' This diagnostic is important because apparent group separation can arise by
-#' chance, especially in high-dimensional environmental datasets. Comparing the
-#' empirical assignment accuracy against a random-label null distribution helps
-#' distinguish niche divergence from discrimination caused by model flexibility,
-#' random label structure, or sampling imbalance.
-#'
-#' A significant permutation result indicates that observed group separation
-#' exceeds the random-label null expectation. The plot and p-value should be
-#' interpreted together with niche-overlap metrics because a significant p-value
-#' can be obtained even when overall niche divergence is low.
+#' The three panels display the label-permutation null distributions for mean
+#' assignment accuracy, Schoener's D, and niche divergence magnitude (ND).
+#' Each panel marks the observed value and displays its permutation p-value.
+#' Assignment accuracy and ND use upper-tail tests, while Schoener's D uses a
+#' lower-tail test. P-values are extracted directly from the DAPC results.
+#' Spatial background permutations are not supported by this function.
 #'
 #' @return A `ggplot` object. If `show.plot = TRUE`, the plot is returned
 #'   visibly; otherwise it is returned invisibly.
@@ -4057,7 +4707,7 @@ plot.DAPC.permutation <- function(dapc_result, #DAPC result object
                                   axis.ticks.font.size = 7, #axis tick font size
                                   N.bar.breaks = 20, #number of histogram bins
                                   add.title = TRUE, #whether to include plot title
-                                  title.text = "Null distribution of DAPC mean assignment accuracy", #title name (only if add.title = TRUE)
+                                  title.text = "Null distributions of DAPC metrics", #title name (only if add.title = TRUE)
                                   show.plot = TRUE, #whether to print plot to console
                                   save = FALSE, #whether to save plot to disk
                                   overwrite = FALSE, #whether to overwrite existing file (only if save = TRUE)
@@ -4072,17 +4722,17 @@ plot.DAPC.permutation <- function(dapc_result, #DAPC result object
 
   # Validate input
   if (!is.list(dapc_result)) stop("dapc_result must be a list returned by run.DAPC.crossval.permutation function - potentially rerun run.DAPC.crossval.permutation function")
-  required_fields <- c("observed_assign_prop", "permutation_assign_props")
+  required_fields <- c("observed_assign_prop", "permutation_assign_props", "p_val_assign", "observed_Schoener_D", "permutation_Schoener_D", "p_val_Schoener_D", "observed_ND", "permutation_ND", "p_val_ND")
   missing_fields <- setdiff(required_fields, names(dapc_result))
   if (length(missing_fields)) stop("rerun run.DAPC.crossval.permutation function - dapc_result is missing: ", paste(missing_fields, collapse = ", "))
   if (!is.character(bar.color) || length(bar.color) != 1L || !nzchar(bar.color)) stop("bar.color must be a single color string (recommended: lightgrey)")
   if (!is.character(line.color) || length(line.color) != 1L || !nzchar(line.color)) stop("line.color must be a single color string (recommended: firebrick)")
   if (!is.numeric(axis.labels.font.size) || length(axis.labels.font.size) != 1L || !is.finite(axis.labels.font.size) || axis.labels.font.size <= 0) stop("axis.labels.font.size must be single positive number (recommended: 9.1)")
   if (!is.numeric(axis.ticks.font.size) || length(axis.ticks.font.size) != 1L || !is.finite(axis.ticks.font.size) || axis.ticks.font.size <= 0) stop("axis.ticks.font.size must be single positive number (recommended: 7)")
-  if (!is.numeric(N.bar.breaks) || length(N.bar.breaks) != 1L || !is.finite(N.bar.breaks) || N.bar.breaks <= 0) stop("N.bar.breaks must be single positive number (recommended: 20)")
+  if (!is.numeric(N.bar.breaks) || length(N.bar.breaks) != 1L || !is.finite(N.bar.breaks) || N.bar.breaks < 1L || N.bar.breaks %% 1 != 0L) stop("N.bar.breaks must be a single positive integer (recommended: 20)")
   if (!is.logical(add.title) || length(add.title) != 1L) stop("add.title must be TRUE or FALSE")
   if (!is.character(title.text) || length(title.text) != 1L || !nzchar(title.text)) stop("title.text must be a non-empty character")
-  if (!is.logical(show.plot) || length(show.plot) != 1L) stop("show.plot must be TRUE or FALSE")
+  if (!is.logical(show.plot) || length(show.plot) != 1L || is.na(show.plot)) stop("show.plot must be TRUE or FALSE")
   if (!is.logical(save) || length(save) != 1L) stop("save must be TRUE or FALSE")
   if (!is.logical(overwrite) || length(overwrite) != 1L) stop("overwrite must be TRUE or FALSE")
   if (!is.character(filename) || length(filename) != 1L || !nzchar(filename)) stop("filename must be non-empty")
@@ -4098,117 +4748,86 @@ plot.DAPC.permutation <- function(dapc_result, #DAPC result object
   N.bar.breaks <- max(1L, as.integer(round(N.bar.breaks)))
 
   # Extract and validate data
-  observed_accuracy <- dapc_result$observed_assign_prop
-  permutation_accuracies <- dapc_result$permutation_assign_props
-  if (!is.numeric(observed_accuracy) || length(observed_accuracy) != 1L || !is.finite(observed_accuracy)) stop("observed_assign_prop must be single finite numeric")
-  if (is.null(permutation_accuracies) || !length(permutation_accuracies)) stop("No DAPC permutations were performed (N.permutations = NULL or 0) - permutation plot cannot be generated")
-  if (!is.numeric(permutation_accuracies)) stop("permutation_assign_props must be a numeric vector")
-  permutation_accuracies <- permutation_accuracies[is.finite(permutation_accuracies)]
-  if (!length(permutation_accuracies)) stop("No finite values in permutation_assign_props")
+  metric.data <- list(
+    "Assignment accuracy" = list(observed = dapc_result$observed_assign_prop, permutation = dapc_result$permutation_assign_props, p_value = dapc_result$p_val_assign),
+    "Schoener's D" = list(observed = dapc_result$observed_Schoener_D, permutation = dapc_result$permutation_Schoener_D, p_value = dapc_result$p_val_Schoener_D),
+    "Niche divergence (ND)" = list(observed = dapc_result$observed_ND, permutation = dapc_result$permutation_ND, p_value = dapc_result$p_val_ND)
+  )
+  if (any(vapply(metric.data, function(metric) is.list(metric$permutation), logical(1)))) stop("Only label permutations can be plotted - spatial background permutations are not supported")
 
-  # Compute empirical p-value (one-sided)
-  pval.format <- function(p) {
+  # Format stored permutation p-values
+  pval.format <- function(p, N.valid) {
+    minimum_p <- if (N.valid > 0L) 1 / (N.valid + 1L) else NA_real_
+    minimum_p_label <- if ((N.valid + 1L) %in% c(10L, 100L, 1000L, 10000L, 100000L, 1000000L)) format(minimum_p, scientific = FALSE, trim = TRUE) else paste0("1/", N.valid + 1L)
     if (is.na(p)) list(op = "=", txt = "NA")
+    else if (is.finite(minimum_p) && p <= minimum_p + 1e-12) list(op = "≤", txt = minimum_p_label)
     else if (p < 0.001) list(op = "<", txt = "0.001")
     else if (p < 0.01) list(op = "<", txt = "0.01")
     else list(op = "=", txt = sprintf("%.2f", round(p, 2)))
   }
-  p_acc_raw <- mean(permutation_accuracies >= observed_accuracy, na.rm = TRUE)
-  p_acc <- pval.format(p_acc_raw)
   .pt <- 72.27 / 25.4
 
-  # Build histogram panel
-  build_histogram_panel <- function(null_distribution, observed_value, p_info, x_label) {
-    min_x <- min(c(null_distribution, observed_value), na.rm = TRUE)
-    max_x <- max(c(null_distribution, observed_value), na.rm = TRUE)
-    if (!is.finite(min_x) || !is.finite(max_x)) stop("Non-finite values in null/observed data")
-    if (max_x <= min_x) max_x <- min_x + 1e-9
-
-    brks <- seq(min_x, max_x, length.out = N.bar.breaks + 1)
-    bin_index <- cut(null_distribution,
-                     breaks = brks,
-                     include.lowest = TRUE,
-                     right = TRUE)
-    bin_counts <- tabulate(bin_index, nbins = length(brks) - 1L)
-    rect_df <- data.frame(xmin = brks[-length(brks)],
-                          xmax = brks[-1],
-                          ymin = 0,
-                          ymax = bin_counts)
-
-    y_max <- if (length(bin_counts)) max(bin_counts) else 0
-    y_max_plot <- if (is.finite(y_max) && y_max > 0) y_max else 1
-
-    pad <- max((max_x - min_x) * 0.07, 1e-9)
-    x_limits <- c(brks[1] - pad, brks[length(brks)] + pad)
-    center_x <- mean(x_limits)
-    center_y <- y_max_plot * 1.10
-
-    ggplot(rect_df,
-           aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax)) +
-      geom_rect(fill = bar.color,
-                colour = "black") +
-      annotate("segment",
-               x = observed_value,
-               xend = observed_value,
-               y = y_max_plot / 2,
-               yend = 0,
-               colour = line.color,
-               linewidth = 1.1) +
-      annotate("point",
-               x = observed_value,
-               y = y_max_plot / 2,
-               colour = line.color,
-               shape = 18,
-               size = 3.5) +
-      annotate("text",
-               x = center_x,
-               y = center_y,
-               label = sprintf("p-value %s %s", p_info$op, p_info$txt),
-               vjust = 0,
-               hjust = 0.5,
-               size = 9.1 / .pt,
-               colour = "black") +
-      coord_cartesian(xlim = x_limits,
-                      expand = FALSE,
-                      clip = "off") +
-      scale_y_continuous(limits = c(0, y_max_plot * 1.18),
-                         expand = expansion(mult = c(0, 0.02))) +
-      labs(title = NULL,
-           x = x_label,
-           y = "Frequency") +
+  # Build histograms for label-permutation metrics
+  build_histogram_panel <- function(metric.data) {
+    histogram.rows <- vector("list", length(metric.data))
+    annotation.rows <- vector("list", length(metric.data))
+    for (metric.index in seq_along(metric.data)) {
+      metric <- metric.data[[metric.index]]
+      if (!is.numeric(metric$observed) || length(metric$observed) != 1L || !is.finite(metric$observed)) stop(names(metric.data)[metric.index], " observed value must be a single finite number")
+      if (!is.numeric(metric$permutation)) stop(names(metric.data)[metric.index], " permutation distribution must be numeric")
+      if (!is.numeric(metric$p_value) || length(metric$p_value) != 1L || (!is.na(metric$p_value) && (!is.finite(metric$p_value) || metric$p_value < 0 || metric$p_value > 1))) stop(names(metric.data)[metric.index], " p-value must be between 0 and 1 or NA")
+      null_distribution <- metric$permutation[is.finite(metric$permutation)]
+      if (!length(null_distribution)) stop(names(metric.data)[metric.index], " has no finite permutation values")
+      min_x <- min(c(null_distribution, metric$observed))
+      max_x <- max(c(null_distribution, metric$observed))
+      if (max_x <= min_x) max_x <- min_x + max(abs(min_x) * 1e-6, 1e-9)
+      brks <- seq(min_x, max_x, length.out = N.bar.breaks + 1L)
+      bin_index <- cut(null_distribution, breaks = brks, include.lowest = TRUE, right = TRUE)
+      bin_counts <- tabulate(bin_index, nbins = N.bar.breaks)
+      y_max_plot <- max(1, bin_counts)
+      p_info <- pval.format(metric$p_value, length(null_distribution))
+      histogram.rows[[metric.index]] <- data.frame(metric = names(metric.data)[metric.index], xmin = brks[-length(brks)], xmax = brks[-1L], ymin = 0, ymax = bin_counts)
+      annotation.rows[[metric.index]] <- data.frame(metric = names(metric.data)[metric.index], observed = metric$observed, point_y = y_max_plot / 2, label_x = mean(range(brks)), label_y = y_max_plot * 1.10, p_label = sprintf("p-value %s %s", p_info$op, p_info$txt))
+    }
+    rect_df <- do.call(rbind, histogram.rows)
+    annotation_df <- do.call(rbind, annotation.rows)
+    rect_df$metric <- factor(rect_df$metric, levels = names(metric.data))
+    annotation_df$metric <- factor(annotation_df$metric, levels = names(metric.data))
+    ggplot(rect_df, aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax)) +
+      geom_rect(fill = bar.color, colour = "black") +
+      geom_segment(data = annotation_df, aes(x = observed, xend = observed, y = point_y, yend = 0), inherit.aes = FALSE, colour = line.color, linewidth = 1.1) +
+      geom_point(data = annotation_df, aes(x = observed, y = point_y), inherit.aes = FALSE, colour = line.color, shape = 18, size = 3.5) +
+      geom_text(data = annotation_df, aes(x = label_x, y = label_y, label = p_label), inherit.aes = FALSE, vjust = 0, hjust = 0.5, size = 9.1 / .pt, colour = "black") +
+      facet_wrap(~ metric, ncol = 3L, scales = "free") +
+      coord_cartesian(clip = "off") +
+      scale_x_continuous(expand = expansion(mult = 0.07)) +
+      scale_y_continuous(expand = expansion(mult = c(0, 0.15))) +
+      labs(title = NULL, x = "Metric value", y = "Frequency") +
       theme_classic() +
-      theme(axis.title.x = element_text(face = "bold",
-                                        size = axis.labels.font.size,
-                                        colour = "black"),
-            axis.title.y = element_text(face = "bold",
-                                        size = axis.labels.font.size,
-                                        colour = "black"),
-            axis.text = element_text(size = axis.ticks.font.size,
-                                     colour = "black"),
-            axis.line = element_line(colour = "black",
-                                     linewidth = 0.5),
-            axis.ticks = element_line(colour = "black",
-                                      linewidth = 0.5))
+      theme(axis.title.x = element_text(face = "bold", size = axis.labels.font.size, colour = "black"),
+            axis.title.y = element_text(face = "bold", size = axis.labels.font.size, colour = "black"),
+            axis.text = element_text(size = axis.ticks.font.size, colour = "black"),
+            axis.line = element_line(colour = "black", linewidth = 0.5),
+            axis.ticks = element_line(colour = "black", linewidth = 0.5))
   }
 
   # Build plot
-  permutation_plot <- build_histogram_panel(permutation_accuracies, observed_accuracy, p_acc, "Assignment accuracy")
+  permutation_plot <- build_histogram_panel(metric.data)
 
   # Add title
   if (isTRUE(add.title)) {
     permutation_plot <- permutation_plot +
       labs(title = title.text) +
-      theme(plot.title = element_text(hjust = 0.5,
-                                      size = axis.labels.font.size,
-                                      face = "bold",
-                                      colour = "black"))
+      theme(plot.title = element_text(hjust = 0.5, size = axis.labels.font.size, face = "bold", colour = "black"))
   }
 
   # Save plot
   if (isTRUE(save)) {
     out_dir <- if (is.null(output.dir) || !nzchar(output.dir)) getwd() else output.dir
-    if (!dir.exists(out_dir)) { dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
-      if (verbose) message("Created directory: ", out_dir) }
+    if (!dir.exists(out_dir)) {
+      dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
+      if (verbose) message("Created directory: ", out_dir)
+    }
     file_out <- file.path(out_dir, paste0(filename, ".", type))
     if (file.exists(file_out) && !overwrite) stop("File already exists: ", file_out, " (set overwrite = TRUE to replace)")
     device_for_ggsave <- if (type == "jpg") "jpeg" else type
@@ -4230,23 +4849,19 @@ plot.DAPC.permutation <- function(dapc_result, #DAPC result object
 #'
 #' @param dapc_out A DAPC result object returned by
 #'   `run.DAPC.crossval.permutation()`. The object must contain `$dapc_results`
-#'   with LD scores and, when `weight.background = TRUE`, the PCA object and
-#'   discriminant scaling needed to project background data into LD1 space.
-#' @param group.assignment Factor or character vector giving group identity for
-#'   each row of the input data. Exactly two groups are required.
-#' @param density.grid.resolution A single positive integer-like numeric value
-#'   giving the number of grid points used to estimate smoothed density overlap
-#'   (default: `1024`).
+#'   with discriminant axis scores and, when `weight.background = TRUE`, the PCA
+#'   object and discriminant scaling needed to project background data into
+#'   discriminant analysis space.
 #' @param weight.background Logical; if `TRUE`, apply background-availability
 #'   weighting along the discriminant axis by up-weighting rare available
 #'   environments and down-weighting common available environments
 #'   (default: `FALSE`).
 #' @param Sp1.background.data Optional `data.frame` of background environmental
-#'   values for the first level of `factor(group.assignment)`. Required when
+#'   values for the first level of `dapc_out$dapc_results$grp`. Required when
 #'   `weight.background = TRUE`; must contain all environmental predictors used
 #'   to fit the DAPC/PCA object (default: `NULL`).
 #' @param Sp2.background.data Optional `data.frame` of background environmental
-#'   values for the second level of `factor(group.assignment)`. Required when
+#'   values for the second level of `dapc_out$dapc_results$grp`. Required when
 #'   `weight.background = TRUE`; must contain all environmental predictors used
 #'   to fit the DAPC/PCA object (default: `NULL`).
 #' @param max.NA.prop Maximum proportion of missing or non-finite required
@@ -4276,55 +4891,77 @@ plot.DAPC.permutation <- function(dapc_result, #DAPC result object
 #'
 #' The additional niche-divergence metrics extend the niche divergence plane of
 #' Ascanio et al. (2024) from single environmental variables to the multivariate
-#' DAPC discriminant axis. Niche dissimilarity (NDS) quantifies density separation
-#' along the axis, whereas niche breadth exclusivity (NE) quantifies how much of
-#' the occupied discriminant-axis range is not shared between groups. Together,
-#' these metrics distinguish divergence driven mainly by density differences
-#' within shared environmental space from divergence driven mainly by exclusive
-#' environmental ranges.
+#' DAPC discriminant axis. Niche dissimilarity (NDS) quantifies density
+#' separation along the axis, whereas niche breadth exclusivity (NE) quantifies
+#' how much of the occupied discriminant-axis range is not shared between
+#' groups. Together, these metrics distinguish divergence driven mainly by
+#' density differences within shared environmental space from divergence driven
+#' mainly by exclusive environmental ranges.
 #'
 #' Niche divergence magnitude (ND) combines density dissimilarity and breadth
 #' exclusivity into a single composite measure of divergence strength. The niche
 #' divergence angle (theta) describes the relative contribution of dissimilarity
-#' versus exclusivity: angles near zero indicate divergence dominated by exclusive
-#' range differences, angles near ninety degrees indicate divergence dominated by
-#' density differences within shared range, and intermediate values indicate mixed
-#' contributions. These quantities help classify divergence into interpretable
-#' forms such as weighted, soft, nested, or hard divergence (Ascanio et al.,
-#' 2024).
+#' versus exclusivity: angles near zero indicate divergence dominated by
+#' exclusive range differences, angles near ninety degrees indicate divergence
+#' dominated by density differences within shared range, and intermediate values
+#' indicate mixed contributions. These quantities help classify divergence into
+#' interpretable forms such as weighted, soft, nested, or hard divergence
+#' (Ascanio et al., 2024).
 #'
 #' When `weight.background = TRUE`, density estimates are adjusted for unequal
 #' environmental availability along the discriminant axis. This is based on the
-#' background corrections in Humboldt (Brown & Carnaval, 2019) to reduce bias caused by common environments
-#' dominating density estimates and rare available environments being
-#' underrepresented. Such weighting can be useful when species differ in
-#' accessible background environments and when niche overlap should be
-#' interpreted relative to the environmental conditions available to both
-#' species (Brown & Carnaval, 2019).
+#' background corrections in Humboldt (Brown & Carnaval, 2019) to reduce bias
+#' caused by common environments dominating density estimates and rare available
+#' environments being underrepresented. Such weighting can be useful when
+#' species differ in accessible background environments and when niche overlap
+#' should be interpreted relative to the environmental conditions available to
+#' both species (Brown & Carnaval, 2019). Background weighting is restricted to
+#' analogous environmental conditions represented in both species' backgrounds
+#' along the discriminant axis.
 #'
 #' @return A named list containing:
 #'   \describe{
-#'     \item{Schoener_D}{Schoener's D overlap between the two groups along LD1.}
+#'     \item{Schoener_D}{Schoener's D overlap between the two groups along
+#'       discriminant axis.}
 #'     \item{Niche_dissimilarity}{Niche dissimilarity based on density
 #'       separation.}
 #'     \item{Niche_breadth_exclusivity}{Niche breadth exclusivity based on
-#'       non-overlap of occupied LD1 ranges.}
+#'       non-overlap of occupied discriminant axis ranges.}
 #'     \item{Niche_divergence_magnitude}{Composite divergence magnitude
 #'       calculated from niche dissimilarity and niche breadth exclusivity.}
 #'     \item{Niche_divergence_angle_degrees}{Divergence angle in degrees,
 #'       describing the relative contribution of density dissimilarity versus
 #'       breadth exclusivity.}
-#'     \item{niche_limits}{A nested list with lower and upper LD1 limits for
-#'       `group1` and `group2`.}
+#'     \item{niche_limits}{A nested list with lower and upper discriminant axis
+#'       limits for `group1` and `group2`.}
+#'     \item{heldout_metrics}{List of unweighted niche divergence metrics
+#'       calculated for each held-out repetition, or `NULL` when disabled.}
+#'     \item{bootstrap_metric_means}{Bootstrap replicate mean held-out metrics,
+#'       or `NULL` when unavailable.}
+#'     \item{bootstrap_CI}{Matrix of percentile-based 95% bootstrap confidence
+#'       intervals for unweighted held-out metrics (lower and upper limits), or
+#'       `NULL` when unavailable or incompatible with the metric settings.}
+#'     \item{permutation_Schoener_D}{Unweighted Schoener's D permutation
+#'       distribution, or directional lists for spatial background
+#'       permutations.}
+#'     \item{permutation_ND}{Unweighted niche divergence magnitude permutation
+#'       distribution, or directional lists for spatial background
+#'       permutations.}
+#'     \item{p_val_Schoener_D}{Lower-tail permutation p-value for Schoener's D,
+#'       or directional p-values for spatial background permutations.}
+#'     \item{p_val_ND}{Upper-tail permutation p-value for niche divergence
+#'       magnitude, or directional p-values for spatial background
+#'       permutations.}
 #'   }
 #'
 #' @references
-#' Ascanio, A. K., Owens, H. L., Sousa, M. C., & Peterson, A. T. (2024).
-#'   Quantifying niche shifts in one-dimensional environmental space.
-#'   \emph{Ecography}, 2024(5), e07127. https://doi.org/10.1111/ecog.07127
+#' Ascanio, A., Bracken, J. T., Stevens, M. H. H., & Jezkova, T. (2024).
+#'   New theoretical and analytical framework for quantifying and classifying
+#'   ecological niche differentiation. \emph{Ecological Monographs}, 94(4),
+#'   e1622. https://doi.org/10.1002/ecm.1622
 #'
-#' Brown, J., & Carnaval, A. C. (2019). A tale of two niches: Methods, concepts,
-#'   and evolution. \emph{Frontiers of Biogeography}, 11(4).
+#' Brown, J. L., & Carnaval, A. C. (2019). A tale of two niches: Methods,
+#'   concepts, and evolution. \emph{Frontiers of Biogeography}, 11(4), e44158.
 #'   https://doi.org/10.21425/F5FBG44158
 #'
 #' Jombart, T., Devillard, S., & Balloux, F. (2010). Discriminant analysis of
@@ -4337,14 +4974,12 @@ plot.DAPC.permutation <- function(dapc_result, #DAPC result object
 #'   https://doi.org/10.2307/1935534
 #'
 #' Warren, D. L., Glor, R. E., & Turelli, M. (2008). Environmental niche
-#'   equivalency versus conservatism: Quantitative approaches to niche evolution.
-#'   \emph{Evolution}, 62(11), 2868-2883.
+#'   equivalency versus conservatism: Quantitative approaches to niche
+#'   evolution. \emph{Evolution}, 62(11), 2868-2883.
 #'   https://doi.org/10.1111/j.1558-5646.2008.00482.x
 #'
 #' @export
 calc.niche.divergence.metrics <- function(dapc_out, #DAPC results object
-                                          group.assignment, #factor/character with labels for two groups
-                                          density.grid.resolution = 1024, #KDE grid size (>=100)
                                           weight.background = FALSE, #apply Humboldt-like environmental background weighting
                                           Sp1.background.data = NULL, #optional background environmental data for species 1
                                           Sp2.background.data = NULL, #optional background environmental data for species 2
@@ -4354,8 +4989,7 @@ calc.niche.divergence.metrics <- function(dapc_out, #DAPC results object
 ) {
 
   # Validate input
-  if (is.null(dapc_out$dapc_results) || !is.list(dapc_out$dapc_results)) stop("Input validation failed - dapc_out$dapc_results is missing or not a list - potentially rerun run.DAPC.crossval.permutation function")
-  if (!is.numeric(density.grid.resolution) || length(density.grid.resolution) != 1L || !is.finite(density.grid.resolution) || density.grid.resolution < 100 || density.grid.resolution != floor(density.grid.resolution)) stop("density.grid.resolution must be a single integer >= 100 (recommended: 1024)")
+  if (is.null(dapc_out$dapc_results) || !is.list(dapc_out$dapc_results)) stop("Input validation failed - dapc_out$dapc_results is missing or not a list - potentially rerun run.DAPC.crossval.permutation()")
   if (!is.logical(weight.background) || length(weight.background) != 1L || is.na(weight.background)) stop("weight.background must be TRUE or FALSE")
   if (!is.null(Sp1.background.data) && !is.data.frame(Sp1.background.data)) stop("Sp1.background.data must be a data frame or NULL")
   if (!is.null(Sp2.background.data) && !is.data.frame(Sp2.background.data)) stop("Sp2.background.data must be a data frame or NULL")
@@ -4363,13 +4997,20 @@ calc.niche.divergence.metrics <- function(dapc_out, #DAPC results object
   if (!is.numeric(max.NA.prop) || length(max.NA.prop) != 1L || !is.finite(max.NA.prop) || max.NA.prop < 0 || max.NA.prop > 1) stop("max.NA.prop must be a single finite number between 0 and 1")
   if (!is.logical(impute.NA.median) || length(impute.NA.median) != 1L || is.na(impute.NA.median)) stop("impute.NA.median must be TRUE or FALSE")
   if (!is.logical(verbose) || length(verbose) != 1L || is.na(verbose)) stop("verbose must be TRUE or FALSE")
+  if (is.null(dapc_out$dapc_results$grp)) stop("dapc_out$dapc_results$grp is missing")
 
-  # Project background environmental data into LD1 space if weighting requested
+  # Extract group labels from DAPC results
+  group.assignment <- dapc_out$dapc_results$grp
+
+  # Define KDE grid resolution
+  density.grid.resolution <- 1024
+
+  # Project background environmental data into discriminant analysis space if weighting requested
   if (isTRUE(weight.background)) {
     if (!is.null(Sp1.background.data) && !is.null(Sp2.background.data)) {
-      if (isTRUE(verbose)) message("Projecting background environmental data into LD1 space for Humboldt-like background weighting")
-      project.background.to.LD1 <- function(background.environment.data, dapc_out, species_name) {
-        if (is.null(dapc_out$dapc_results$scaling)) stop("DAPC object missing $scaling - rerun run.DAPC.crossval.permutation with save.model = TRUE")
+      if (isTRUE(verbose)) message("Projecting background environmental data into discriminant analysis space for Humboldt-like background weighting")
+      project.background.to.discriminant.axis <- function(background.environment.data, dapc_out, species_name) {
+        if (is.null(dapc_out$dapc_results$scaling)) stop("DAPC object missing $scaling - rerun run.DAPC.crossval.permutation() to obtain a complete model")
         if (is.null(dapc_out$pca_object)) stop("PCA object missing in dapc_out - ensure DAPC input included PCA step")
         pca_object <- dapc_out$pca_object
         if (is.null(pca_object$co)) stop("Expected ade4::dudi.pca object with $co loadings")
@@ -4384,17 +5025,15 @@ calc.niche.divergence.metrics <- function(dapc_out, #DAPC results object
         if (!all(vapply(background_environment_matrix, is.numeric, logical(1)))) stop("Background environmental variables must be numeric")
         background_environment_matrix <- as.matrix(background_environment_matrix)
         background_environment_matrix[!is.finite(background_environment_matrix)] <- NA_real_
-        initial_background_count <- nrow(background_environment_matrix)
 
-        # Remove background rows exceeding the missingness threshold
+        # Remove background rows exceeding missingness threshold
         background_missing_proportion <- rowMeans(is.na(background_environment_matrix))
         retained_background_rows <- background_missing_proportion <= max.NA.prop
         background_environment_matrix <- background_environment_matrix[retained_background_rows, , drop = FALSE]
         if (nrow(background_environment_matrix) == 0L) stop("No background records remain for ", species_name, " after missingness filtering")
 
-        # Impute eligible missing values using this species' background medians
+        # Impute eligible missing values using species' background medians
         if (impute.NA.median) {
-          imputed_background_count <- sum(is.na(background_environment_matrix))
           for (environment_variable in colnames(background_environment_matrix)) {
             missing_value_mask <- is.na(background_environment_matrix[, environment_variable])
             if (!any(missing_value_mask)) next
@@ -4408,50 +5047,50 @@ calc.niche.divergence.metrics <- function(dapc_out, #DAPC results object
           complete_background_rows <- stats::complete.cases(background_environment_matrix)
           background_environment_matrix <- background_environment_matrix[complete_background_rows, , drop = FALSE]
         }
-        if (nrow(background_environment_matrix) < 5L) stop("Too few usable background records for ", species_name, " after preprocessing (need >=5; retained ", nrow(background_environment_matrix), ")")
+        if (nrow(background_environment_matrix) < 5L) stop("Too few usable background records for ", species_name, " after preprocessing (need >=5, retained ", nrow(background_environment_matrix), ")")
         if (any(!is.finite(background_environment_matrix))) stop("Non-finite background predictors remain for ", species_name)
 
-        # Project preprocessed background records into the fitted PCA space
+        # Project preprocessed background records into fitted PCA space
         background_pca_scores <- ade4::suprow(pca_object, background_environment_matrix)$lisup
         scaling_vector <- as.matrix(as.numeric(dapc_out$dapc_results$scaling[, 1, drop = FALSE]))
         n_pcs_needed <- length(scaling_vector)
-        if (ncol(background_pca_scores) < n_pcs_needed) stop("Background PCA scores have fewer PCs than used in LDA")
+        if (ncol(background_pca_scores) < n_pcs_needed) stop("Background PCA scores have fewer PCs than used in discriminant analysis")
         background_pca_scores_used <- background_pca_scores[, seq_len(n_pcs_needed), drop = FALSE]
         observed_pca_scores <- as.matrix(pca_object$li[, seq_len(n_pcs_needed), drop = FALSE])
         observed_ld_coordinates <- if (!is.null(dapc_out$dapc_results$ind.coord)) dapc_out$dapc_results$ind.coord else dapc_out$dapc_results$ld
-        if (is.null(observed_ld_coordinates)) stop("Observed LD1 coordinates are missing")
-        observed_ld1_scores <- as.numeric(as.matrix(observed_ld_coordinates)[, 1])
-        if (nrow(observed_pca_scores) != length(observed_ld1_scores)) stop("PCA and LDA observation counts do not match")
-        projected_observed_ld1_scores <- as.numeric(observed_pca_scores %*% scaling_vector)
-        ld1_centering_offset <- mean(projected_observed_ld1_scores - observed_ld1_scores)
-        projection_error <- max(abs(projected_observed_ld1_scores - ld1_centering_offset - observed_ld1_scores))
-        if (!is.finite(projection_error) || projection_error > 1e-7 * max(1, max(abs(observed_ld1_scores)))) stop("Background LD1 projection is inconsistent with observed DAPC scores")
-        background_LD1_scores <- as.numeric(as.matrix(background_pca_scores_used) %*% scaling_vector) - ld1_centering_offset
-        background_LD1_scores[!is.finite(background_LD1_scores)] <- NA_real_
-        background_LD1_scores
+        if (is.null(observed_ld_coordinates)) stop("Observed discriminant analysis coordinates are missing")
+        observed_DA_scores <- as.numeric(as.matrix(observed_ld_coordinates)[, 1])
+        if (nrow(observed_pca_scores) != length(observed_DA_scores)) stop("PCA and discriminant analysis observation counts do not match")
+        projected_observed_DA_scores <- as.numeric(observed_pca_scores %*% scaling_vector)
+        discriminant_axis_centering_offset <- mean(projected_observed_DA_scores - observed_DA_scores)
+        projection_error <- max(abs(projected_observed_DA_scores - discriminant_axis_centering_offset - observed_DA_scores))
+        if (!is.finite(projection_error) || projection_error > 1e-7 * max(1, max(abs(observed_DA_scores)))) stop("Background discriminant analysis projection is inconsistent with observed DAPC scores")
+        background_DA_scores <- as.numeric(as.matrix(background_pca_scores_used) %*% scaling_vector) - discriminant_axis_centering_offset
+        background_DA_scores[!is.finite(background_DA_scores)] <- NA_real_
+        background_DA_scores
       }
-      Sp1.background.LD1 <- project.background.to.LD1(Sp1.background.data, dapc_out, "species 1")
-      Sp2.background.LD1 <- project.background.to.LD1(Sp2.background.data, dapc_out, "species 2")
-      Sp1.background.LD1 <- Sp1.background.LD1[is.finite(Sp1.background.LD1)]
-      Sp2.background.LD1 <- Sp2.background.LD1[is.finite(Sp2.background.LD1)]
-      if (length(Sp1.background.LD1) < 5 || length(Sp2.background.LD1) < 5) stop("Too few finite background LD1 scores for KDE (need >=5 per background)")
+      Sp1.background.discriminant.axis <- project.background.to.discriminant.axis(Sp1.background.data, dapc_out, "species 1")
+      Sp2.background.discriminant.axis <- project.background.to.discriminant.axis(Sp2.background.data, dapc_out, "species 2")
+      Sp1.background.discriminant.axis <- Sp1.background.discriminant.axis[is.finite(Sp1.background.discriminant.axis)]
+      Sp2.background.discriminant.axis <- Sp2.background.discriminant.axis[is.finite(Sp2.background.discriminant.axis)]
+      if (length(Sp1.background.discriminant.axis) < 5 || length(Sp2.background.discriminant.axis) < 5) stop("Too few finite background discriminant analysis scores for KDE (need >=5 per background)")
     } else {
       stop("weight.background = TRUE but background datasets missing")
     }
   }
 
-  # Extract LD coordinates
+  # Extract discriminant axis coordinates
   dapc_results <- dapc_out$dapc_results
   if (!is.null(dapc_results$ind.coord)) {
     ld_matrix <- as.matrix(dapc_results$ind.coord)
   } else if (!is.null(dapc_results$ld)) {
     ld_matrix <- as.matrix(dapc_results$ld)
   } else {
-    stop("LD scores not found - expected $ind.coord or $ld in dapc_out$dapc_results - potentially rerun run.DAPC.crossval.permutation function")
+    stop("Discriminant axis scores not found - expected $ind.coord or $ld in dapc_out$dapc_results - potentially rerun run.DAPC.crossval.permutation()")
   }
-  if (ncol(ld_matrix) < 1L) stop("LD matrix has no columns")
+  if (ncol(ld_matrix) < 1L) stop("Discriminant axis matrix has no columns")
 
-  # Align group labels to LD rownames if possible
+  # Align group labels to discriminant axis rownames if possible
   ld_rownames <- rownames(ld_matrix)
   group_input <- group.assignment
   if (!is.null(names(group_input)) && !is.null(ld_rownames) && setequal(names(group_input), ld_rownames)) {
@@ -4463,52 +5102,53 @@ calc.niche.divergence.metrics <- function(dapc_out, #DAPC results object
   group_factor <- factor(group_input)
   if (nlevels(group_factor) != 2L) stop("Exactly two groups are required")
   if (any(table(group_factor) == 0L)) stop("One group has zero samples")
-  if (length(group_factor) != nrow(ld_matrix)) stop("Length mismatch: group.assignment (", length(group_factor), ") vs LD rows (", nrow(ld_matrix), ")")
+  if (length(group_factor) != nrow(ld_matrix)) stop("Length mismatch: group.assignment (", length(group_factor), ") vs discriminant axis rows (", nrow(ld_matrix), ")")
 
-  # Extract LD1 and drop non-finite
-  ld1_values <- as.numeric(ld_matrix[, 1])
-  keep_idx <- is.finite(ld1_values)
-  if (!all(keep_idx)) {
-    warning("Dropping ", sum(!keep_idx), " non-finite LD1 values")
-    ld1_values <- ld1_values[keep_idx]
-    group_factor <- group_factor[keep_idx]
+  # Extract discriminant axis values and drop non-finite observations
+  discriminant_axis_values <- as.numeric(ld_matrix[, 1])
+  finite_discriminant_rows <- is.finite(discriminant_axis_values)
+  if (!all(finite_discriminant_rows)) {
+    warning("Dropping ", sum(!finite_discriminant_rows), " non-finite discriminant analysis values")
+    discriminant_axis_values <- discriminant_axis_values[finite_discriminant_rows]
+    group_factor <- group_factor[finite_discriminant_rows]
   }
-  if (length(ld1_values) < 4) stop("Not enough LD1 values after filtering")
-  if (any(table(group_factor) < 2)) stop("Each group must have >=2 finite LD1 values for KDE")
+  if (length(discriminant_axis_values) < 4) stop("Not enough discriminant analysis values after filtering")
+  if (any(table(group_factor) < 2)) stop("Each group must have >=2 finite discriminant analysis values for KDE")
 
   # Split by group
   group_levels <- levels(group_factor)
-  ld1_group1 <- ld1_values[group_factor == group_levels[1]]
-  ld1_group2 <- ld1_values[group_factor == group_levels[2]]
+  discriminant_axis_group1 <- discriminant_axis_values[group_factor == group_levels[1]]
+  discriminant_axis_group2 <- discriminant_axis_values[group_factor == group_levels[2]]
 
   # Determine KDE range
-  ld1_all <- c(ld1_group1, ld1_group2)
-  ld1_grid_values <- if (isTRUE(weight.background)) c(ld1_all, Sp1.background.LD1, Sp2.background.LD1) else ld1_all
-  ld1_range <- range(ld1_grid_values, na.rm = TRUE)
-  if (!all(is.finite(ld1_range)) || ld1_range[2] <= ld1_range[1]) stop("LD1 has zero or invalid range")
+  discriminant_axis_all <- c(discriminant_axis_group1, discriminant_axis_group2)
+  discriminant_axis_grid_values <- if (isTRUE(weight.background)) c(discriminant_axis_all, Sp1.background.discriminant.axis, Sp2.background.discriminant.axis) else discriminant_axis_all
+  discriminant_axis_range <- range(discriminant_axis_grid_values, na.rm = TRUE)
+  if (!all(is.finite(discriminant_axis_range)) || discriminant_axis_range[2] <= discriminant_axis_range[1]) stop("discriminant analysis has zero or invalid range")
 
-  # Calculate KDE bandwidth from centered LD1 scores
-  centered_ld1_all <- ld1_all - mean(ld1_all)
-  bandwidth <- tryCatch(stats::bw.SJ(centered_ld1_all, method = "dpi"), error = function(e) NA_real_)
-  if (!is.finite(bandwidth) || bandwidth <= 0) bandwidth <- stats::bw.nrd0(centered_ld1_all)
+  # Calculate KDE bandwidth from centered discriminant analysis scores
+  centered_discriminant_axis_all <- discriminant_axis_all - mean(discriminant_axis_all)
+  bandwidth <- tryCatch(stats::bw.SJ(centered_discriminant_axis_all, method = "dpi"), error = function(e) NA_real_)
+  if (!is.finite(bandwidth) || bandwidth <= 0) bandwidth <- stats::bw.nrd0(centered_discriminant_axis_all)
   if (!is.finite(bandwidth) || bandwidth <= 0) stop("Could not calculate a valid KDE bandwidth")
 
-  # Create shared evaluation grid
-  if (isTRUE(weight.background)) ld1_range <- ld1_range + c(-20, 20) * bandwidth
-  density_grid <- seq(ld1_range[1], ld1_range[2], length.out = density.grid.resolution)
+  # Create shared evaluation grid including KDE tails
+  grid.padding <- if (isTRUE(weight.background)) 20 else 6
+  discriminant_axis_range <- discriminant_axis_range + c(-grid.padding, grid.padding) * bandwidth
+  density_grid <- seq(discriminant_axis_range[1], discriminant_axis_range[2], length.out = density.grid.resolution)
 
   # Estimate KDEs on shared grid
-  kde_group1 <- stats::density(ld1_group1, from = density_grid[1],to = density_grid[length(density_grid)], n = density.grid.resolution, bw = bandwidth)
-  kde_group2 <- stats::density(ld1_group2, from = density_grid[1], to = density_grid[length(density_grid)], n = density.grid.resolution, bw = bandwidth)
+  kde_group1 <- stats::density(discriminant_axis_group1, from = density_grid[1],to = density_grid[length(density_grid)], n = density.grid.resolution, bw = bandwidth)
+  kde_group2 <- stats::density(discriminant_axis_group2, from = density_grid[1], to = density_grid[length(density_grid)], n = density.grid.resolution, bw = bandwidth)
   grid_dx <- diff(kde_group1$x[1:2])
 
   # Apply Humboldt-style species-specific background weighting if requested
   if (isTRUE(weight.background)) {
     if (isTRUE(verbose)) message("Applying Humboldt-style species-specific environmental background weighting")
 
-    # Estimate background KDEs on shared LD1 grid
-    background_kde_sp1 <- stats::density(Sp1.background.LD1, from = density_grid[1], to = density_grid[length(density_grid)], n = density.grid.resolution, bw = bandwidth)
-    background_kde_sp2 <- stats::density(Sp2.background.LD1, from = density_grid[1], to = density_grid[length(density_grid)], n = density.grid.resolution, bw = bandwidth)
+    # Estimate background KDEs on shared discriminant analysis grid
+    background_kde_sp1 <- stats::density(Sp1.background.discriminant.axis, from = density_grid[1], to = density_grid[length(density_grid)], n = density.grid.resolution, bw = bandwidth)
+    background_kde_sp2 <- stats::density(Sp2.background.discriminant.axis, from = density_grid[1], to = density_grid[length(density_grid)], n = density.grid.resolution, bw = bandwidth)
 
     # Create function to remove low-density kernel tails
     filter.kernel.tails <- function(density_values, observed_scores) {
@@ -4519,10 +5159,10 @@ calc.niche.divergence.metrics <- function(dapc_out, #DAPC results object
     }
 
     # Filter occurrence and background KDEs using observed density thresholds
-    occurrence_density_sp1 <- filter.kernel.tails(kde_group1$y, ld1_group1)
-    occurrence_density_sp2 <- filter.kernel.tails(kde_group2$y, ld1_group2)
-    background_density_sp1 <- filter.kernel.tails(background_kde_sp1$y, Sp1.background.LD1)
-    background_density_sp2 <- filter.kernel.tails(background_kde_sp2$y, Sp2.background.LD1)
+    occurrence_density_sp1 <- filter.kernel.tails(kde_group1$y, discriminant_axis_group1)
+    occurrence_density_sp2 <- filter.kernel.tails(kde_group2$y, discriminant_axis_group2)
+    background_density_sp1 <- filter.kernel.tails(background_kde_sp1$y, Sp1.background.discriminant.axis)
+    background_density_sp2 <- filter.kernel.tails(background_kde_sp2$y, Sp2.background.discriminant.axis)
 
     # Create function to normalize densities to expected grid-cell counts
     calculate.cell.counts <- function(density_values, record_count) {
@@ -4532,10 +5172,10 @@ calc.niche.divergence.metrics <- function(dapc_out, #DAPC results object
     }
 
     # Calculate occurrence and background densities scaled to sample sizes
-    occurrence_counts_sp1 <- calculate.cell.counts(occurrence_density_sp1, length(ld1_group1))
-    occurrence_counts_sp2 <- calculate.cell.counts(occurrence_density_sp2, length(ld1_group2))
-    background_counts_sp1 <- calculate.cell.counts(background_density_sp1, length(Sp1.background.LD1))
-    background_counts_sp2 <- calculate.cell.counts(background_density_sp2, length(Sp2.background.LD1))
+    occurrence_counts_sp1 <- calculate.cell.counts(occurrence_density_sp1, length(discriminant_axis_group1))
+    occurrence_counts_sp2 <- calculate.cell.counts(occurrence_density_sp2, length(discriminant_axis_group2))
+    background_counts_sp1 <- calculate.cell.counts(background_density_sp1, length(Sp1.background.discriminant.axis))
+    background_counts_sp2 <- calculate.cell.counts(background_density_sp2, length(Sp2.background.discriminant.axis))
 
     # Correct each species' occurrence density by its own background density
     corrected_density_sp1 <- occurrence_counts_sp1 / background_counts_sp1
@@ -4553,7 +5193,7 @@ calc.niche.divergence.metrics <- function(dapc_out, #DAPC results object
 
     # Identify environmentally analogous background grid cells
     analogous_environment_mask <- background_counts_sp1 >= 0.001 & background_counts_sp2 >= 0.001
-    if (!any(analogous_environment_mask)) stop("No analogous background environments remain along LD1")
+    if (!any(analogous_environment_mask)) stop("No analogous background environments remain along discriminant analysis")
 
     # Restrict corrected densities to analogous environmental space
     corrected_density_sp1[!analogous_environment_mask | corrected_density_sp1 < 0.001] <- 0
@@ -4561,49 +5201,75 @@ calc.niche.divergence.metrics <- function(dapc_out, #DAPC results object
     if (sum(corrected_density_sp1) <= 0 || sum(corrected_density_sp2) <= 0) stop("No corrected occurrence density remains within analogous environmental space")
 
     # Retain corrected densities for downstream normalization and niche metrics
-    dens1 <- corrected_density_sp1
-    dens2 <- corrected_density_sp2
+    density_group1 <- corrected_density_sp1
+    density_group2 <- corrected_density_sp2
   } else {
-    dens1 <- kde_group1$y
-    dens2 <- kde_group2$y
+    density_group1 <- kde_group1$y
+    density_group2 <- kde_group2$y
   }
 
-  # Perform max-normalization (Ascanio et al. 2024, Eq. 1): f_tilde(x) = f(x) / max_x f(x)
-  peak1 <- max(dens1, na.rm = TRUE)
-  if (!is.finite(peak1) || peak1 <= 0) stop("Non-positive peak (group 1)")
-  peak2 <- max(dens2, na.rm = TRUE)
-  if (!is.finite(peak2) || peak2 <= 0) stop("Non-positive peak (group 2)")
-  f_norm1 <- dens1 / peak1
-  f_norm2 <- dens2 / peak2
+  # Perform max-normalization of response curves (Ascanio et al. 2024, p. 8)
+  peak_density_group1 <- max(density_group1, na.rm = TRUE)
+  if (!is.finite(peak_density_group1) || peak_density_group1 <= 0) stop("Non-positive peak (group 1)")
+  peak_density_group2 <- max(density_group2, na.rm = TRUE)
+  if (!is.finite(peak_density_group2) || peak_density_group2 <= 0) stop("Non-positive peak (group 2)")
+  normalized_density_group1 <- density_group1 / peak_density_group1
+  normalized_density_group2 <- density_group2 / peak_density_group2
 
   # Calculate support-based niche limits for NE (Ascanio et al. 2024, Eq. 4)
   support_threshold <- 1e-6
-  support_idx1 <- which(f_norm1 > support_threshold)
-  if (length(support_idx1) < 2) stop("Insufficient support for group 1")
-  support_idx2 <- which(f_norm2 > support_threshold)
-  if (length(support_idx2) < 2) stop("Insufficient support for group 2")
-  niche1_lower <- density_grid[min(support_idx1)]
-  niche1_upper <- density_grid[max(support_idx1)]
-  niche2_lower <- density_grid[min(support_idx2)]
-  niche2_upper <- density_grid[max(support_idx2)]
+  support_indices_group1 <- which(normalized_density_group1 > support_threshold)
+  if (length(support_indices_group1) < 2) stop("Insufficient support for group 1")
+  support_indices_group2 <- which(normalized_density_group2 > support_threshold)
+  if (length(support_indices_group2) < 2) stop("Insufficient support for group 2")
+  niche1_lower <- density_grid[min(support_indices_group1)]
+  niche1_upper <- density_grid[max(support_indices_group1)]
+  niche2_lower <- density_grid[min(support_indices_group2)]
+  niche2_upper <- density_grid[max(support_indices_group2)]
 
-  # Create additional functions
-  trapz.integral <- function(x, y) sum((head(y, -1) + tail(y, -1)) * diff(x) / 2)
-  grid.between <- function(lower, upper, grid) which(grid >= lower & grid <= upper)
 
-  # Calculate one-sided dissimilarities DS (Ascanio et al. 2024, Eq. 3): DS(A|B) = 1 - integral_A min(f_tilde_A, f_tilde_B) dx / integral_A f_tilde_A x and DS(B|A) analogous on B
-  idx_A <- grid.between(niche1_lower, niche1_upper, density_grid)
-  if (length(idx_A) < 2) stop("Too few grid points in group 1 limits")
-  idx_B <- grid.between(niche2_lower, niche2_upper, density_grid)
-  if (length(idx_B) < 2) stop("Too few grid points in group 2 limits")
-  area_A_total <- trapz.integral(density_grid[idx_A], f_norm1[idx_A])
-  if (!is.finite(area_A_total) || area_A_total <= 0) stop("Zero integral on group 1")
-  area_A_overlap <- trapz.integral(density_grid[idx_A], pmin(f_norm1[idx_A], f_norm2[idx_A]))
-  ds_group1_given_group2 <- (area_A_total - area_A_overlap) / area_A_total
-  area_B_total <- trapz.integral(density_grid[idx_B], f_norm2[idx_B])
-  if (!is.finite(area_B_total) || area_B_total <= 0) stop("Zero integral on group 2")
-  area_B_overlap <- trapz.integral(density_grid[idx_B], pmin(f_norm1[idx_B], f_norm2[idx_B]))
-  ds_group2_given_group1 <- (area_B_total - area_B_overlap) / area_B_total
+  # Create functions for trapezoidal integration and selecting grid points within niche limits
+  trapz.integral <- function(grid_positions, density_values) {
+    if (length(grid_positions) < 2L) return(0)
+    sum((head(density_values, -1L) + tail(density_values, -1L)) * diff(grid_positions) / 2)
+  }
+  grid.between <- function(lower_limit, upper_limit, grid_values) which(grid_values >= lower_limit & grid_values <= upper_limit)
+
+  # Integrate minimum of linearly interpolated densities, splitting curve crossings
+  integrate.minimum <- function(grid_positions, density_values1, density_values2) {
+    if (length(grid_positions) < 2L) return(0)
+    segment_widths <- diff(grid_positions)
+    left_values1 <- head(density_values1, -1L)
+    right_values1 <- tail(density_values1, -1L)
+    left_values2 <- head(density_values2, -1L)
+    right_values2 <- tail(density_values2, -1L)
+    segment_areas <- (pmin(left_values1, left_values2) + pmin(right_values1, right_values2)) * segment_widths / 2
+    left_difference <- left_values1 - left_values2
+    right_difference <- right_values1 - right_values2
+    crossing_segments <- which(left_difference * right_difference < 0)
+    if (length(crossing_segments) > 0L) {
+      crossing_fraction <- left_difference[crossing_segments] / (left_difference[crossing_segments] - right_difference[crossing_segments])
+      crossing_height <- left_values1[crossing_segments] + crossing_fraction * (right_values1[crossing_segments] - left_values1[crossing_segments])
+      left_width <- segment_widths[crossing_segments] * crossing_fraction
+      right_width <- segment_widths[crossing_segments] - left_width
+      segment_areas[crossing_segments] <- (pmin(left_values1[crossing_segments], left_values2[crossing_segments]) + crossing_height) * left_width / 2 + (crossing_height + pmin(right_values1[crossing_segments], right_values2[crossing_segments])) * right_width / 2
+    }
+    sum(segment_areas)
+  }
+
+  # Calculate one-sided dissimilarities DS with strict niche limits (Ascanio et al. 2024, Eq. 3)
+  niche_indices_group1 <- grid.between(niche1_lower, niche1_upper, density_grid)
+  niche_indices_group2 <- grid.between(niche2_lower, niche2_upper, density_grid)
+  if (length(niche_indices_group1) < 2L || length(niche_indices_group2) < 2L) stop("Too few grid points within niche limits")
+  total_integral_group1 <- trapz.integral(density_grid[niche_indices_group1], normalized_density_group1[niche_indices_group1])
+  total_integral_group2 <- trapz.integral(density_grid[niche_indices_group2], normalized_density_group2[niche_indices_group2])
+  if (!is.finite(total_integral_group1) || total_integral_group1 <= 0) stop("Zero integral on group 1")
+  if (!is.finite(total_integral_group2) || total_integral_group2 <= 0) stop("Zero integral on group 2")
+  shared_niche_indices <- intersect(niche_indices_group1, niche_indices_group2)
+  shared_integral <- if (length(shared_niche_indices) >= 2L) integrate.minimum(density_grid[shared_niche_indices], normalized_density_group1[shared_niche_indices], normalized_density_group2[shared_niche_indices]) else 0
+  ds_group1_given_group2 <- max(0, min(1, 1 - shared_integral / total_integral_group1))
+  ds_group2_given_group1 <- max(0, min(1, 1 - shared_integral / total_integral_group2))
+
 
   # Calculate niche dissimilarity (NDS) (Ascanio et al. 2024, Eq. 2)
   niche_dissimilarity <- (ds_group1_given_group2 + ds_group2_given_group1) / 2
@@ -4617,20 +5283,20 @@ calc.niche.divergence.metrics <- function(dapc_out, #DAPC results object
 
   # Calculate niche divergence magnitude (ND) and angle (theta) (Ascanio et al. 2024, Eqs. 5-6): ND = sqrt(NDS^2 + NE^2) and theta = atan2(NDS, NE) in degrees
   niche_divergence_magnitude <- sqrt(niche_dissimilarity^2 + niche_exclusivity^2)
-  niche_divergence_angle_degrees <- atan2(niche_dissimilarity, niche_exclusivity) * (180 / pi)
+  niche_divergence_angle_degrees <- if (niche_divergence_magnitude == 0) NA_real_ else atan2(niche_dissimilarity, niche_exclusivity) * (180 / pi)
 
   # Calculate Schoener's D overlap (Schoener 1968): D = integral min(q1(x), q2(x)) dx, with q normalized to area 1
-  area1 <- sum(dens1 * grid_dx)
-  if (!is.finite(area1) || area1 <= 0) stop("KDE normalization failed (group 1)")
-  area2 <- sum(dens2 * grid_dx)
-  if (!is.finite(area2) || area2 <= 0) stop("KDE normalization failed (group 2)")
-  q1 <- dens1 / area1
-  q2 <- dens2 / area2
-  schoener_D <- sum(pmin(q1, q2)) * grid_dx
+  density_integral_group1 <- sum(density_group1 * grid_dx)
+  if (!is.finite(density_integral_group1) || density_integral_group1 <= 0) stop("KDE normalization failed (group 1)")
+  density_integral_group2 <- sum(density_group2 * grid_dx)
+  if (!is.finite(density_integral_group2) || density_integral_group2 <= 0) stop("KDE normalization failed (group 2)")
+  probability_density_group1 <- density_group1 / density_integral_group1
+  probability_density_group2 <- density_group2 / density_integral_group2
+  schoener_D <- sum(pmin(probability_density_group1, probability_density_group2)) * grid_dx
   schoener_D <- max(0, min(1, schoener_D))
 
-  # Print metric messages
-  if (isTRUE(verbose)) {
+  # Report calculated niche divergence metrics
+  if (verbose) {
     message("")
     message("Niche divergence metrics:")
     message(sprintf("Schoener's D overlap = %.2f", schoener_D))
@@ -4638,6 +5304,102 @@ calc.niche.divergence.metrics <- function(dapc_out, #DAPC results object
     message(sprintf("Niche breadth exclusivity (NE) = %.2f", niche_exclusivity))
     message(sprintf("Niche divergence magnitude (ND) = %.2f", niche_divergence_magnitude))
     message(sprintf("Niche divergence angle (theta) = %.1f degree", niche_divergence_angle_degrees))
+  }
+
+  # Report permutation p-values when metric settings match unweighted nulls
+  permutation_Schoener_D <- if (!is.null(dapc_out$permutation_Schoener_D)) dapc_out$permutation_Schoener_D else numeric(0)
+  permutation_ND <- if (!is.null(dapc_out$permutation_ND)) dapc_out$permutation_ND else numeric(0)
+  p_val_Schoener_D <- NA_real_
+  p_val_ND <- NA_real_
+  if (length(permutation_Schoener_D) > 0L) {
+    grid_matches <- is.null(dapc_out$permutation_metric_grid_resolution) || density.grid.resolution == dapc_out$permutation_metric_grid_resolution
+    metric_matches <- !is.null(dapc_out$observed_Schoener_D) && !is.null(dapc_out$observed_ND) && isTRUE(all.equal(schoener_D, dapc_out$observed_Schoener_D, tolerance = 1e-8)) && isTRUE(all.equal(niche_divergence_magnitude, dapc_out$observed_ND, tolerance = 1e-8))
+    if (weight.background || !grid_matches || !metric_matches) {
+    } else {
+      p_val_Schoener_D <- dapc_out$p_val_Schoener_D
+      p_val_ND <- dapc_out$p_val_ND
+      if (verbose) {
+        if (length(p_val_Schoener_D) == 1L) {
+          message("Schoener's D permutation p-value = ", format(signif(p_val_Schoener_D, 2), scientific = FALSE, trim = TRUE))
+          message("ND permutation p-value = ", format(signif(p_val_ND, 2), scientific = FALSE, trim = TRUE))
+        } else {
+          background_direction_labels <- c(species1_shifted = "species 1 shifted", species2_shifted = "species 2 shifted")
+          message("Schoener's D background permutation p-values: ", paste(background_direction_labels[names(p_val_Schoener_D)], vapply(p_val_Schoener_D, function(p_value) format(signif(p_value, 2), scientific = FALSE, trim = TRUE), character(1)), collapse = ", "))
+          message("ND background permutation p-values: ", paste(background_direction_labels[names(p_val_ND)], vapply(p_val_ND, function(p_value) format(signif(p_value, 2), scientific = FALSE, trim = TRUE), character(1)), collapse = ", "))
+        }
+      }
+    }
+  }
+
+  # Calculate niche metrics for held-out repetitions
+  heldout_metrics <- NULL
+  if (!is.null(dapc_out$heldout_results)) {
+    heldout_metrics <- lapply(seq_along(dapc_out$heldout_results), function(repetition_index) {
+      heldout_repetition <- dapc_out$heldout_results[[repetition_index]]
+      if (is.null(heldout_repetition$ld) || is.null(heldout_repetition$grp)) stop("Missing discriminant analysis scores or group labels in held-out repetition ", repetition_index)
+      calc.niche.divergence.metrics(
+        dapc_out = list(dapc_results = list(ld = heldout_repetition$ld, grp = heldout_repetition$grp)),
+        weight.background = FALSE,
+        verbose = FALSE
+      )
+    })
+
+    # Print mean, SD, and 95% repetition percentile range for held-out metrics
+    if (isTRUE(verbose) && length(heldout_metrics) > 0L) {
+      heldout_metric_names <- c("Schoener_D", "Niche_dissimilarity", "Niche_breadth_exclusivity", "Niche_divergence_magnitude", "Niche_divergence_angle_degrees")
+      heldout_metric_labels <- c("Schoener's D overlap", "Niche dissimilarity (NDS)", "Niche breadth exclusivity (NE)", "Niche divergence magnitude (ND)", "Niche divergence angle (theta)")
+      message("")
+      message("Held-out niche divergence metrics (mean values based on ", length(heldout_metrics), " replicates):")
+      for (metric_index in seq_along(heldout_metric_names)) {
+        metric_values <- vapply(heldout_metrics, function(repetition_results) repetition_results[[heldout_metric_names[metric_index]]], numeric(1))
+        metric_values <- metric_values[is.finite(metric_values)]
+        if (length(metric_values) == 0L) {
+          message(heldout_metric_labels[metric_index], " = NA (no finite values)")
+          next
+        }
+        metric_mean <- mean(metric_values)
+        metric_sd <- if (length(metric_values) > 1L) stats::sd(metric_values) else NA_real_
+        metric_range <- as.numeric(stats::quantile(metric_values, probs = c(0.025, 0.975), names = FALSE))
+        metric_digits <- if (heldout_metric_names[metric_index] == "Niche_divergence_angle_degrees") 1L else 2L
+        metric_units <- if (heldout_metric_names[metric_index] == "Niche_divergence_angle_degrees") " degrees" else ""
+        message(sprintf("%s = %.*f (SD: %.2f, 95%% range: %.*f\u2013%.*f)%s", heldout_metric_labels[metric_index], metric_digits, metric_mean, metric_sd, metric_digits, metric_range[1], metric_digits, metric_range[2], metric_units))
+      }
+    }
+  }
+
+  # Calculate percentile confidence intervals from bootstrap means
+  bootstrap_metric_means <- if (!is.null(dapc_out$bootstrap_metric_means)) dapc_out$bootstrap_metric_means else NULL
+  bootstrap_CI <- NULL
+  if (!is.null(bootstrap_metric_means)) {
+    bootstrap_metric_names <- c("Schoener_D", "Niche_dissimilarity", "Niche_breadth_exclusivity", "Niche_divergence_magnitude", "Niche_divergence_angle_degrees")
+    bootstrap_grid_matches <- !is.null(dapc_out$bootstrap_metric_grid_resolution) && density.grid.resolution == dapc_out$bootstrap_metric_grid_resolution
+    bootstrap_method_matches <- identical(attr(bootstrap_metric_means, "metric_implementation_id"), paste(deparse(body(calc.niche.divergence.metrics), width.cutoff = 500L), collapse = "\n"))
+    if (weight.background || !bootstrap_grid_matches || !bootstrap_method_matches) {
+      warning("Bootstrap means were calculated under different or unknown metric settings (weighting, grid resolution, or algorithm) - bootstrap CIs do not apply", call. = FALSE)
+    } else {
+      if (!is.matrix(bootstrap_metric_means) || !all(bootstrap_metric_names %in% colnames(bootstrap_metric_means))) stop("Bootstrap means do not contain the five required niche metrics")
+      bootstrap_CI <- matrix(NA_real_, nrow = length(bootstrap_metric_names), ncol = 2L, dimnames = list(bootstrap_metric_names, c("lower", "upper")))
+      bootstrap_primary_metric_names <- setdiff(bootstrap_metric_names, "Niche_divergence_angle_degrees")
+      bootstrap_valid_rows <- rowSums(!is.finite(bootstrap_metric_means[, bootstrap_primary_metric_names, drop = FALSE])) == 0L
+      bootstrap_valid_count <- sum(bootstrap_valid_rows)
+      minimum_valid_bootstraps <- max(2L, ceiling(0.8 * nrow(bootstrap_metric_means)))
+      if (bootstrap_valid_count >= minimum_valid_bootstraps) {
+        for (metric_name in bootstrap_primary_metric_names) bootstrap_CI[metric_name, ] <- as.numeric(stats::quantile(bootstrap_metric_means[bootstrap_valid_rows, metric_name], probs = c(0.025, 0.975), names = FALSE))
+        bootstrap_valid_angles <- bootstrap_metric_means[bootstrap_valid_rows & is.finite(bootstrap_metric_means[, "Niche_divergence_angle_degrees"]), "Niche_divergence_angle_degrees"]
+        if (length(bootstrap_valid_angles) >= minimum_valid_bootstraps) {
+          bootstrap_CI["Niche_divergence_angle_degrees", ] <- as.numeric(stats::quantile(bootstrap_valid_angles, probs = c(0.025, 0.975), names = FALSE))
+        } else {
+          warning("Too few bootstrap estimates have a defined divergence angle - theta confidence interval is unavailable", call. = FALSE)
+        }
+        if (verbose) {
+          message("")
+          message("Bootstrap 95% confidence intervals for mean held-out niche metrics:")
+          for (metric_name in bootstrap_metric_names) message(metric_name, ": ", paste(format(round(bootstrap_CI[metric_name, ], 2), trim = TRUE), collapse = " - "))
+        }
+      } else {
+        warning("Fewer than 80% of bootstrap replicates provided valid D, NDS, NE, and ND - bootstrap CIs are unavailable", call. = FALSE)
+      }
+    }
   }
 
   # Return results
@@ -4650,7 +5412,14 @@ calc.niche.divergence.metrics <- function(dapc_out, #DAPC results object
     niche_limits = list(
       group1 = c(lower = niche1_lower, upper = niche1_upper),
       group2 = c(lower = niche2_lower, upper = niche2_upper)
-    )
+    ),
+    heldout_metrics = heldout_metrics,
+    bootstrap_metric_means = bootstrap_metric_means,
+    bootstrap_CI = bootstrap_CI,
+    permutation_Schoener_D = permutation_Schoener_D,
+    permutation_ND = permutation_ND,
+    p_val_Schoener_D = p_val_Schoener_D,
+    p_val_ND = p_val_ND
   )
 }
 
@@ -4666,9 +5435,16 @@ calc.niche.divergence.metrics <- function(dapc_out, #DAPC results object
 #'   `run.DAPC.crossval.permutation()`, or a nested object containing
 #'   `$dapc_results`. The object must contain variable contributions, variable
 #'   loadings, and group coordinates.
-#' @param group.colors Character vector of two colors used for the plotted groups
-#'   or contribution directions. Can be named with group levels to enforce a
-#'   specific group-color mapping (default: `c("#00005A", "darkgrey")`).
+#' @param N.bootstraps.CI `NULL` (default) to show full-data variable
+#'   contributions as a bar plot, or an integer >= 2 giving the number of
+#'   stratified full-sample DAPC bootstrap replicates to display as boxplots
+#'   (recommended: `999`). The bootstrap uses the preprocessed
+#'   environmental predictors stored in `$pca_object$tab` of `dapc.results`,
+#'   with PC selection, PCA, and LDA repeated for each bootstrap replicate.
+#' @param group.colors Character vector of two colors used for the plotted
+#'   groups or contribution directions. Can be named with group levels to
+#'   enforce a specific group-color mapping (default:
+#'   `c("#00005A", "darkgrey")`).
 #' @param min.contribution.threshold Optional single non-negative numeric value
 #'   giving the minimum contribution required for a variable to be plotted
 #'   (default: `NULL`).
@@ -4683,8 +5459,8 @@ calc.niche.divergence.metrics <- function(dapc_out, #DAPC results object
 #'   font size (default: `9.1`).
 #' @param legend.title.font.size A single positive numeric value giving the
 #'   legend title font size (default: `9.1`).
-#' @param legend.text.font.size A single positive numeric value giving the legend
-#'   text font size (default: `9.1`).
+#' @param legend.text.font.size A single positive numeric value giving the
+#'   legend text font size (default: `9.1`).
 #' @param legend.text.italics Logical; if `TRUE`, legend entries are italicized
 #'   (default: `FALSE`).
 #' @param legend.symbol.size A single positive numeric value giving the legend
@@ -4720,11 +5496,11 @@ calc.niche.divergence.metrics <- function(dapc_out, #DAPC results object
 #'
 #' @details
 #' Variable contributions identify environmental predictors that contribute most
-#' strongly to separation along the DAPC discriminant axis. The discriminant axis
-#' is a linear combination of retained principal components, which are themselves
-#' linear combinations of the original predictors. Back-transforming the
-#' discriminant axis to the original predictor space gives each variable a
-#' loading that reflects its weight in the fitted discrimination.
+#' strongly to separation along the DAPC discriminant axis. The discriminant
+#' axis is a linear combination of retained principal components, which are
+#' themselves linear combinations of the original predictors. Back-transforming
+#' the discriminant axis to the original predictor space gives each variable
+#' a loading that reflects its weight in the fitted discrimination.
 #'
 #' Contributions are calculated from squared loadings normalized to sum to one,
 #' so each value represents the relative proportion of discrimination associated
@@ -4732,27 +5508,34 @@ calc.niche.divergence.metrics <- function(dapc_out, #DAPC results object
 #' along the discriminant axis, whereas values near zero indicate little
 #' contribution to the fitted group separation.
 #'
-#' The direction of effect is determined from the sign of each variable loading
-#' relative to the group centroids on the discriminant axis. This indicates which
-#' group is associated with higher values of each predictor along the fitted
-#' discriminant direction. The direction should be interpreted as an axis-based
-#' association, not as evidence of an independent causal effect.
+#' relative to the group centroids on the discriminant axis. This indicates
+#' which group is associated with higher values of each predictor along the
+#' fitted discriminant direction. The direction should be interpreted as an
+#' axis-based association, not as evidence of an independent causal effect.
 #'
 #' Variable contributions should be interpreted cautiously when predictors are
 #' strongly correlated. PCA reduces collinearity for model fitting, but the
-#' back-transformed contributions still reflect shared covariance structure among
-#' the original predictors. Therefore, high contributions indicate variables or
-#' correlated variable sets associated with niche divergence, rather than fully
-#' independent effects of individual predictors.
+#' back-transformed contributions still reflect shared covariance structure
+#' among the original predictors. Therefore, high contributions indicate
+#' variables or correlated variable sets associated with niche divergence,
+#' rather than fully independent effects of individual predictors.
+#'
+#' When `N.bootstraps.CI` is specified, boxplots show the empirical bootstrap
+#' distribution of each variable contribution; black diamonds show the original
+#' full-data estimates. Boxplot whiskers extend to observations within 1.5 times
+#' the interquartile range and do not represent 95% confidence intervals. The
+#' percentile bootstrap 95% limits are returned as `CI_lower` and `CI_upper`.
 #'
 #' @return A `data.frame` containing the plotted variable contributions,
-#'   loadings, and inferred contribution directions. If `show.plot = TRUE`, the
-#'   plot is displayed as a side effect. If `save = TRUE`, the plot is also saved
-#'   to disk using `filename`, `output.dir`, and `type`.
+#'   loadings, and inferred contribution directions, plus `CI_lower` and
+#'   `CI_upper` when `N.bootstraps.CI` is provided. If `show.plot = TRUE`, the
+#'   plot is displayed as a side effect. If `save = TRUE`, the plot is also
+#'   saved to disk using `filename`, `output.dir`, and `type`.
 #'
 #' @rawNamespace export(plot.DAPC.var.contributions)
 #' @exportS3Method NULL
 plot.DAPC.var.contributions <- function(dapc.results, #DAPC object
+                                        N.bootstraps.CI = NULL,
                                         group.colors = c("#00005A", "darkgrey"), #two colors for groups
                                         min.contribution.threshold = NULL, #drop variables below this contribution
                                         top.N = NULL, #number of top variables to show
@@ -4778,43 +5561,333 @@ plot.DAPC.var.contributions <- function(dapc.results, #DAPC object
                                         verbose = TRUE #print messages
 ) {
 
+
   # Validate input
-  if (!is.null(dapc.results$dapc_results)) dapc.results <- dapc.results$dapc_results
-  if (is.null(dapc.results) || !is.list(dapc.results)) stop("dapc.results must be a DAPC list or a list with $dapc_results")
-  if (is.null(dapc.results$var.contr)) stop("dapc.results$var.contr is missing")
-  if (is.null(dapc.results$var.load)) stop("dapc.results$var.load is missing")
-  if (is.null(dapc.results$grp.coord)) stop("dapc.results$grp.coord is missing")
-  if (ncol(as.matrix(dapc.results$var.contr)) < 1) stop("var.contr must have >=1 column (LD1)")
-  if (ncol(as.matrix(dapc.results$var.load)) < 1) stop("var.load must have >=1 column (LD1)")
-  if (!is.character(group.colors) || length(group.colors) != 2L || any(!nzchar(group.colors))) stop("group.colors must be a character vector of length 2")
-  if (!is.null(min.contribution.threshold) && (!is.numeric(min.contribution.threshold) || length(min.contribution.threshold) != 1L || !is.finite(min.contribution.threshold) || min.contribution.threshold < 0)) stop("min.contribution.threshold must be NULL or a single non-negative number (recommended: NULL)")
-  if (!is.null(top.N)) {
-    if (!is.numeric(top.N) || length(top.N) != 1L || !is.finite(top.N) || top.N < 1) stop("top.N must be NULL or a single positive integer (recommended: NULL)")
-    top.N <- as.integer(top.N)
+  if (!is.list(dapc.results)) stop("dapc.results must be a DAPC list or a list with $dapc_results")
+  if (!is.null(dapc.results$dapc_results) && !is.list(dapc.results$dapc_results)) stop("dapc.results$dapc_results must be a list")
+  if (!is.null(dapc.results$dapc_results)) {
+    if (is.null(dapc.results$dapc_results$var.contr)) stop("dapc.results$var.contr is missing")
+    if (is.null(dapc.results$dapc_results$var.load)) stop("dapc.results$var.load is missing")
+    if (is.null(dapc.results$dapc_results$grp.coord)) stop("dapc.results$grp.coord is missing")
+    if (!is.numeric(dapc.results$dapc_results$var.contr) || !length(dapc.results$dapc_results$var.contr)) stop("dapc.results$var.contr must be a non-empty numeric vector")
+    if (!is.matrix(dapc.results$dapc_results$var.load) || !is.numeric(dapc.results$dapc_results$var.load) || ncol(dapc.results$dapc_results$var.load) < 1L) stop("dapc.results$var.load must be a numeric matrix containing LD1")
+    if (!is.matrix(dapc.results$dapc_results$grp.coord) || !is.numeric(dapc.results$dapc_results$grp.coord) || ncol(dapc.results$dapc_results$grp.coord) < 1L || nrow(dapc.results$dapc_results$grp.coord) != 2L) stop("dapc.results$grp.coord must be a numeric matrix containing LD1 for two groups")
+    if (any(!is.finite(dapc.results$dapc_results$var.contr)) || any(!is.finite(dapc.results$dapc_results$var.load)) || any(!is.finite(dapc.results$dapc_results$grp.coord))) stop("DAPC variable contributions, loadings, and group coordinates must be finite")
+    if (is.null(rownames(as.matrix(dapc.results$dapc_results$var.contr))) || anyNA(rownames(as.matrix(dapc.results$dapc_results$var.contr))) || any(!nzchar(rownames(as.matrix(dapc.results$dapc_results$var.contr)))) || anyDuplicated(rownames(as.matrix(dapc.results$dapc_results$var.contr)))) stop("dapc.results$var.contr must have unique, non-empty predictor names")
+    if (is.null(rownames(dapc.results$dapc_results$var.load)) || anyNA(rownames(dapc.results$dapc_results$var.load)) || any(!nzchar(rownames(dapc.results$dapc_results$var.load))) || anyDuplicated(rownames(dapc.results$dapc_results$var.load))) stop("dapc.results$var.load must have unique, non-empty predictor names")
+    if (is.null(rownames(dapc.results$dapc_results$grp.coord)) || anyNA(rownames(dapc.results$dapc_results$grp.coord)) || any(!nzchar(rownames(dapc.results$dapc_results$grp.coord))) || anyDuplicated(rownames(dapc.results$dapc_results$grp.coord))) stop("dapc.results$grp.coord must have two unique, non-empty group names")
+  } else {
+    if (is.null(dapc.results$var.contr)) stop("dapc.results$var.contr is missing")
+    if (is.null(dapc.results$var.load)) stop("dapc.results$var.load is missing")
+    if (is.null(dapc.results$grp.coord)) stop("dapc.results$grp.coord is missing")
+    if (!is.numeric(dapc.results$var.contr) || !length(dapc.results$var.contr)) stop("dapc.results$var.contr must be a non-empty numeric vector")
+    if (!is.matrix(dapc.results$var.load) || !is.numeric(dapc.results$var.load) || ncol(dapc.results$var.load) < 1L) stop("dapc.results$var.load must be a numeric matrix containing LD1")
+    if (!is.matrix(dapc.results$grp.coord) || !is.numeric(dapc.results$grp.coord) || ncol(dapc.results$grp.coord) < 1L || nrow(dapc.results$grp.coord) != 2L) stop("dapc.results$grp.coord must be a numeric matrix containing LD1 for two groups")
+    if (any(!is.finite(dapc.results$var.contr)) || any(!is.finite(dapc.results$var.load)) || any(!is.finite(dapc.results$grp.coord))) stop("DAPC variable contributions, loadings, and group coordinates must be finite")
+    if (is.null(rownames(as.matrix(dapc.results$var.contr))) || anyNA(rownames(as.matrix(dapc.results$var.contr))) || any(!nzchar(rownames(as.matrix(dapc.results$var.contr)))) || anyDuplicated(rownames(as.matrix(dapc.results$var.contr)))) stop("dapc.results$var.contr must have unique, non-empty predictor names")
+    if (is.null(rownames(dapc.results$var.load)) || anyNA(rownames(dapc.results$var.load)) || any(!nzchar(rownames(dapc.results$var.load))) || anyDuplicated(rownames(dapc.results$var.load))) stop("dapc.results$var.load must have unique, non-empty predictor names")
+    if (is.null(rownames(dapc.results$grp.coord)) || anyNA(rownames(dapc.results$grp.coord)) || any(!nzchar(rownames(dapc.results$grp.coord))) || anyDuplicated(rownames(dapc.results$grp.coord))) stop("dapc.results$grp.coord must have two unique, non-empty group names")
   }
+  if (!is.null(N.bootstraps.CI) && (!is.numeric(N.bootstraps.CI) || length(N.bootstraps.CI) != 1L || !is.finite(N.bootstraps.CI) || N.bootstraps.CI < 2L || N.bootstraps.CI %% 1 != 0L)) stop("N.bootstraps.CI must be NULL or an integer >= 2")
+  if (!is.null(N.bootstraps.CI)) {
+    if (!is.list(dapc.results$dapc_results)) stop("N.bootstraps.CI requires the complete DAPC result with $dapc_results")
+    if (!is.list(dapc.results$pca_object) || !(is.matrix(dapc.results$pca_object$tab) || is.data.frame(dapc.results$pca_object$tab))) stop("N.bootstraps.CI requires a PCA object with a predictor matrix in $pca_object$tab")
+    if (ncol(dapc.results$pca_object$tab) < 1L || !all(vapply(as.data.frame(dapc.results$pca_object$tab), is.numeric, logical(1)))) stop("Stored PCA predictors must be numeric")
+    if (any(!is.finite(as.matrix(dapc.results$pca_object$tab)))) stop("Stored PCA predictors must be finite")
+    if (is.null(colnames(dapc.results$pca_object$tab)) || anyNA(colnames(dapc.results$pca_object$tab)) || any(!nzchar(colnames(dapc.results$pca_object$tab))) || anyDuplicated(colnames(dapc.results$pca_object$tab))) stop("Stored PCA predictors must have unique, non-empty names")
+    if ("Species" %in% colnames(dapc.results$pca_object$tab)) stop("Stored PCA predictors must not contain a column named Species")
+    if (is.null(dapc.results$dapc_results$var.contr.mat) || !identical(colnames(dapc.results$pca_object$tab), rownames(as.matrix(dapc.results$dapc_results$var.contr.mat)))) stop("Stored PCA predictor names must match original full-model variable contributions")
+    if (!is.factor(dapc.results$dapc_results$grp) || nlevels(dapc.results$dapc_results$grp) != 2L || anyNA(dapc.results$dapc_results$grp) || any(table(dapc.results$dapc_results$grp) < 2L)) stop("dapc.results$grp must contain two species with at least two observations each")
+    if (!setequal(levels(dapc.results$dapc_results$grp), rownames(dapc.results$dapc_results$grp.coord))) stop("DAPC group labels and group coordinates must match")
+    if (nrow(dapc.results$pca_object$tab) != length(dapc.results$dapc_results$grp)) stop("Stored PCA predictors and species labels have different lengths")
+    if (!is.list(dapc.results$crossval_run2)) stop("N.bootstraps.CI requires the original $crossval_run2")
+    if (!is.numeric(dapc.results$crossval_run2[["Number of CV repetitions"]]) || length(dapc.results$crossval_run2[["Number of CV repetitions"]]) != 1L || !is.finite(dapc.results$crossval_run2[["Number of CV repetitions"]]) || dapc.results$crossval_run2[["Number of CV repetitions"]] < 2L || dapc.results$crossval_run2[["Number of CV repetitions"]] %% 1 != 0L) stop("CV repetitions must be an integer >= 2")
+    if (!requireNamespace("ade4", quietly = TRUE)) stop("Package 'ade4' is required for contribution bootstrapping")
+    if (!requireNamespace("MASS", quietly = TRUE)) stop("Package 'MASS' is required for contribution bootstrapping")
+  }
+  if (!is.character(group.colors) || length(group.colors) != 2L || anyNA(group.colors) || any(!nzchar(group.colors))) stop("group.colors must be a character vector of length 2")
+  if (!is.null(names(group.colors)) && (anyNA(names(group.colors)) || any(!nzchar(names(group.colors))) || anyDuplicated(names(group.colors)))) stop("group.colors must have unique, non-empty names when named")
+  if (!is.null(min.contribution.threshold) && (!is.numeric(min.contribution.threshold) || length(min.contribution.threshold) != 1L || !is.finite(min.contribution.threshold) || min.contribution.threshold < 0)) stop("min.contribution.threshold must be NULL or a single non-negative number (recommended: NULL)")
+  if (!is.null(top.N) && (!is.numeric(top.N) || length(top.N) != 1L || !is.finite(top.N) || top.N < 1L || top.N %% 1 != 0L)) stop("top.N must be NULL or a single positive integer (recommended: NULL)")
   if (!is.numeric(axis.labels.font.size) || length(axis.labels.font.size) != 1L || !is.finite(axis.labels.font.size) || axis.labels.font.size <= 0) stop("axis.labels.font.size must be a single positive number (recommended: 9.1)")
   if (!is.numeric(axis.ticks.font.size) || length(axis.ticks.font.size) != 1L || !is.finite(axis.ticks.font.size) || axis.ticks.font.size <= 0) stop("axis.ticks.font.size must be a single positive number (recommended: 7)")
   if (!is.numeric(title.font.size) || length(title.font.size) != 1L || !is.finite(title.font.size) || title.font.size <= 0) stop("title.font.size must be a single positive number (recommended: 9.1)")
   if (!is.numeric(legend.title.font.size) || length(legend.title.font.size) != 1L || !is.finite(legend.title.font.size) || legend.title.font.size <= 0) stop("legend.title.font.size must be a single positive number (recommended: 9.1)")
   if (!is.numeric(legend.text.font.size) || length(legend.text.font.size) != 1L || !is.finite(legend.text.font.size) || legend.text.font.size <= 0) stop("legend.text.font.size must be a single positive number (recommended: 9.1)")
-  if (!is.logical(legend.text.italics) || length(legend.text.italics) != 1L) stop("legend.text.italics must be TRUE or FALSE")
+  if (!is.logical(legend.text.italics) || length(legend.text.italics) != 1L || is.na(legend.text.italics)) stop("legend.text.italics must be TRUE or FALSE")
   if (!is.numeric(legend.symbol.size) || length(legend.symbol.size) != 1L || !is.finite(legend.symbol.size) || legend.symbol.size <= 0) stop("legend.symbol.size must be a single positive number (pt) (recommended: 15)")
   if (!(is.character(legend.position) || is.numeric(legend.position))) stop("legend.position must be character or numeric")
-  if (is.character(legend.position) && !legend.position %in% c("right", "left", "top", "bottom", "none")) stop("legend.position must be 'right', 'left', 'top', 'bottom', or 'none'")
+  if (is.character(legend.position) && (length(legend.position) != 1L || is.na(legend.position) || !legend.position %in% c("right", "left", "top", "bottom", "none"))) stop("legend.position must be 'right', 'left', 'top', 'bottom', or 'none'")
   if (is.numeric(legend.position) && (length(legend.position) != 2L || any(!is.finite(legend.position)))) stop("legend.position numeric must be c(x, y) with finite values")
-  if (!is.logical(add.title) || length(add.title) != 1L) stop("add.title must be TRUE or FALSE")
-  if (!is.character(title.text) || length(title.text) != 1L || !nzchar(title.text)) stop("title.text must be a non-empty character")
-  if (!is.logical(show.plot) || length(show.plot) != 1L) stop("show.plot must be TRUE or FALSE")
-  if (!is.logical(save) || length(save) != 1L) stop("save must be TRUE or FALSE")
-  if (!is.logical(overwrite) || length(overwrite) != 1L) stop("overwrite must be TRUE or FALSE")
-  if (!is.character(filename) || length(filename) != 1L || !nzchar(filename)) stop("filename must be non-empty")
-  if (!is.null(output.dir) && !is.character(output.dir)) stop("output.dir must be NULL or character")
-  type <- tolower(type)
-  if (!type %in% c("png", "svg", "jpg")) stop("type must be one of: png, svg, jpg")
+  if (!is.logical(add.title) || length(add.title) != 1L || is.na(add.title)) stop("add.title must be TRUE or FALSE")
+  if (!is.character(title.text) || length(title.text) != 1L || is.na(title.text) || !nzchar(title.text)) stop("title.text must be a non-empty character")
+  if (!is.logical(show.plot) || length(show.plot) != 1L || is.na(show.plot)) stop("show.plot must be TRUE or FALSE")
+  if (!is.logical(save) || length(save) != 1L || is.na(save)) stop("save must be TRUE or FALSE")
+  if (!is.logical(overwrite) || length(overwrite) != 1L || is.na(overwrite)) stop("overwrite must be TRUE or FALSE")
+  if (!is.character(filename) || length(filename) != 1L || is.na(filename) || !nzchar(filename)) stop("filename must be non-empty")
+  if (!is.null(output.dir) && (!is.character(output.dir) || length(output.dir) != 1L || is.na(output.dir))) stop("output.dir must be NULL or a single character string")
+  if (!is.character(type) || length(type) != 1L || is.na(type) || !tolower(type) %in% c("png", "svg", "jpg")) stop("type must be one of: png, svg, jpg")
   if (!is.numeric(width) || length(width) != 1L || !is.finite(width) || width <= 0) stop("width must be positive (cm)")
   if (!is.numeric(height) || length(height) != 1L || !is.finite(height) || height <= 0) stop("height must be positive (cm)")
   if (!is.numeric(resolution) || length(resolution) != 1L || !is.finite(resolution) || resolution <= 0) stop("resolution must be positive (dpi)")
-  if (!is.logical(verbose) || length(verbose) != 1L) stop("verbose must be TRUE or FALSE")
+  if (!is.logical(verbose) || length(verbose) != 1L || is.na(verbose)) stop("verbose must be TRUE or FALSE")
+
+  # Standardize plot type to lowercase
+  type <- tolower(type)
+
+  # Validate environmental predictors and species labels for median comparisons
+  if (is.null(dapc.results$dapc_results) || is.null(dapc.results$pca_object$tab)) stop("Median-based colors require the complete DAPC result with $dapc_results and $pca_object$tab")
+  median_predictors <- as.matrix(dapc.results$pca_object$tab)
+  median_groups <- dapc.results$dapc_results$grp
+  if (!is.numeric(median_predictors) || nrow(median_predictors) < 1L || ncol(median_predictors) < 1L || any(!is.finite(median_predictors))) stop("Stored PCA predictors must be a non-empty finite numeric matrix")
+  if (!is.factor(median_groups) || nlevels(median_groups) != 2L || anyNA(median_groups) || any(table(median_groups) == 0L)) stop("Stored DAPC group labels must contain two non-empty species")
+  if (nrow(median_predictors) != length(median_groups)) stop("Stored PCA predictors and species labels have different lengths")
+  if (!setequal(levels(median_groups), rownames(dapc.results$dapc_results$grp.coord))) stop("Stored group labels must match the group coordinate labels")
+
+  # Match display names to original PCA predictors using unchanged full-model contributions
+  original_contributions <- as.matrix(dapc.results$dapc_results$var.contr.mat)
+  display_names <- rownames(as.matrix(dapc.results$dapc_results$var.contr))
+  original_names <- colnames(median_predictors)
+  if (!is.numeric(original_contributions) || ncol(original_contributions) < 1L || !identical(rownames(original_contributions), original_names)) stop("Original full-model contribution names must match stored PCA predictor names and order")
+  if (!isTRUE(all.equal(as.numeric(dapc.results$dapc_results$var.contr), as.numeric(original_contributions[, 1L]), tolerance = 1e-10))) stop("Renamed variable contributions must retain their original values and order")
+
+  # Align renamed or reordered loading labels with original contribution values
+  aligned_loadings <- dapc.results$dapc_results$var.load
+  loading_names <- rownames(aligned_loadings)
+  if (setequal(loading_names, display_names)) {
+    aligned_loadings <- aligned_loadings[match(display_names, loading_names), , drop = FALSE]
+  } else if (setequal(loading_names, original_names)) {
+    aligned_loadings <- aligned_loadings[match(original_names, loading_names), , drop = FALSE]
+  } else {
+    stop("Variable loading names must match original or displayed predictor names")
+  }
+  squared_loadings <- as.numeric(aligned_loadings[, 1L])^2
+  if (!is.finite(sum(squared_loadings)) || sum(squared_loadings) <= 0 ||
+      !isTRUE(all.equal(squared_loadings / sum(squared_loadings), as.numeric(original_contributions[, 1L]), tolerance = 1e-8))) stop("Variable loadings cannot be aligned safely with the original contribution values")
+  rownames(aligned_loadings) <- display_names
+  dapc.results$dapc_results$var.load <- aligned_loadings
+  colnames(median_predictors) <- display_names
+
+  # Calculate median environmental values for each species and predictor
+  group_levels <- levels(median_groups)
+  if ("Equal medians" %in% group_levels) stop("The species name 'Equal medians' is reserved for tied predictor medians")
+  group_medians <- t(vapply(seq_len(ncol(median_predictors)), function(predictor_index) {
+    vapply(group_levels, function(group_level) stats::median(median_predictors[median_groups == group_level, predictor_index]), numeric(1))
+  }, numeric(length(group_levels))))
+  rownames(group_medians) <- colnames(median_predictors)
+  colnames(group_medians) <- group_levels
+
+  # Identify species with higher median for each predictor
+  higher_median_group <- ifelse(group_medians[, 1L] > group_medians[, 2L], group_levels[1L], ifelse(group_medians[, 1L] < group_medians[, 2L], group_levels[2L], "Equal medians"))
+  names(higher_median_group) <- rownames(group_medians)
+
+  # Extract predictors, species labels, and cross-validation settings for bootstrapping
+  bootstrap_predictors <- NULL
+  bootstrap_group_labels <- NULL
+  bootstrap_cv_repetitions <- NULL
+  if (!is.null(N.bootstraps.CI)) {
+    bootstrap_predictors <- median_predictors
+    bootstrap_group_labels <- dapc.results$dapc_results$grp
+    bootstrap_cv_repetitions <- as.integer(dapc.results$crossval_run2[["Number of CV repetitions"]])
+  }
+
+  # Extract fitted DAPC results
+  if (!is.null(dapc.results$dapc_results)) dapc.results <- dapc.results$dapc_results
+
+  # Calculate full-sample DAPC bootstrap confidence intervals for variable contributions
+  bootstrap_contribution_summary <- NULL
+  if (!is.null(N.bootstraps.CI)) {
+
+    # Select retained PCs by repeated stratified five-fold cross-validation
+    bootstrap.select.pcs <- function(predictor_matrix, group_labels, source_ids, maximum_pcs, N.cv.repetitions) {
+
+      # Evaluate candidate grid with duplicate observations kept in same fold
+      evaluate.pc.grid <- function(pc_grid, previous_results = NULL) {
+
+        # Retain identical CV folds when evaluating neighboring PC counts
+        if (is.null(previous_results)) {
+          fold_assignments <- lapply(seq_len(N.cv.repetitions), function(cv_repetition) {
+            fold_assignment <- integer(length(group_labels))
+            for (group_indices in split(seq_along(group_labels), group_labels)) {
+              distinct_sources <- sample(unique(source_ids[group_indices]))
+              source_folds <- rep(seq_len(5L), length.out = length(distinct_sources))
+              fold_assignment[group_indices] <- source_folds[match(source_ids[group_indices], distinct_sources)]
+            }
+            fold_assignment
+          })
+        } else {
+          fold_assignments <- previous_results$fold_assignments
+          if (length(fold_assignments) != N.cv.repetitions) stop("Invalid saved CV fold assignments in contribution bootstrap")
+          if (any(pc_grid %in% previous_results$pc_grid)) stop("Expanded contribution-bootstrap PC candidate was already evaluated")
+        }
+        cv_success <- matrix(NA_real_, nrow = N.cv.repetitions, ncol = length(pc_grid))
+        for (cv_repetition in seq_len(N.cv.repetitions)) {
+          fold_assignment <- fold_assignments[[cv_repetition]]
+          fold_success <- matrix(NA_real_, nrow = 5L, ncol = length(pc_grid))
+          for (fold_index in seq_len(5L)) {
+            training_indices <- which(fold_assignment != fold_index)
+            testing_indices <- which(fold_assignment == fold_index)
+            training_group_labels <- droplevels(group_labels[training_indices])
+            testing_group_labels <- group_labels[testing_indices]
+            if (nlevels(training_group_labels) != 2L || length(unique(testing_group_labels)) != 2L) next
+            training_predictors <- predictor_matrix[training_indices, , drop = FALSE]
+            testing_predictors <- predictor_matrix[testing_indices, , drop = FALSE]
+            training_sd <- matrixStats::colSds(training_predictors)
+            retained_predictors <- is.finite(training_sd) & training_sd > 1e-9
+            if (!any(retained_predictors)) next
+            training_predictors <- training_predictors[, retained_predictors, drop = FALSE]
+            testing_predictors <- testing_predictors[, retained_predictors, drop = FALSE]
+            maximum_training_pcs <- min(max(pc_grid), ncol(training_predictors), nrow(training_predictors) - 1L)
+            training_pca <- tryCatch(stats::prcomp(training_predictors, center = TRUE, scale. = TRUE, rank. = maximum_training_pcs), error = function(e) NULL)
+            if (is.null(training_pca)) next
+            training_scores <- as.matrix(training_pca$x)
+            testing_scores <- tryCatch(as.matrix(stats::predict(training_pca, newdata = testing_predictors)), error = function(e) NULL)
+            if (is.null(testing_scores)) next
+            class_priors <- as.vector(prop.table(table(training_group_labels)))
+            for (pc_index in seq_along(pc_grid)) {
+              N.pcs <- pc_grid[pc_index]
+              if (N.pcs > ncol(training_scores) || N.pcs > min(table(training_group_labels))) next
+              training_lda <- tryCatch(MASS::lda(training_scores[, seq_len(N.pcs), drop = FALSE], grouping = training_group_labels, prior = class_priors, tol = 1e-8), error = function(e) NULL)
+              if (is.null(training_lda)) next
+              predicted_groups <- tryCatch(predict(training_lda, testing_scores[, seq_len(N.pcs), drop = FALSE])$class, error = function(e) NULL)
+              if (is.null(predicted_groups)) next
+              group_accuracy <- vapply(levels(group_labels), function(group_name) {
+                mean(predicted_groups[testing_group_labels == group_name] == group_name)
+              }, numeric(1))
+              fold_success[fold_index, pc_index] <- mean(group_accuracy)
+            }
+          }
+          for (pc_index in seq_along(pc_grid)) {
+            if (all(is.finite(fold_success[, pc_index]))) cv_success[cv_repetition, pc_index] <- mean(fold_success[, pc_index])
+          }
+        }
+
+        # Combine new PC counts with previously evaluated bootstrap CV results
+        if (!is.null(previous_results)) {
+          pc_grid <- c(previous_results$pc_grid, pc_grid)
+          cv_success <- cbind(previous_results$cv_success, cv_success)
+          pc_order <- order(pc_grid)
+          pc_grid <- pc_grid[pc_order]
+          cv_success <- cv_success[, pc_order, drop = FALSE]
+        }
+
+        # Apply one-SE rule to repetition-level five-fold means
+        grid_mean_error <- apply(cv_success, 2L, function(values) {
+          if (length(values) != N.cv.repetitions || any(!is.finite(values))) return(NA_real_)
+          mean(1 - values)
+        })
+        grid_se_error <- apply(cv_success, 2L, function(values) {
+          if (length(values) != N.cv.repetitions || any(!is.finite(values))) return(NA_real_)
+          stats::sd(1 - values) / sqrt(length(values))
+        })
+        if (!any(is.finite(grid_mean_error))) stop("No valid PC candidate with complete CV repetitions in contribution bootstrap")
+        minimum_error_index <- which.min(grid_mean_error)
+        one_se_threshold <- grid_mean_error[minimum_error_index] + grid_se_error[minimum_error_index]
+        eligible_pcs <- pc_grid[is.finite(grid_mean_error) & grid_mean_error <= one_se_threshold]
+        list(selected_pcs = min(eligible_pcs), pc_grid = pc_grid,
+             cv_success = cv_success, fold_assignments = fold_assignments)
+      }
+
+      # Apply adaptive two-stage PC grid
+      if (maximum_pcs <= 13L) return(evaluate.pc.grid(seq_len(maximum_pcs))$selected_pcs)
+      if (maximum_pcs <= 30L) {
+        coarse_grid <- unique(pmin(maximum_pcs, c(5L, 15L, 25L)))
+        window_length <- 11L
+      } else {
+        pc_steps <- seq.int(5L, maximum_pcs)
+        pc_evaluations <- vapply(pc_steps, function(pc_step) {
+          window <- max(11L, pc_step + as.integer(pc_step %% 2L == 0L))
+          length(unique(c(5L, seq.int(pc_step, maximum_pcs, by = pc_step), maximum_pcs))) + window
+        }, integer(1))
+        pc_step <- pc_steps[which.min(pc_evaluations)]
+        window_length <- max(11L, pc_step + as.integer(pc_step %% 2L == 0L))
+        coarse_grid <- unique(sort(c(5L, seq.int(pc_step, maximum_pcs, by = pc_step), maximum_pcs)))
+      }
+      coarse_best <- evaluate.pc.grid(coarse_grid)$selected_pcs
+      lower_bound <- max(1L, coarse_best - window_length %/% 2L)
+      upper_bound <- min(maximum_pcs, lower_bound + window_length - 1L)
+      lower_bound <- max(1L, upper_bound - window_length + 1L)
+      stage2_results <- evaluate.pc.grid(seq.int(lower_bound, upper_bound))
+
+      # Extend fine-search window one PC at a time while edge is selected
+      repeat {
+        selected_pcs <- stage2_results$selected_pcs
+        if (selected_pcs == min(stage2_results$pc_grid) && selected_pcs > 1L) {
+          adjacent_pc <- selected_pcs - 1L
+        } else if (selected_pcs == max(stage2_results$pc_grid) && selected_pcs < maximum_pcs) {
+          adjacent_pc <- selected_pcs + 1L
+        } else {
+          break
+        }
+        stage2_results <- evaluate.pc.grid(adjacent_pc, previous_results = stage2_results)
+      }
+      stage2_results$selected_pcs
+    }
+
+    # Refit full bootstrap sample independently for each replicate
+    bootstrap.one.replicate <- function(bootstrap_index) {
+      group_indices <- split(seq_along(bootstrap_group_labels), bootstrap_group_labels)
+      sampled_indices <- unlist(lapply(group_indices, function(indices) sample(indices, length(indices), replace = TRUE)), use.names = FALSE)
+      bootstrap_matrix <- bootstrap_predictors[sampled_indices, , drop = FALSE]
+      bootstrap_groups <- factor(bootstrap_group_labels[sampled_indices], levels = levels(bootstrap_group_labels))
+      bootstrap_source_ids <- sampled_indices
+
+      # Remove predictors that become constant in bootstrap sample
+      predictor_sd <- matrixStats::colSds(bootstrap_matrix)
+      informative_predictors <- is.finite(predictor_sd) & predictor_sd > 1e-9
+      if (!any(informative_predictors)) stop("No informative bootstrap predictors")
+      bootstrap_matrix <- bootstrap_matrix[, informative_predictors, drop = FALSE]
+      training_group_sizes <- vapply(split(seq_along(bootstrap_groups), bootstrap_groups), function(indices) {
+        source_counts <- sort(as.integer(table(bootstrap_source_ids[indices])), decreasing = TRUE)
+        if (length(source_counts) < 5L) stop("Fewer than five distinct observations in a bootstrap species")
+        sum(source_counts) - sum(head(source_counts, ceiling(length(source_counts) / 5L)))
+      }, numeric(1))
+
+      # Fit PCA and cap candidate PCs by rank and conservative training-group size
+      full_pca <- ade4::dudi.pca(as.data.frame(bootstrap_matrix), nf = min(nrow(bootstrap_matrix), ncol(bootstrap_matrix)), scannf = FALSE, center = TRUE, scale = TRUE)
+      maximum_pcs <- as.integer(min(ncol(bootstrap_matrix), nrow(bootstrap_matrix), full_pca$rank, sum(training_group_sizes) - 2L, min(training_group_sizes)))
+      if (!is.finite(maximum_pcs) || maximum_pcs < 1L) stop("No valid PCs in bootstrap sample")
+      selected_pcs <- bootstrap.select.pcs(bootstrap_matrix, bootstrap_groups, bootstrap_source_ids, maximum_pcs, bootstrap_cv_repetitions)
+
+      # Calculate discriminant axis coefficients
+      bootstrap_scores <- as.matrix(full_pca$li[, seq_len(selected_pcs), drop = FALSE])
+      class_priors <- as.vector(prop.table(table(bootstrap_groups)))
+      bootstrap_lda <- MASS::lda(bootstrap_scores, grouping = bootstrap_groups, prior = class_priors, tol = 1e-8)
+      bootstrap_coefficients <- as.matrix(full_pca$c1)[, seq_len(selected_pcs), drop = FALSE] %*% as.matrix(bootstrap_lda$scaling)[seq_len(selected_pcs), , drop = FALSE]
+      squared_coefficients <- as.numeric(bootstrap_coefficients[, 1L])^2
+      coefficient_total <- sum(squared_coefficients)
+      if (!is.finite(coefficient_total) || coefficient_total <= 0) stop("Invalid bootstrap discriminant coefficients")
+      variable_contributions <- setNames(rep(0, ncol(bootstrap_predictors)), colnames(bootstrap_predictors))
+      variable_contributions[colnames(bootstrap_matrix)] <- squared_coefficients / coefficient_total
+      variable_contributions
+    }
+
+    # Collect successful replicate contributions and summarize percentile intervals
+    if (verbose) message("Calculating ", N.bootstraps.CI, " full-sample DAPC variable-contribution bootstraps ...")
+    bootstrap_contribution_matrix <- matrix(NA_real_, nrow = N.bootstraps.CI, ncol = ncol(bootstrap_predictors), dimnames = list(NULL, colnames(bootstrap_predictors)))
+    bootstrap_failure_messages <- character(0)
+    for (bootstrap_index in seq_len(N.bootstraps.CI)) {
+      bootstrap_result <- tryCatch(bootstrap.one.replicate(bootstrap_index), error = function(e) e)
+      if (inherits(bootstrap_result, "error")) {
+        bootstrap_failure_messages <- c(bootstrap_failure_messages, conditionMessage(bootstrap_result))
+      } else {
+        bootstrap_contribution_matrix[bootstrap_index, ] <- bootstrap_result
+      }
+      if (verbose && (bootstrap_index == 1L || bootstrap_index %% max(1L, N.bootstraps.CI %/% 10L) == 0L || bootstrap_index == N.bootstraps.CI)) message("Completed bootstrap: ", bootstrap_index, "/", N.bootstraps.CI)
+    }
+    valid_bootstrap <- rowSums(is.finite(bootstrap_contribution_matrix)) == ncol(bootstrap_contribution_matrix)
+    N.valid.bootstrap <- sum(valid_bootstrap)
+    if (N.valid.bootstrap < 2L) stop("Fewer than two valid contribution bootstraps. First error: ", if (length(bootstrap_failure_messages)) bootstrap_failure_messages[1L] else "unknown")
+    if (N.valid.bootstrap < ceiling(0.8 * N.bootstraps.CI)) warning("Only ", N.valid.bootstrap, " of ", N.bootstraps.CI, " contribution bootstrap replicates succeeded", call. = FALSE)
+    valid_contributions <- bootstrap_contribution_matrix[valid_bootstrap, , drop = FALSE]
+    bootstrap_contribution_summary <- data.frame(Variable = colnames(valid_contributions),
+                                                 Bootstrap_mean = colMeans(valid_contributions),
+                                                 Bootstrap_SD = apply(valid_contributions, 2L, stats::sd),
+                                                 CI_lower = apply(valid_contributions, 2L, stats::quantile, probs = 0.025, names = FALSE),
+                                                 CI_upper = apply(valid_contributions, 2L, stats::quantile, probs = 0.975, names = FALSE),
+                                                 Valid_replicates = N.valid.bootstrap,
+                                                 stringsAsFactors = FALSE)
+  }
 
   # Extract contributions and loadings (LD1)
   vc_mat <- as.matrix(dapc.results$var.contr)
@@ -4829,7 +5902,7 @@ plot.DAPC.var.contributions <- function(dapc.results, #DAPC object
   if (any(!is.finite(variable_loading))) stop("var.load contains non-finite values")
   variable_loading <- variable_loading[names(variable_contribution)]
 
-  # Filter by threshold
+  # Filter variables by threshold
   if (!is.null(min.contribution.threshold)) {
     keep_index <- which(variable_contribution >= min.contribution.threshold)
     variable_contribution <- variable_contribution[keep_index]
@@ -4837,8 +5910,13 @@ plot.DAPC.var.contributions <- function(dapc.results, #DAPC object
     if (!length(variable_contribution)) stop("No variables meet min.contribution.threshold")
   }
 
-  # Order and subset
-  order_index <- order(variable_contribution, decreasing = TRUE)
+  # Rank variables by full-data contributions or bootstrap medians
+  if (is.null(N.bootstraps.CI)) {
+    order_index <- order(variable_contribution, decreasing = TRUE)
+  } else {
+    bootstrap_medians <- apply(valid_contributions[, names(variable_contribution), drop = FALSE], 2L, stats::median)
+    order_index <- order(bootstrap_medians, decreasing = TRUE)
+  }
   variable_names <- names(variable_contribution)[order_index]
   variable_contribution <- variable_contribution[order_index]
   variable_loading <- variable_loading[order_index]
@@ -4850,58 +5928,74 @@ plot.DAPC.var.contributions <- function(dapc.results, #DAPC object
     if (verbose) message("Showing ", length(variable_names), " variables (top.N)")
   }
 
-  # Determine direction mapping from group centroids along LD1
-  group_coordinates <- as.matrix(dapc.results$grp.coord)
-  if (ncol(group_coordinates) < 1 || nrow(group_coordinates) < 2) stop("grp.coord must contain LD1 for >=2 groups")
-  group_means <- group_coordinates[, 1]
-  if (is.null(names(group_means)) || length(group_means) < 2) stop("grp.coord must have rownames (group names)")
-  group_positive <- names(group_means)[which.max(group_means)]
-  group_negative <- names(group_means)[which.min(group_means)]
-  if (identical(group_positive, group_negative)) {
-    all_groups <- rownames(group_coordinates)
-    group_negative <- setdiff(all_groups, group_positive)[1]
-  }
-
-  # Legend levels and color names
+  # Set species colors and add neutral legend entry for exact median ties
   if (is.null(names(group.colors))) names(group.colors) <- rownames(dapc.results$grp.coord)
   legend_levels <- names(group.colors)
-  if (!all(c(group_positive, group_negative) %in% legend_levels)) stop("names(group.colors) must include all group names in grp.coord")
+  if (!setequal(legend_levels, group_levels)) stop("names(group.colors) must match two species levels in grp")
+  if (any(higher_median_group[variable_names] == "Equal medians")) {
+    group.colors <- c(group.colors, "Equal medians" = "#D9D9D9")
+    legend_levels <- c(legend_levels, "Equal medians")
+  }
 
   # Build plotting data
   contribution_df <- data.frame(
     Variable = factor(variable_names, levels = variable_names),
     Contribution = as.numeric(variable_contribution),
     Loading = as.numeric(variable_loading),
-    Direction = factor(ifelse(variable_loading > 0, group_positive, group_negative), levels = legend_levels),
+    Direction = factor(unname(higher_median_group[variable_names]), levels = legend_levels),
     stringsAsFactors = FALSE
   )
 
-  # Plot
-  contribution_plot <- ggplot(contribution_df, aes(x = Contribution, y = Variable, fill = Direction)) +
-    geom_col() +
-    scale_x_continuous(expand = c(0, 0.002)) +
-    scale_fill_manual(breaks = legend_levels, values = group.colors[legend_levels]) +
-    labs(x = "Variable contribution", y = NULL, fill = "Higher values in") +
-    theme_classic() +
-    theme(
-      axis.ticks = element_line(colour = "black"),
-      axis.line = element_line(colour = "black"),
-      axis.title = element_text(size = axis.labels.font.size, colour = "black", face = "bold"),
-      axis.text = element_text(size = axis.ticks.font.size, colour = "black"),
-      legend.title = element_text(size = legend.title.font.size, colour = "black", face = "bold"),
-      legend.text = element_text(size = legend.text.font.size, colour = "black",
-                                 face = if (legend.text.italics) "italic" else "plain"),
-      legend.key.size = grid::unit(legend.symbol.size, "pt"),
-      legend.position = legend.position,
-      plot.title = element_text(hjust = 0.5, colour = "black", face = "bold", size = title.font.size)
-    )
-
-  # Add title
-  if (isTRUE(add.title)) {
-    contribution_plot <- contribution_plot + labs(title = title.text)
+  # Attach bootstrap confidence intervals to selected predictors
+  if (!is.null(bootstrap_contribution_summary)) {
+    required_columns <- c("Variable", "CI_lower", "CI_upper")
+    if (!is.data.frame(bootstrap_contribution_summary) || !all(required_columns %in% names(bootstrap_contribution_summary))) stop("Variable-contribution summary must contain Variable, CI_lower, and CI_upper")
+    bootstrap_positions <- match(as.character(contribution_df$Variable), as.character(bootstrap_contribution_summary$Variable))
+    if (anyNA(bootstrap_positions)) stop("Bootstrap contribution intervals are missing for one or more plotted predictors")
+    contribution_df$CI_lower <- as.numeric(bootstrap_contribution_summary$CI_lower[bootstrap_positions])
+    contribution_df$CI_upper <- as.numeric(bootstrap_contribution_summary$CI_upper[bootstrap_positions])
   }
 
-  # Save
+  # Prepare bootstrap contribution distributions for boxplots
+  bootstrap_plot_df <- NULL
+  if (!is.null(N.bootstraps.CI)) {
+    selected_bootstrap_contributions <- valid_contributions[, variable_names, drop = FALSE]
+    bootstrap_plot_df <- data.frame(
+      Variable = factor(rep(variable_names, each = nrow(selected_bootstrap_contributions)), levels = variable_names),
+      Contribution = as.numeric(selected_bootstrap_contributions),
+      Direction = factor(rep(as.character(contribution_df$Direction), each = nrow(selected_bootstrap_contributions)), levels = legend_levels),
+      stringsAsFactors = FALSE
+    )
+  }
+
+  # Create bar plot without bootstrapping or boxplots with bootstrapping
+  if (is.null(N.bootstraps.CI)) {
+    contribution_plot <- ggplot(contribution_df, aes(x = Contribution, y = Variable, fill = Direction)) +
+      geom_col()
+  } else {
+    contribution_plot <- ggplot(bootstrap_plot_df, aes(x = Contribution, y = Variable, fill = Direction)) +
+      geom_boxplot(orientation = "y", width = 0.9, outlier.size = 0.8) +
+      geom_point(data = contribution_df, mapping = aes(x = Contribution, y = Variable), inherit.aes = FALSE, shape = 18, size = 3, colour = "black")
+  }
+  contribution_plot <- contribution_plot +
+    scale_x_continuous(expand = if (is.null(N.bootstraps.CI)) c(0, 0.002) else expansion(mult = c(0.02, 0.04))) +
+    scale_fill_manual(breaks = legend_levels, values = group.colors[legend_levels]) +
+    labs(x = "Variable contribution", y = NULL, fill = "Higher median in") +
+    theme_classic() +
+    theme(axis.ticks = element_line(colour = "black"),
+          axis.line = element_line(colour = "black"),
+          axis.title = element_text(size = axis.labels.font.size, colour = "black", face = "bold"),
+          axis.text = element_text(size = axis.ticks.font.size, colour = "black"),
+          legend.title = element_text(size = legend.title.font.size, colour = "black", face = "bold"),
+          legend.text = element_text(size = legend.text.font.size, colour = "black", face = if (legend.text.italics) "italic" else "plain"),
+          legend.key.size = grid::unit(legend.symbol.size, "pt"),
+          legend.position = legend.position,
+          plot.title = element_text(hjust = 0.5, colour = "black", face = "bold", size = title.font.size))
+
+  # Add plot title
+  if (isTRUE(add.title)) contribution_plot <- contribution_plot + labs(title = title.text)
+
+  # Save plot
   if (isTRUE(save)) {
     out_dir <- if (is.null(output.dir) || !nzchar(output.dir)) getwd() else output.dir
     if (!dir.exists(out_dir)) {
@@ -4924,8 +6018,8 @@ plot.DAPC.var.contributions <- function(dapc.results, #DAPC object
   # Return plot
   if (show.plot) print(contribution_plot) else invisible(contribution_plot)
 
-  # Return results
-  return(data = contribution_df)
+  # Return contribution data
+  return(contribution_df)
 }
 
 

@@ -1,3 +1,37 @@
+# NicheDiv 1.3 (2026-11-17)
+
+## DAPC cross-validation and PC selection
+
+- Revised PC selection to use the one-standard-error rule based on class-balanced classification error from repeated stratified five-fold cross-validation.
+- Calculate the standard error across repetition-level mean classification errors.
+- Improved the adaptive two-stage PC search by extending the fine-search boundaries when a boundary PC count is selected.
+- Reuse previously evaluated PC counts and identical cross-validation splits during boundary extension.
+- Applied the revised selection procedure to observed analyses, label permutations, spatial background permutations, held-out evaluations, and variable-contribution bootstrapping.
+
+## DAPC computational performance
+
+- Improved cross-validation performance by reusing pooled covariance calculations and Cholesky decompositions for nested PC counts.
+- Improved PCA computation for suitable training matrices.
+- Improved variable-standard-deviation calculations and parallel execution of held-out evaluations.
+- Improved permutation execution using single-batch processing for large Unix-parallel label-permutation workloads.
+- Improved reuse of parallel workers during repeated cross-validation.
+
+## Reproducibility and error handling
+
+- Standardized random-number generation for held-out sampling across execution backends.
+- Preserve and restore the caller's random-number state after DAPC analysis.
+- Prevent nested Unix parallelism during held-out cross-validation.
+- Improved detection and reporting of failed parallel cross-validation, held-out, bootstrap, and permutation workers.
+- Removed unnecessary variable-contribution calculations from held-out repetitions.
+- Improved handling of unused factor levels in group labels.
+- Include occurrence coordinates in saved-result validation for spatial background permutation analyses.
+
+## Output and documentation
+
+- Corrected permutation plot annotations for the minimum attainable empirical p-value.
+- Updated DAPC function documentation and output descriptions.
+- Added matrixStats to the package dependencies.
+
 # NicheDiv 1.2.4 (2026-11-05)
 ## Add diagnostic for contrasting environmental correlations
 - Added a diagnostic to `run.DAPC.crossval.permutation()` that compares species-specific Pearson correlation matrices to identify contrasting relationships between environmental variables that may not be fully represented by DAPC and could affect the accuracy of inferred niche divergence metrics.

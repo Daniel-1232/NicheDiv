@@ -1,6 +1,6 @@
 Package: NicheDiv
 Title: Tools for Ecological Niche Divergence Analyses
-Version: 1.2.4
+Version: 1.3
 Authors@R: 
     person("Daniel", "Schönberger", email = "daniel@familie-schoenberger.de", role = c("aut", "cre"))
 Description: Functions for a DAPC-based niche divergence approach, including
@@ -23,6 +23,7 @@ Imports:
     magrittr,
     maps,
     MASS,
+    matrixStats,
     mclust,
     methods,
     RANN,
