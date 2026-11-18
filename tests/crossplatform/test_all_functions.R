@@ -141,7 +141,6 @@ run_case("run.DAPC.crossval.permutation", "calculation", {
   dapc <<- run.DAPC.crossval.permutation(combined_occurrences,
                                          N.crossval.replicates = 3,
                                          N.permutations = 10,
-                                         fixed.n.pcs = 2,
                                          use.parallel = "none",
                                          seed = 137,
                                          verbose = FALSE)
