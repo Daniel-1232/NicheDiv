@@ -1,0 +1,65 @@
+name: NicheDiv function smoke tests
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "R/**"
+      - "tests/**"
+      - "DESCRIPTION"
+      - "NAMESPACE"
+      - ".github/workflows/function-smoke-cross-platform.yml"
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  function-smoke:
+    name: ${{ matrix.os }} / R ${{ matrix.r }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {os: ubuntu-latest, r: release}
+          - {os: windows-latest, r: release}
+          - {os: macos-latest, r: release}
+    env:
+      R_KEEP_PKG_SOURCE: 'yes'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: ${{ matrix.r }}
+          use-public-rspm: true
+
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          dependencies: '"hard"'
+          extra-packages: |
+            any::remotes
+          needs: check
+
+      - name: Install NicheDiv from the checked-out commit
+        shell: Rscript {0}
+        run: |
+          remotes::install_local('.', dependencies = FALSE, upgrade = 'never', force = TRUE, quiet = FALSE)
+          stopifnot(requireNamespace('NicheDiv', quietly = TRUE))
+
+      - name: Exercise all exported functions with offline fixtures
+        shell: Rscript {0}
+        run: |
+          source('tests/ci/function-smoke.R', echo = FALSE)
+
+      - name: Upload probe-by-probe report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nichediv-function-smoke-${{ matrix.os }}
+          path: function-smoke-report.csv
+          if-no-files-found: warn
