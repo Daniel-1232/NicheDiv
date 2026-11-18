@@ -5191,14 +5191,10 @@ calc.niche.divergence.metrics <- function(dapc_out, #DAPC results object
     corrected_density_sp1 <- corrected_density_sp1 / corrected_peak_sp1
     corrected_density_sp2 <- corrected_density_sp2 / corrected_peak_sp2
 
-    # Identify environmentally analogous background grid cells
-    analogous_environment_mask <- background_counts_sp1 >= 0.001 & background_counts_sp2 >= 0.001
-    if (!any(analogous_environment_mask)) stop("No analogous background environments remain along discriminant analysis")
-
-    # Restrict corrected densities to analogous environmental space
-    corrected_density_sp1[!analogous_environment_mask | corrected_density_sp1 < 0.001] <- 0
-    corrected_density_sp2[!analogous_environment_mask | corrected_density_sp2 < 0.001] <- 0
-    if (sum(corrected_density_sp1) <= 0 || sum(corrected_density_sp2) <= 0) stop("No corrected occurrence density remains within analogous environmental space")
+    # Remove negligible peak-normalized, background-corrected occurrence densities along discriminant axis
+    corrected_density_sp1[corrected_density_sp1 < 0.001] <- 0
+    corrected_density_sp2[corrected_density_sp2 < 0.001] <- 0
+    if (sum(corrected_density_sp1) <= 0 || sum(corrected_density_sp2) <= 0) stop("No corrected occurrence density remains after background weighting")
 
     # Retain corrected densities for downstream normalization and niche metrics
     density_group1 <- corrected_density_sp1

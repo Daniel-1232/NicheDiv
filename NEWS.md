@@ -1,3 +1,17 @@
+# NicheDiv 1.3.2
+
+Release date: 2026-11-18
+
+### Background-weighted niche divergence metrics
+
+- Removed the reciprocal analogous-environment restriction from `calc.niche.divergence.metrics()` when `weight.background = TRUE`.
+- Retained species-specific background correction along the DAPC discriminant axis (LD1), independently correcting occurrence densities for environmental availability.
+- Background weighting now follows the full-environment correction configuration (`correct.env = TRUE`, `nae = "YES"`) in `humboldt.niche.similarity()`.
+- Retained species-specific occurrence/background density ratios, peak normalization, and the 0.001 threshold for negligible corrected densities.
+- Retained safeguards against invalid or zero corrected densities.
+- Background-weighted metrics no longer require overlapping background environments between species.
+
+
 # NicheDiv 1.3.1 (2026-11-17)
 
 ## Fix DAPC plotting namespace imports
