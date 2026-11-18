@@ -148,7 +148,7 @@ run_case("run.DAPC.crossval.permutation", "calculation", {
 })
 if (!is.null(dapc)) {
   run_case("calc.niche.divergence.metrics", "calculation", {
-    z <- calc.niche.divergence.metrics(dapc, combined_occurrences$Species, verbose = FALSE)
+    z <- calc.niche.divergence.metrics(dapc_out = dapc, weight.background = FALSE, verbose = FALSE)
     stopifnot(!is.null(z))
   })
   run_case("plot.DAPC.niche.divergence", "plot construction", {
