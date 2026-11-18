@@ -44,6 +44,7 @@ jobs:
           extra-packages: |
             any::remotes
           needs: check
+          install-pandoc: 'false'
 
       - name: Install NicheDiv from the checked-out commit
         shell: Rscript {0}
