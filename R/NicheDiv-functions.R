@@ -4760,7 +4760,7 @@ plot.DAPC.permutation <- function(dapc_result, #DAPC result object
     minimum_p <- if (N.valid > 0L) 1 / (N.valid + 1L) else NA_real_
     minimum_p_label <- if ((N.valid + 1L) %in% c(10L, 100L, 1000L, 10000L, 100000L, 1000000L)) format(minimum_p, scientific = FALSE, trim = TRUE) else paste0("1/", N.valid + 1L)
     if (is.na(p)) list(op = "=", txt = "NA")
-    else if (is.finite(minimum_p) && p <= minimum_p + 1e-12) list(op = "≤", txt = minimum_p_label)
+    else if (is.finite(minimum_p) && p <= minimum_p + 1e-12) list(op = "\u2264", txt = minimum_p_label)
     else if (p < 0.001) list(op = "<", txt = "0.001")
     else if (p < 0.01) list(op = "<", txt = "0.01")
     else list(op = "=", txt = sprintf("%.2f", round(p, 2)))
@@ -10819,3 +10819,20 @@ extract.env.and.background <- function(occurrence.data, #input data.frame with c
     if (verbose) message("Background environmental data saved to: ", background_env_file_display)
   }
 }
+
+#### Declare variables used in non-standard evaluation #######################
+
+## Register ggplot data columns and dynamically bound CV worker variables
+utils::globalVariables(c(
+  "observed",
+  "point_y",
+  "label_x",
+  "label_y",
+  "p_label",
+  "base_seed",
+  "group_labels",
+  "source.ids",
+  "n.pca.grid",
+  "predictor_matrix",
+  "center"
+), add = TRUE)
