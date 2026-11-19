@@ -9,6 +9,36 @@
 - Retained safeguards against invalid or zero corrected densities.
 - Background-weighted metrics no longer require overlapping background environments between species.
 
+
+## Add bootstrap confidence intervals for DAPC variable contributions
+
+- Added the optional `N.bootstraps.CI` argument to `plot.DAPC.var.contributions()` to estimate uncertainty in environmental variable contributions.
+- Implemented stratified bootstrap resampling with replacement, independently repeating PC selection, PCA, and discriminant analysis for each replicate.
+- Repeated PC selection uses stratified 5-fold cross-validation, keeping duplicate bootstrap observations together in the same validation fold to prevent data leakage.
+- Added percentile-based 95% bootstrap confidence intervals, returned as `CI_lower` and `CI_upper`.
+- Added validation and safeguards for invalid bootstrap samples and unsuccessful replicates.
+- Retained the original full-data variable contributions when `N.bootstraps.CI = NULL`.
+
+
+## Improve DAPC variable-contribution plotting
+
+- Replaced bootstrap distribution boxplots with horizontal 95% confidence intervals.
+- Full-data variable contributions are displayed as black diamonds when bootstrapping is enabled.
+- Plot colors indicate the species with the higher median environmental value for each predictor.
+- Added neutral coloring for predictors with identical group medians.
+- Improved alignment of original environmental predictor names with shortened plotting labels.
+- Fixed ggplot warnings by applying separate color scales to standard bar plots and bootstrap confidence interval plots.
+- Retained customizable plot dimensions, colors, labels, and export options.
+
+
+## Update documentation and README
+
+- Updated the documentation of `plot.DAPC.var.contributions()` to describe bootstrap resampling, confidence interval calculations, and plotting behavior.
+- Clarified the required DAPC result components for variable-contribution bootstrapping.
+- Updated the documentation of `plot.top.DAPC.predictors()` to distinguish its input requirements from those of `plot.DAPC.var.contributions()`.
+- Updated the README tutorial with an example using `N.bootstraps.CI = 999` and explanations of bootstrap uncertainty in environmental variable contributions.
+- Clarified the interpretation of environmental variable contributions and their associated confidence intervals.
+
 # NicheDiv 1.3.1 (2026-11-17)
 
 ## Fix DAPC plotting namespace imports
