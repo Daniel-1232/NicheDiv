@@ -34,16 +34,17 @@
 }
 \arguments{
 \item{dapc.results}{DAPC result object returned by
-\code{run.DAPC.crossval.permutation()}, or a nested object containing
-\verb{$dapc_results}. The object must contain variable contributions, variable
-loadings, and group coordinates.}
+\code{run.DAPC.crossval.permutation()}, containing \verb{$dapc_results} and
+\verb{$pca_object$tab}. When \code{N.bootstraps.CI} is used, \verb{$crossval_run2} is
+also required.}
 
 \item{N.bootstraps.CI}{\code{NULL} (default) to show full-data variable
 contributions as a bar plot, or an integer >= 2 giving the number of
-stratified full-sample DAPC bootstrap replicates to display as boxplots
-(recommended: \code{999}). The bootstrap uses the preprocessed
-environmental predictors stored in \verb{$pca_object$tab} of \code{dapc.results},
-with PC selection, PCA, and LDA repeated for each bootstrap replicate.}
+stratified full-sample DAPC bootstrap replicates used to calculate
+and display percentile-based 95\% confidence intervals (recommended: \code{999}).
+The bootstrap uses the preprocessed environmental predictors stored in
+\verb{$pca_object$tab} of \code{dapc.results}, with PC selection, PCA, and LDA
+repeated for each bootstrap replicate.}
 
 \item{group.colors}{Character vector of two colors used for the plotted
 groups or contribution directions. Can be named with group levels to
@@ -128,8 +129,7 @@ saved to disk using \code{filename}, \code{output.dir}, and \code{type}.
 }
 \description{
 Plot the relative contributions of environmental variables to the DAPC
-discriminant axis and indicate group associated with higher values for
-each variable.
+discriminant axis and indicate group with higher medians for each variable.
 }
 \details{
 Variable contributions identify environmental predictors that contribute most
@@ -145,10 +145,8 @@ with a predictor. Larger values indicate stronger contribution to separation
 along the discriminant axis, whereas values near zero indicate little
 contribution to the fitted group separation.
 
-relative to the group centroids on the discriminant axis. This indicates
-which group is associated with higher values of each predictor along the
-fitted discriminant direction. The direction should be interpreted as an
-axis-based association, not as evidence of an independent causal effect.
+Plot colors indicate the group with the higher median value of each
+environmental predictor (calculated from the raw preprocessed input data).
 
 Variable contributions should be interpreted cautiously when predictors are
 strongly correlated. PCA reduces collinearity for model fitting, but the
@@ -157,9 +155,9 @@ among the original predictors. Therefore, high contributions indicate
 variables or correlated variable sets associated with niche divergence,
 rather than fully independent effects of individual predictors.
 
-When \code{N.bootstraps.CI} is specified, boxplots show the empirical bootstrap
-distribution of each variable contribution; black diamonds show the original
-full-data estimates. Boxplot whiskers extend to observations within 1.5 times
-the interquartile range and do not represent 95\% confidence intervals. The
-percentile bootstrap 95\% limits are returned as \code{CI_lower} and \code{CI_upper}.
+When \code{N.bootstraps.CI} is specified, error bars display the percentile
+bootstrap 95\% confidence intervals for variable contributions, while black
+diamonds indicate the original full-data estimates. Error-bar colors indicate
+the group with the higher predictor median. Confidence limits are also
+returned as \code{CI_lower} and \code{CI_upper}.
 }

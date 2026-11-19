@@ -5424,19 +5424,19 @@ calc.niche.divergence.metrics <- function(dapc_out, #DAPC results object
 #' Plot DAPC variable contributions
 #'
 #' Plot the relative contributions of environmental variables to the DAPC
-#' discriminant axis and indicate group associated with higher values for
-#' each variable.
+#' discriminant axis and indicate group with higher medians for each variable.
 #'
 #' @param dapc.results DAPC result object returned by
-#'   `run.DAPC.crossval.permutation()`, or a nested object containing
-#'   `$dapc_results`. The object must contain variable contributions, variable
-#'   loadings, and group coordinates.
+#'   `run.DAPC.crossval.permutation()`, containing `$dapc_results` and
+#'   `$pca_object$tab`. When `N.bootstraps.CI` is used, `$crossval_run2` is
+#'   also required.
 #' @param N.bootstraps.CI `NULL` (default) to show full-data variable
 #'   contributions as a bar plot, or an integer >= 2 giving the number of
-#'   stratified full-sample DAPC bootstrap replicates to display as boxplots
-#'   (recommended: `999`). The bootstrap uses the preprocessed
-#'   environmental predictors stored in `$pca_object$tab` of `dapc.results`,
-#'   with PC selection, PCA, and LDA repeated for each bootstrap replicate.
+#'   stratified full-sample DAPC bootstrap replicates used to calculate
+#'   and display percentile-based 95% confidence intervals (recommended: `999`).
+#'   The bootstrap uses the preprocessed environmental predictors stored in
+#'   `$pca_object$tab` of `dapc.results`, with PC selection, PCA, and LDA
+#'   repeated for each bootstrap replicate.
 #' @param group.colors Character vector of two colors used for the plotted
 #'   groups or contribution directions. Can be named with group levels to
 #'   enforce a specific group-color mapping (default:
@@ -5504,10 +5504,8 @@ calc.niche.divergence.metrics <- function(dapc_out, #DAPC results object
 #' along the discriminant axis, whereas values near zero indicate little
 #' contribution to the fitted group separation.
 #'
-#' relative to the group centroids on the discriminant axis. This indicates
-#' which group is associated with higher values of each predictor along the
-#' fitted discriminant direction. The direction should be interpreted as an
-#' axis-based association, not as evidence of an independent causal effect.
+#' Plot colors indicate the group with the higher median value of each
+#' environmental predictor (calculated from the raw preprocessed input data).
 #'
 #' Variable contributions should be interpreted cautiously when predictors are
 #' strongly correlated. PCA reduces collinearity for model fitting, but the
@@ -5516,11 +5514,11 @@ calc.niche.divergence.metrics <- function(dapc_out, #DAPC results object
 #' variables or correlated variable sets associated with niche divergence,
 #' rather than fully independent effects of individual predictors.
 #'
-#' When `N.bootstraps.CI` is specified, boxplots show the empirical bootstrap
-#' distribution of each variable contribution; black diamonds show the original
-#' full-data estimates. Boxplot whiskers extend to observations within 1.5 times
-#' the interquartile range and do not represent 95% confidence intervals. The
-#' percentile bootstrap 95% limits are returned as `CI_lower` and `CI_upper`.
+#' When `N.bootstraps.CI` is specified, error bars display the percentile
+#' bootstrap 95% confidence intervals for variable contributions, while black
+#' diamonds indicate the original full-data estimates. Error-bar colors indicate
+#' the group with the higher predictor median. Confidence limits are also
+#' returned as `CI_lower` and `CI_upper`.
 #'
 #' @return A `data.frame` containing the plotted variable contributions,
 #'   loadings, and inferred contribution directions, plus `CI_lower` and
@@ -5952,31 +5950,18 @@ plot.DAPC.var.contributions <- function(dapc.results, #DAPC object
     contribution_df$CI_upper <- as.numeric(bootstrap_contribution_summary$CI_upper[bootstrap_positions])
   }
 
-  # Prepare bootstrap contribution distributions for boxplots
-  bootstrap_plot_df <- NULL
-  if (!is.null(N.bootstraps.CI)) {
-    selected_bootstrap_contributions <- valid_contributions[, variable_names, drop = FALSE]
-    bootstrap_plot_df <- data.frame(
-      Variable = factor(rep(variable_names, each = nrow(selected_bootstrap_contributions)), levels = variable_names),
-      Contribution = as.numeric(selected_bootstrap_contributions),
-      Direction = factor(rep(as.character(contribution_df$Direction), each = nrow(selected_bootstrap_contributions)), levels = legend_levels),
-      stringsAsFactors = FALSE
-    )
-  }
-
-  # Create bar plot without bootstrapping or boxplots with bootstrapping
+  # Create bar plot without bootstrapping or 95% confidence intervals with bootstrapping
   if (is.null(N.bootstraps.CI)) {
     contribution_plot <- ggplot(contribution_df, aes(x = Contribution, y = Variable, fill = Direction)) +
       geom_col()
   } else {
-    contribution_plot <- ggplot(bootstrap_plot_df, aes(x = Contribution, y = Variable, fill = Direction)) +
-      geom_boxplot(orientation = "y", width = 0.9, outlier.size = 0.8) +
-      geom_point(data = contribution_df, mapping = aes(x = Contribution, y = Variable), inherit.aes = FALSE, shape = 18, size = 3, colour = "black")
+    contribution_plot <- ggplot(contribution_df, aes(y = Variable)) +
+      geom_segment(aes(x = CI_lower, xend = CI_upper, yend = Variable, colour = Direction), linewidth = 2) +
+      geom_point(aes(x = Contribution), shape = 18, size = 3, colour = "black")
   }
   contribution_plot <- contribution_plot +
     scale_x_continuous(expand = if (is.null(N.bootstraps.CI)) c(0, 0.002) else expansion(mult = c(0.02, 0.04))) +
-    scale_fill_manual(breaks = legend_levels, values = group.colors[legend_levels]) +
-    labs(x = "Variable contribution", y = NULL, fill = "Higher median in") +
+    labs(x = "Variable contribution", y = NULL) +
     theme_classic() +
     theme(axis.ticks = element_line(colour = "black"),
           axis.line = element_line(colour = "black"),
@@ -5987,6 +5972,19 @@ plot.DAPC.var.contributions <- function(dapc.results, #DAPC object
           legend.key.size = grid::unit(legend.symbol.size, "pt"),
           legend.position = legend.position,
           plot.title = element_text(hjust = 0.5, colour = "black", face = "bold", size = title.font.size))
+
+  # Apply color scale for each plot type
+  if (is.null(N.bootstraps.CI)) {
+    contribution_plot <- contribution_plot +
+      scale_fill_manual(name = "Higher median in",
+                        breaks = legend_levels,
+                        values = group.colors[legend_levels])
+  } else {
+    contribution_plot <- contribution_plot +
+      scale_colour_manual(name = "Higher median in",
+                          breaks = legend_levels,
+                          values = group.colors[legend_levels])
+  }
 
   # Add plot title
   if (isTRUE(add.title)) contribution_plot <- contribution_plot + labs(title = title.text)
