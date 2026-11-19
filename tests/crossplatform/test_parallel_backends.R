@@ -20,7 +20,7 @@ occurrences$Species <- factor(rep(c("Sp1", "Sp2"), each = n))
 ################################################################################
 result <- run.DAPC.crossval.permutation(
   occurrences, N.crossval.replicates = 3, N.permutations = 8,
-  fixed.n.pcs = 2, use.parallel = "auto", N.cores = 2,
+  use.parallel = "auto", N.cores = 2,
   seed = 137, verbose = FALSE
 )
 stopifnot(is.list(result), is.finite(result$observed_assign_prop),
