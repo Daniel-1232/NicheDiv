@@ -8,6 +8,7 @@
   dapc.results,
   N.bootstraps.CI = NULL,
   group.colors = c("#00005A", "darkgrey"),
+  equal.color = "#1A1A1A",
   min.contribution.threshold = NULL,
   top.N = NULL,
   axis.labels.font.size = 9.1,
@@ -50,6 +51,10 @@ repeated for each bootstrap replicate.}
 groups or contribution directions. Can be named with group levels to
 enforce a specific group-color mapping (default:
 \code{c("#00005A", "darkgrey")}).}
+
+\item{equal.color}{Character string specifying the color for predictors
+with negligible distribution differences (absolute Cliff's delta <= 0.147),
+classified as \code{"Equal"} (default: \code{"#1A1A1A"}).}
 
 \item{min.contribution.threshold}{Optional single non-negative numeric value
 giving the minimum contribution required for a variable to be plotted
@@ -122,14 +127,16 @@ dpi when saving raster formats (default: \code{300}).}
 }
 \value{
 A \code{data.frame} containing the plotted variable contributions,
-loadings, and inferred contribution directions, plus \code{CI_lower} and
-\code{CI_upper} when \code{N.bootstraps.CI} is provided. If \code{show.plot = TRUE}, the
-plot is displayed as a side effect. If \code{save = TRUE}, the plot is also
-saved to disk using \code{filename}, \code{output.dir}, and \code{type}.
+loadings, Cliff's delta values, and directional classifications, plus
+\code{CI_lower} and \code{CI_upper} when \code{N.bootstraps.CI} is provided.
+If \code{show.plot = TRUE}, the plot is displayed as a side effect. If
+\code{save = TRUE}, the plot is also saved to disk using \code{filename},
+\code{output.dir}, and \code{type}.
 }
 \description{
 Plot the relative contributions of environmental variables to the DAPC
-discriminant axis and indicate group with higher medians for each variable.
+discriminant axis and identify which group generally occupies higher
+environmental values.
 }
 \details{
 Variable contributions identify environmental predictors that contribute most
@@ -145,8 +152,15 @@ with a predictor. Larger values indicate stronger contribution to separation
 along the discriminant axis, whereas values near zero indicate little
 contribution to the fitted group separation.
 
-Plot colors indicate the group with the higher median value of each
-environmental predictor (calculated from the raw preprocessed input data).
+Plot colors indicate which species generally occupies higher environmental
+values according to Cliff's delta (Cliff, 1993) calculated from the
+preprocessed occurrence-associated environmental predictors. Cliff's delta
+quantifies the difference between the probabilities that a randomly selected
+observation from either species has the higher environmental value, with ties
+contributing zero. Positive values indicate higher values in the first
+species, whereas negative values indicate higher values in the second.
+Predictors with absolute Cliff's delta <= 0.147 are displayed in grey,
+indicating negligible overall directional differences.
 
 Variable contributions should be interpreted cautiously when predictors are
 strongly correlated. PCA reduces collinearity for model fitting, but the
@@ -158,6 +172,12 @@ rather than fully independent effects of individual predictors.
 When \code{N.bootstraps.CI} is specified, error bars display the percentile
 bootstrap 95\% confidence intervals for variable contributions, while black
 diamonds indicate the original full-data estimates. Error-bar colors indicate
-the group with the higher predictor median. Confidence limits are also
-returned as \code{CI_lower} and \code{CI_upper}.
+which species generally occupies higher environmental values according to
+Cliff's delta. Confidence limits are also returned as \code{CI_lower} and
+\code{CI_upper}.
+}
+\references{
+Cliff, N. (1993). Dominance statistics: Ordinal analyses to answer ordinal
+questions. \emph{Psychological Bulletin}, 114(3), 494-509.
+https://doi.org/10.1037/0033-2909.114.3.494
 }

@@ -1,3 +1,12 @@
+# NicheDiv 1.3.3 (2026-11-20)
+
+## Improvements
+
+- Updated `plot.DAPC.var.contributions()` to color environmental predictors according to the direction of Cliff's delta rather than differences in species medians.
+- Predictors with negligible directional differences (absolute Cliff's delta <= 0.147) retain the `Equal` plotting category. Its color is customizable through `equal.color` (default `#1A1A1A`).
+- Corrected alignment between original environmental predictor names and displayed variable names when calculating and plotting Cliff's delta, while preserving the existing DAPC contribution and bootstrap calculations.
+- Updated the variable-contribution function documentation.
+
 # NicheDiv 1.3.2 (2026-11-19)
 
 ## Improve DAPC variable-contribution plotting

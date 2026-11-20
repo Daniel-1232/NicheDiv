@@ -5424,7 +5424,8 @@ calc.niche.divergence.metrics <- function(dapc_out, #DAPC results object
 #' Plot DAPC variable contributions
 #'
 #' Plot the relative contributions of environmental variables to the DAPC
-#' discriminant axis and indicate group with higher medians for each variable.
+#' discriminant axis and identify which group generally occupies higher
+#' environmental values.
 #'
 #' @param dapc.results DAPC result object returned by
 #'   `run.DAPC.crossval.permutation()`, containing `$dapc_results` and
@@ -5441,6 +5442,9 @@ calc.niche.divergence.metrics <- function(dapc_out, #DAPC results object
 #'   groups or contribution directions. Can be named with group levels to
 #'   enforce a specific group-color mapping (default:
 #'   `c("#00005A", "darkgrey")`).
+#' @param equal.color Character string specifying the color for predictors
+#'   with negligible distribution differences (absolute Cliff's delta <= 0.147),
+#'   classified as `"Equal"` (default: `"#1A1A1A"`).
 #' @param min.contribution.threshold Optional single non-negative numeric value
 #'   giving the minimum contribution required for a variable to be plotted
 #'   (default: `NULL`).
@@ -5504,8 +5508,15 @@ calc.niche.divergence.metrics <- function(dapc_out, #DAPC results object
 #' along the discriminant axis, whereas values near zero indicate little
 #' contribution to the fitted group separation.
 #'
-#' Plot colors indicate the group with the higher median value of each
-#' environmental predictor (calculated from the raw preprocessed input data).
+#' Plot colors indicate which species generally occupies higher environmental
+#' values according to Cliff's delta (Cliff, 1993) calculated from the
+#' preprocessed occurrence-associated environmental predictors. Cliff's delta
+#' quantifies the difference between the probabilities that a randomly selected
+#' observation from either species has the higher environmental value, with ties
+#' contributing zero. Positive values indicate higher values in the first
+#' species, whereas negative values indicate higher values in the second.
+#' Predictors with absolute Cliff's delta <= 0.147 are displayed in grey,
+#' indicating negligible overall directional differences.
 #'
 #' Variable contributions should be interpreted cautiously when predictors are
 #' strongly correlated. PCA reduces collinearity for model fitting, but the
@@ -5517,20 +5528,28 @@ calc.niche.divergence.metrics <- function(dapc_out, #DAPC results object
 #' When `N.bootstraps.CI` is specified, error bars display the percentile
 #' bootstrap 95% confidence intervals for variable contributions, while black
 #' diamonds indicate the original full-data estimates. Error-bar colors indicate
-#' the group with the higher predictor median. Confidence limits are also
-#' returned as `CI_lower` and `CI_upper`.
+#' which species generally occupies higher environmental values according to
+#' Cliff's delta. Confidence limits are also returned as `CI_lower` and
+#' `CI_upper`.
+#'
+#' @references
+#' Cliff, N. (1993). Dominance statistics: Ordinal analyses to answer ordinal
+#'   questions. \emph{Psychological Bulletin}, 114(3), 494-509.
+#'   https://doi.org/10.1037/0033-2909.114.3.494
 #'
 #' @return A `data.frame` containing the plotted variable contributions,
-#'   loadings, and inferred contribution directions, plus `CI_lower` and
-#'   `CI_upper` when `N.bootstraps.CI` is provided. If `show.plot = TRUE`, the
-#'   plot is displayed as a side effect. If `save = TRUE`, the plot is also
-#'   saved to disk using `filename`, `output.dir`, and `type`.
+#'   loadings, Cliff's delta values, and directional classifications, plus
+#'   `CI_lower` and `CI_upper` when `N.bootstraps.CI` is provided.
+#'   If `show.plot = TRUE`, the plot is displayed as a side effect. If
+#'   `save = TRUE`, the plot is also saved to disk using `filename`,
+#'   `output.dir`, and `type`.
 #'
 #' @rawNamespace export(plot.DAPC.var.contributions)
 #' @exportS3Method NULL
 plot.DAPC.var.contributions <- function(dapc.results, #DAPC object
                                         N.bootstraps.CI = NULL,
                                         group.colors = c("#00005A", "darkgrey"), #two colors for groups
+                                        equal.color = "#1A1A1A", #color for negligible distribution differences ("Equal")
                                         min.contribution.threshold = NULL, #drop variables below this contribution
                                         top.N = NULL, #number of top variables to show
                                         axis.labels.font.size = 9.1, #axis title font size
@@ -5600,6 +5619,8 @@ plot.DAPC.var.contributions <- function(dapc.results, #DAPC object
     if (!requireNamespace("MASS", quietly = TRUE)) stop("Package 'MASS' is required for contribution bootstrapping")
   }
   if (!is.character(group.colors) || length(group.colors) != 2L || anyNA(group.colors) || any(!nzchar(group.colors))) stop("group.colors must be a character vector of length 2")
+  if (!is.character(equal.color) || length(equal.color) != 1L || is.na(equal.color) || !nzchar(equal.color)) stop("equal.color must be a single non-empty color string")
+  if (is.null(tryCatch(grDevices::col2rgb(equal.color), error = function(e) NULL))) stop("equal.color must be a valid R color")
   if (!is.null(names(group.colors)) && (anyNA(names(group.colors)) || any(!nzchar(names(group.colors))) || anyDuplicated(names(group.colors)))) stop("group.colors must have unique, non-empty names when named")
   if (!is.null(min.contribution.threshold) && (!is.numeric(min.contribution.threshold) || length(min.contribution.threshold) != 1L || !is.finite(min.contribution.threshold) || min.contribution.threshold < 0)) stop("min.contribution.threshold must be NULL or a single non-negative number (recommended: NULL)")
   if (!is.null(top.N) && (!is.numeric(top.N) || length(top.N) != 1L || !is.finite(top.N) || top.N < 1L || top.N %% 1 != 0L)) stop("top.N must be NULL or a single positive integer (recommended: NULL)")
@@ -5629,19 +5650,19 @@ plot.DAPC.var.contributions <- function(dapc.results, #DAPC object
   # Standardize plot type to lowercase
   type <- tolower(type)
 
-  # Validate environmental predictors and species labels for median comparisons
-  if (is.null(dapc.results$dapc_results) || is.null(dapc.results$pca_object$tab)) stop("Median-based colors require the complete DAPC result with $dapc_results and $pca_object$tab")
-  median_predictors <- as.matrix(dapc.results$pca_object$tab)
-  median_groups <- dapc.results$dapc_results$grp
-  if (!is.numeric(median_predictors) || nrow(median_predictors) < 1L || ncol(median_predictors) < 1L || any(!is.finite(median_predictors))) stop("Stored PCA predictors must be a non-empty finite numeric matrix")
-  if (!is.factor(median_groups) || nlevels(median_groups) != 2L || anyNA(median_groups) || any(table(median_groups) == 0L)) stop("Stored DAPC group labels must contain two non-empty species")
-  if (nrow(median_predictors) != length(median_groups)) stop("Stored PCA predictors and species labels have different lengths")
-  if (!setequal(levels(median_groups), rownames(dapc.results$dapc_results$grp.coord))) stop("Stored group labels must match the group coordinate labels")
+  # Validate environmental predictors and species labels for distribution comparisons
+  if (is.null(dapc.results$dapc_results) || is.null(dapc.results$pca_object$tab)) stop("Cliff's delta colors require complete DAPC result with $dapc_results and $pca_object$tab")
+  environmental_predictors <- as.matrix(dapc.results$pca_object$tab)
+  species_labels <- dapc.results$dapc_results$grp
+  if (!is.numeric(environmental_predictors) || nrow(environmental_predictors) < 1L || ncol(environmental_predictors) < 1L || any(!is.finite(environmental_predictors))) stop("Stored PCA predictors must be a non-empty finite numeric matrix")
+  if (!is.factor(species_labels) || nlevels(species_labels) != 2L || anyNA(species_labels) || any(table(species_labels) == 0L)) stop("Stored DAPC group labels must contain two non-empty species")
+  if (nrow(environmental_predictors) != length(species_labels)) stop("Stored PCA predictors and species labels have different lengths")
+  if (!setequal(levels(species_labels), rownames(dapc.results$dapc_results$grp.coord))) stop("Stored group labels must match the group coordinate labels")
 
   # Match display names to original PCA predictors using unchanged full-model contributions
   original_contributions <- as.matrix(dapc.results$dapc_results$var.contr.mat)
   display_names <- rownames(as.matrix(dapc.results$dapc_results$var.contr))
-  original_names <- colnames(median_predictors)
+  original_names <- colnames(environmental_predictors)
   if (!is.numeric(original_contributions) || ncol(original_contributions) < 1L || !identical(rownames(original_contributions), original_names)) stop("Original full-model contribution names must match stored PCA predictor names and order")
   if (!isTRUE(all.equal(as.numeric(dapc.results$dapc_results$var.contr), as.numeric(original_contributions[, 1L]), tolerance = 1e-10))) stop("Renamed variable contributions must retain their original values and order")
 
@@ -5656,31 +5677,38 @@ plot.DAPC.var.contributions <- function(dapc.results, #DAPC object
     stop("Variable loading names must match original or displayed predictor names")
   }
   squared_loadings <- as.numeric(aligned_loadings[, 1L])^2
-  if (!is.finite(sum(squared_loadings)) || sum(squared_loadings) <= 0 ||
-      !isTRUE(all.equal(squared_loadings / sum(squared_loadings), as.numeric(original_contributions[, 1L]), tolerance = 1e-8))) stop("Variable loadings cannot be aligned safely with the original contribution values")
+  if (!is.finite(sum(squared_loadings)) || sum(squared_loadings) <= 0 || !isTRUE(all.equal(squared_loadings / sum(squared_loadings), as.numeric(original_contributions[, 1L]), tolerance = 1e-8))) stop("Variable loadings cannot be aligned safely with the original contribution values")
   rownames(aligned_loadings) <- display_names
   dapc.results$dapc_results$var.load <- aligned_loadings
-  colnames(median_predictors) <- display_names
+  colnames(environmental_predictors) <- display_names
 
-  # Calculate median environmental values for each species and predictor
-  group_levels <- levels(median_groups)
-  if ("Equal medians" %in% group_levels) stop("The species name 'Equal medians' is reserved for tied predictor medians")
-  group_medians <- t(vapply(seq_len(ncol(median_predictors)), function(predictor_index) {
-    vapply(group_levels, function(group_level) stats::median(median_predictors[median_groups == group_level, predictor_index]), numeric(1))
-  }, numeric(length(group_levels))))
-  rownames(group_medians) <- colnames(median_predictors)
-  colnames(group_medians) <- group_levels
+  # Calculate Cliff's delta for each environmental predictor
+  species_levels <- levels(species_labels)
+  cliff_delta_threshold <- 0.147
+  cliff_delta_by_predictor <- vapply(seq_len(ncol(environmental_predictors)), function(predictor_index) {
+    species1_values <- environmental_predictors[species_labels == species_levels[1L], predictor_index]
+    species2_values <- environmental_predictors[species_labels == species_levels[2L], predictor_index]
+    species1_sample_size <- length(species1_values)
+    species2_sample_size <- length(species2_values)
+    pooled_ranks <- rank(c(species1_values, species2_values), ties.method = "average")
+    mann_whitney_U <- sum(pooled_ranks[seq_len(species1_sample_size)]) - species1_sample_size * (species1_sample_size + 1) / 2
+    2 * mann_whitney_U / (species1_sample_size * species2_sample_size) - 1
+  }, numeric(1))
+  names(cliff_delta_by_predictor) <- colnames(environmental_predictors)
 
-  # Identify species with higher median for each predictor
-  higher_median_group <- ifelse(group_medians[, 1L] > group_medians[, 2L], group_levels[1L], ifelse(group_medians[, 1L] < group_medians[, 2L], group_levels[2L], "Equal medians"))
-  names(higher_median_group) <- rownames(group_medians)
+  # Identify species with generally higher environmental values
+  higher_value_species <- ifelse(cliff_delta_by_predictor > cliff_delta_threshold,
+    species_levels[1L],
+    ifelse(cliff_delta_by_predictor < -cliff_delta_threshold, species_levels[2L], "Equal")
+  )
+  names(higher_value_species) <- names(cliff_delta_by_predictor)
 
   # Extract predictors, species labels, and cross-validation settings for bootstrapping
   bootstrap_predictors <- NULL
   bootstrap_group_labels <- NULL
   bootstrap_cv_repetitions <- NULL
   if (!is.null(N.bootstraps.CI)) {
-    bootstrap_predictors <- median_predictors
+    bootstrap_predictors <- environmental_predictors
     bootstrap_group_labels <- dapc.results$dapc_results$grp
     bootstrap_cv_repetitions <- as.integer(dapc.results$crossval_run2[["Number of CV repetitions"]])
   }
@@ -5922,13 +5950,13 @@ plot.DAPC.var.contributions <- function(dapc.results, #DAPC object
     if (verbose) message("Showing ", length(variable_names), " variables (top.N)")
   }
 
-  # Set species colors and add neutral legend entry for exact median ties
+  # Set species colors and add neutral legend entry for negligible directional differences
   if (is.null(names(group.colors))) names(group.colors) <- rownames(dapc.results$grp.coord)
   legend_levels <- names(group.colors)
-  if (!setequal(legend_levels, group_levels)) stop("names(group.colors) must match two species levels in grp")
-  if (any(higher_median_group[variable_names] == "Equal medians")) {
-    group.colors <- c(group.colors, "Equal medians" = "#D9D9D9")
-    legend_levels <- c(legend_levels, "Equal medians")
+  if (!setequal(legend_levels, species_levels)) stop("names(group.colors) must match two species levels in grp")
+  if (any(higher_value_species[variable_names] == "Equal")) {
+    group.colors <- c(group.colors, "Equal" = equal.color)
+    legend_levels <- c(legend_levels, "Equal")
   }
 
   # Build plotting data
@@ -5936,7 +5964,8 @@ plot.DAPC.var.contributions <- function(dapc.results, #DAPC object
     Variable = factor(variable_names, levels = variable_names),
     Contribution = as.numeric(variable_contribution),
     Loading = as.numeric(variable_loading),
-    Direction = factor(unname(higher_median_group[variable_names]), levels = legend_levels),
+    Cliff_delta = as.numeric(cliff_delta_by_predictor[variable_names]),
+    Direction = factor(unname(higher_value_species[variable_names]), levels = legend_levels),
     stringsAsFactors = FALSE
   )
 
@@ -5976,14 +6005,10 @@ plot.DAPC.var.contributions <- function(dapc.results, #DAPC object
   # Apply color scale for each plot type
   if (is.null(N.bootstraps.CI)) {
     contribution_plot <- contribution_plot +
-      scale_fill_manual(name = "Higher median in",
-                        breaks = legend_levels,
-                        values = group.colors[legend_levels])
+      scale_fill_manual(name = "Higher values in", breaks = legend_levels, values = group.colors[legend_levels])
   } else {
     contribution_plot <- contribution_plot +
-      scale_colour_manual(name = "Higher median in",
-                          breaks = legend_levels,
-                          values = group.colors[legend_levels])
+      scale_colour_manual(name = "Higher values in", breaks = legend_levels, values = group.colors[legend_levels])
   }
 
   # Add plot title
