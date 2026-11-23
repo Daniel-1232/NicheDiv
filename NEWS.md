@@ -1,3 +1,15 @@
+# NicheDiv 1.3.4 (2026-11-23)
+
+## Improvements
+
+- Refined `plot.DAPC.var.contributions()` to display bootstrap contribution distributions as horizontal boxplots with narrower boxes (`width = 0.6`), increased opacity (`alpha = 0.9`), and outliers excluded from the plot.
+- Added the `diamond.size` argument (default `1.9`) to control the size of white-filled, black-outlined diamonds marking the original full-data variable contributions.
+- Retained ordering of bootstrap boxplots by median contribution and preserved percentile-based 95% bootstrap confidence intervals (`CI_lower` and `CI_upper`) in the returned data.
+- Changed the default `equal.color` to `white` for predictors with negligible directional differences according to Cliff's delta.
+- Excluded the `Equal` category from the plot legend while retaining its configurable color in the plot.
+- Updated the variable-contribution function documentation and retained the original barplot behavior when `N.bootstraps.CI = NULL`.
+- Required `ggplot2` version 3.5.0 or newer for the updated bootstrap boxplots.
+
 # NicheDiv 1.3.3 (2026-11-20)
 
 ## Improvements

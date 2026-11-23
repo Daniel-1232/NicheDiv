@@ -5433,18 +5433,19 @@ calc.niche.divergence.metrics <- function(dapc_out, #DAPC results object
 #'   also required.
 #' @param N.bootstraps.CI `NULL` (default) to show full-data variable
 #'   contributions as a bar plot, or an integer >= 2 giving the number of
-#'   stratified full-sample DAPC bootstrap replicates used to calculate
-#'   and display percentile-based 95% confidence intervals (recommended: `999`).
-#'   The bootstrap uses the preprocessed environmental predictors stored in
-#'   `$pca_object$tab` of `dapc.results`, with PC selection, PCA, and LDA
-#'   repeated for each bootstrap replicate.
+#'   stratified full-sample DAPC bootstrap replicates used to display
+#'   bootstrap contribution boxplots and calculate percentile-based 95%
+#'   confidence intervals (recommended: `999`). The bootstrap uses the
+#'   preprocessed environmental predictors stored in `$pca_object$tab` of
+#'   `dapc.results`, with PC selection, PCA, and discriminant analysis repeated
+#'   for each bootstrap replicate.
 #' @param group.colors Character vector of two colors used for the plotted
 #'   groups or contribution directions. Can be named with group levels to
 #'   enforce a specific group-color mapping (default:
 #'   `c("#00005A", "darkgrey")`).
 #' @param equal.color Character string specifying the color for predictors
 #'   with negligible distribution differences (absolute Cliff's delta <= 0.147),
-#'   classified as `"Equal"` (default: `"#1A1A1A"`).
+#'   classified as `"Equal"` (default: `"white"`).
 #' @param min.contribution.threshold Optional single non-negative numeric value
 #'   giving the minimum contribution required for a variable to be plotted
 #'   (default: `NULL`).
@@ -5455,6 +5456,9 @@ calc.niche.divergence.metrics <- function(dapc_out, #DAPC results object
 #'   title font size (default: `9.1`).
 #' @param axis.ticks.font.size A single positive numeric value giving the axis
 #'   tick-label font size (default: `7`).
+#' @param diamond.size A single positive numeric value giving the size of
+#'   diamonds representing original full-data contributions in bootstrap
+#'   boxplots (default: `1.9`).
 #' @param title.font.size A single positive numeric value giving the plot title
 #'   font size (default: `9.1`).
 #' @param legend.title.font.size A single positive numeric value giving the
@@ -5515,8 +5519,8 @@ calc.niche.divergence.metrics <- function(dapc_out, #DAPC results object
 #' observation from either species has the higher environmental value, with ties
 #' contributing zero. Positive values indicate higher values in the first
 #' species, whereas negative values indicate higher values in the second.
-#' Predictors with absolute Cliff's delta <= 0.147 are displayed in grey,
-#' indicating negligible overall directional differences.
+#' Predictors with absolute Cliff's delta <= 0.147 are displayed using
+#' `equal.color`, indicating negligible overall directional differences.
 #'
 #' Variable contributions should be interpreted cautiously when predictors are
 #' strongly correlated. PCA reduces collinearity for model fitting, but the
@@ -5525,12 +5529,18 @@ calc.niche.divergence.metrics <- function(dapc_out, #DAPC results object
 #' variables or correlated variable sets associated with niche divergence,
 #' rather than fully independent effects of individual predictors.
 #'
-#' When `N.bootstraps.CI` is specified, error bars display the percentile
-#' bootstrap 95% confidence intervals for variable contributions, while black
-#' diamonds indicate the original full-data estimates. Error-bar colors indicate
-#' which species generally occupies higher environmental values according to
-#' Cliff's delta. Confidence limits are also returned as `CI_lower` and
-#' `CI_upper`.
+#' When `N.bootstraps.CI` is specified, boxplots display the distribution of
+#' bootstrap variable contributions, ordered by bootstrap median. Boxes
+#' represent the interquartile range (25th-75th percentiles), vertical lines
+#' inside boxes indicate medians, and whiskers extend to the most extreme
+#' observations within 1.5 times the interquartile range. White-filled
+#' diamonds with black outlines indicate the original full-data estimates.
+#' Boxplot colors indicate which species generally occupies higher
+#' environmental values according to Cliff's delta, with negligible
+#' differences displayed using `equal.color` and excluded from the legend.
+#' Percentile-based 95% bootstrap confidence intervals are calculated
+#' separately and returned as `CI_lower` and `CI_upper`, but are not
+#' displayed in the plot.
 #'
 #' @references
 #' Cliff, N. (1993). Dominance statistics: Ordinal analyses to answer ordinal
@@ -5549,11 +5559,12 @@ calc.niche.divergence.metrics <- function(dapc_out, #DAPC results object
 plot.DAPC.var.contributions <- function(dapc.results, #DAPC object
                                         N.bootstraps.CI = NULL,
                                         group.colors = c("#00005A", "darkgrey"), #two colors for groups
-                                        equal.color = "#1A1A1A", #color for negligible distribution differences ("Equal")
+                                        equal.color = "white", #color for negligible distribution differences ("Equal")
                                         min.contribution.threshold = NULL, #drop variables below this contribution
                                         top.N = NULL, #number of top variables to show
                                         axis.labels.font.size = 9.1, #axis title font size
                                         axis.ticks.font.size = 7, #axis tick font size
+                                        diamond.size = 1.9, #size of full-data contribution diamonds in bootstrap boxplots
                                         title.font.size = 9.1, #title font size
                                         legend.title.font.size = 9.1, #legend title font size
                                         legend.text.font.size = 9.1, #legend text font size
@@ -5626,6 +5637,7 @@ plot.DAPC.var.contributions <- function(dapc.results, #DAPC object
   if (!is.null(top.N) && (!is.numeric(top.N) || length(top.N) != 1L || !is.finite(top.N) || top.N < 1L || top.N %% 1 != 0L)) stop("top.N must be NULL or a single positive integer (recommended: NULL)")
   if (!is.numeric(axis.labels.font.size) || length(axis.labels.font.size) != 1L || !is.finite(axis.labels.font.size) || axis.labels.font.size <= 0) stop("axis.labels.font.size must be a single positive number (recommended: 9.1)")
   if (!is.numeric(axis.ticks.font.size) || length(axis.ticks.font.size) != 1L || !is.finite(axis.ticks.font.size) || axis.ticks.font.size <= 0) stop("axis.ticks.font.size must be a single positive number (recommended: 7)")
+  if (!is.numeric(diamond.size) || length(diamond.size) != 1L || !is.finite(diamond.size) || diamond.size <= 0) stop("diamond.size must be a single positive number (recommended: 1.9)")
   if (!is.numeric(title.font.size) || length(title.font.size) != 1L || !is.finite(title.font.size) || title.font.size <= 0) stop("title.font.size must be a single positive number (recommended: 9.1)")
   if (!is.numeric(legend.title.font.size) || length(legend.title.font.size) != 1L || !is.finite(legend.title.font.size) || legend.title.font.size <= 0) stop("legend.title.font.size must be a single positive number (recommended: 9.1)")
   if (!is.numeric(legend.text.font.size) || length(legend.text.font.size) != 1L || !is.finite(legend.text.font.size) || legend.text.font.size <= 0) stop("legend.text.font.size must be a single positive number (recommended: 9.1)")
@@ -5698,8 +5710,8 @@ plot.DAPC.var.contributions <- function(dapc.results, #DAPC object
 
   # Identify species with generally higher environmental values
   higher_value_species <- ifelse(cliff_delta_by_predictor > cliff_delta_threshold,
-    species_levels[1L],
-    ifelse(cliff_delta_by_predictor < -cliff_delta_threshold, species_levels[2L], "Equal")
+                                 species_levels[1L],
+                                 ifelse(cliff_delta_by_predictor < -cliff_delta_threshold, species_levels[2L], "Equal")
   )
   names(higher_value_species) <- names(cliff_delta_by_predictor)
 
@@ -5950,7 +5962,7 @@ plot.DAPC.var.contributions <- function(dapc.results, #DAPC object
     if (verbose) message("Showing ", length(variable_names), " variables (top.N)")
   }
 
-  # Set species colors and add neutral legend entry for negligible directional differences
+  # Set species colors and assign neutral color for negligible directional differences
   if (is.null(names(group.colors))) names(group.colors) <- rownames(dapc.results$grp.coord)
   legend_levels <- names(group.colors)
   if (!setequal(legend_levels, species_levels)) stop("names(group.colors) must match two species levels in grp")
@@ -5979,14 +5991,20 @@ plot.DAPC.var.contributions <- function(dapc.results, #DAPC object
     contribution_df$CI_upper <- as.numeric(bootstrap_contribution_summary$CI_upper[bootstrap_positions])
   }
 
-  # Create bar plot without bootstrapping or 95% confidence intervals with bootstrapping
+  # Create bar plot without bootstrapping or boxplots with bootstrapping
   if (is.null(N.bootstraps.CI)) {
     contribution_plot <- ggplot(contribution_df, aes(x = Contribution, y = Variable, fill = Direction)) +
       geom_col()
   } else {
-    contribution_plot <- ggplot(contribution_df, aes(y = Variable)) +
-      geom_segment(aes(x = CI_lower, xend = CI_upper, yend = Variable, colour = Direction), linewidth = 2) +
-      geom_point(aes(x = Contribution), shape = 18, size = 3, colour = "black")
+    bootstrap_df <- data.frame(
+      Variable = factor(rep(variable_names, each = nrow(valid_contributions)), levels = variable_names),
+      Contribution = as.numeric(valid_contributions[, variable_names, drop = FALSE]),
+      Direction = factor(rep(as.character(contribution_df$Direction), each = nrow(valid_contributions)), levels = legend_levels),
+      stringsAsFactors = FALSE
+    )
+    contribution_plot <- ggplot(bootstrap_df, aes(x = Contribution, y = Variable, fill = Direction)) +
+      geom_boxplot(width = 0.6, alpha = 0.9, outliers = FALSE, orientation = "y") +
+      geom_point(data = contribution_df, aes(x = Contribution, y = Variable), inherit.aes = FALSE, shape = 23, size = diamond.size, fill = "white", colour = "black", stroke = 0.7)
   }
   contribution_plot <- contribution_plot +
     scale_x_continuous(expand = if (is.null(N.bootstraps.CI)) c(0, 0.002) else expansion(mult = c(0.02, 0.04))) +
@@ -6002,14 +6020,9 @@ plot.DAPC.var.contributions <- function(dapc.results, #DAPC object
           legend.position = legend.position,
           plot.title = element_text(hjust = 0.5, colour = "black", face = "bold", size = title.font.size))
 
-  # Apply color scale for each plot type
-  if (is.null(N.bootstraps.CI)) {
-    contribution_plot <- contribution_plot +
-      scale_fill_manual(name = "Higher values in", breaks = legend_levels, values = group.colors[legend_levels])
-  } else {
-    contribution_plot <- contribution_plot +
-      scale_colour_manual(name = "Higher values in", breaks = legend_levels, values = group.colors[legend_levels])
-  }
+  # Apply color scale
+  contribution_plot <- contribution_plot +
+    scale_fill_manual(name = "Higher values in", breaks = setdiff(legend_levels, "Equal"), values = group.colors[legend_levels])
 
   # Add plot title
   if (isTRUE(add.title)) contribution_plot <- contribution_plot + labs(title = title.text)

@@ -8,11 +8,12 @@
   dapc.results,
   N.bootstraps.CI = NULL,
   group.colors = c("#00005A", "darkgrey"),
-  equal.color = "#1A1A1A",
+  equal.color = "white",
   min.contribution.threshold = NULL,
   top.N = NULL,
   axis.labels.font.size = 9.1,
   axis.ticks.font.size = 7,
+  diamond.size = 1.9,
   title.font.size = 9.1,
   legend.title.font.size = 9.1,
   legend.text.font.size = 9.1,
@@ -41,11 +42,12 @@ also required.}
 
 \item{N.bootstraps.CI}{\code{NULL} (default) to show full-data variable
 contributions as a bar plot, or an integer >= 2 giving the number of
-stratified full-sample DAPC bootstrap replicates used to calculate
-and display percentile-based 95\% confidence intervals (recommended: \code{999}).
-The bootstrap uses the preprocessed environmental predictors stored in
-\verb{$pca_object$tab} of \code{dapc.results}, with PC selection, PCA, and LDA
-repeated for each bootstrap replicate.}
+stratified full-sample DAPC bootstrap replicates used to display
+bootstrap contribution boxplots and calculate percentile-based 95\%
+confidence intervals (recommended: \code{999}). The bootstrap uses the
+preprocessed environmental predictors stored in \verb{$pca_object$tab} of
+\code{dapc.results}, with PC selection, PCA, and discriminant analysis repeated
+for each bootstrap replicate.}
 
 \item{group.colors}{Character vector of two colors used for the plotted
 groups or contribution directions. Can be named with group levels to
@@ -54,7 +56,7 @@ enforce a specific group-color mapping (default:
 
 \item{equal.color}{Character string specifying the color for predictors
 with negligible distribution differences (absolute Cliff's delta <= 0.147),
-classified as \code{"Equal"} (default: \code{"#1A1A1A"}).}
+classified as \code{"Equal"} (default: \code{"white"}).}
 
 \item{min.contribution.threshold}{Optional single non-negative numeric value
 giving the minimum contribution required for a variable to be plotted
@@ -69,6 +71,10 @@ title font size (default: \code{9.1}).}
 
 \item{axis.ticks.font.size}{A single positive numeric value giving the axis
 tick-label font size (default: \code{7}).}
+
+\item{diamond.size}{A single positive numeric value giving the size of
+diamonds representing original full-data contributions in bootstrap
+boxplots (default: \code{1.9}).}
 
 \item{title.font.size}{A single positive numeric value giving the plot title
 font size (default: \code{9.1}).}
@@ -159,8 +165,8 @@ quantifies the difference between the probabilities that a randomly selected
 observation from either species has the higher environmental value, with ties
 contributing zero. Positive values indicate higher values in the first
 species, whereas negative values indicate higher values in the second.
-Predictors with absolute Cliff's delta <= 0.147 are displayed in grey,
-indicating negligible overall directional differences.
+Predictors with absolute Cliff's delta <= 0.147 are displayed using
+\code{equal.color}, indicating negligible overall directional differences.
 
 Variable contributions should be interpreted cautiously when predictors are
 strongly correlated. PCA reduces collinearity for model fitting, but the
@@ -169,12 +175,18 @@ among the original predictors. Therefore, high contributions indicate
 variables or correlated variable sets associated with niche divergence,
 rather than fully independent effects of individual predictors.
 
-When \code{N.bootstraps.CI} is specified, error bars display the percentile
-bootstrap 95\% confidence intervals for variable contributions, while black
-diamonds indicate the original full-data estimates. Error-bar colors indicate
-which species generally occupies higher environmental values according to
-Cliff's delta. Confidence limits are also returned as \code{CI_lower} and
-\code{CI_upper}.
+When \code{N.bootstraps.CI} is specified, boxplots display the distribution of
+bootstrap variable contributions, ordered by bootstrap median. Boxes
+represent the interquartile range (25th-75th percentiles), vertical lines
+inside boxes indicate medians, and whiskers extend to the most extreme
+observations within 1.5 times the interquartile range. White-filled
+diamonds with black outlines indicate the original full-data estimates.
+Boxplot colors indicate which species generally occupies higher
+environmental values according to Cliff's delta, with negligible
+differences displayed using \code{equal.color} and excluded from the legend.
+Percentile-based 95\% bootstrap confidence intervals are calculated
+separately and returned as \code{CI_lower} and \code{CI_upper}, but are not
+displayed in the plot.
 }
 \references{
 Cliff, N. (1993). Dominance statistics: Ordinal analyses to answer ordinal
