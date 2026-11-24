@@ -31,6 +31,8 @@
   width = 20,
   height = 15,
   resolution = 300,
+  results.dir = NULL,
+  results.filename = NULL,
   verbose = TRUE
 )
 }
@@ -106,8 +108,12 @@ key size in points (default: \code{15}).}
 \item{save}{Logical; if \code{TRUE}, the plot is saved to disk
 (default: \code{FALSE}).}
 
-\item{overwrite}{Logical; if \code{TRUE}, an existing file is overwritten when
-\code{save = TRUE} (default: \code{FALSE}).}
+\item{overwrite}{Logical; if \code{TRUE}, variable contributions are recalculated
+and existing plot and cached result files are overwritten when
+\code{save = TRUE}. If \code{FALSE}, matching cached results are loaded when the
+plot already exists, without repeating calculations or displaying the
+plot. Missing or incompatible cached results, or cached results without
+a matching plot, produce an error (default: \code{FALSE}).}
 
 \item{filename}{A single character string giving the output filename without
 extension when \code{save = TRUE} (default: \code{"DAPC_var_contributions"}).}
@@ -128,6 +134,16 @@ centimeters when \code{save = TRUE} (default: \code{15}).}
 \item{resolution}{A single positive numeric value giving plot resolution in
 dpi when saving raster formats (default: \code{300}).}
 
+\item{results.dir}{Optional character string giving the directory for cached
+contribution results when \code{save = TRUE}. If \code{NULL}, the figure output
+directory is used (default: \code{NULL}).}
+
+\item{results.filename}{Optional character string giving the filename for
+cached contribution results when \code{save = TRUE}, without a directory path.
+The \code{.rds} extension is appended automatically if missing. If \code{NULL}, the
+figure filename and file type followed by \verb{_results.rds} are used
+(default: \code{NULL}).}
+
 \item{verbose}{Logical; if \code{TRUE}, progress messages are printed
 (default: \code{TRUE}).}
 }
@@ -135,9 +151,10 @@ dpi when saving raster formats (default: \code{300}).}
 A \code{data.frame} containing the plotted variable contributions,
 loadings, Cliff's delta values, and directional classifications, plus
 \code{CI_lower} and \code{CI_upper} when \code{N.bootstraps.CI} is provided.
-If \code{show.plot = TRUE}, the plot is displayed as a side effect. If
-\code{save = TRUE}, the plot is also saved to disk using \code{filename},
-\code{output.dir}, and \code{type}.
+If \code{show.plot = TRUE}, newly generated plots are displayed as a side
+effect. If \code{save = TRUE}, the plot and accompanying cached contribution
+results are saved to disk. Matching cached results are returned without
+recalculation or plot display when \code{overwrite = FALSE}.
 }
 \description{
 Plot the relative contributions of environmental variables to the DAPC
